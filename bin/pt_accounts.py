@@ -251,17 +251,17 @@ def login_start(name):
                 elif p.poll() is not None:
                     break
                 if creds and os.path.exists(creds):  # Gemini đã lưu đăng nhập: tắt giao diện của nó
-                    time.sleep(1)
-                    try:
-                        os.killpg(p.pid, signal.SIGTERM)
-                    except OSError:
-                        pass
-                    p.wait()
                     st["rc"] = 0
+                    time.sleep(1)
+                    _stop_group(p)
                     break
             except OSError:
                 break
-        rc = p.wait()
+        try:
+            rc = p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            _stop_group(p)
+            rc = p.poll()
         if st["rc"] is None:
             st["rc"] = rc
         if creds:  # bỏ bản cũ nếu đăng nhập mới thành công, khôi phục nếu không
@@ -277,6 +277,20 @@ def login_start(name):
         except OSError:
             pass
     threading.Thread(target=pump, daemon=True).start()
+
+
+def _stop_group(p):
+    """Tắt CLI đăng nhập: thử tắt nhẹ, quá 3 giây thì buộc tắt (giao diện của Gemini bỏ qua tín hiệu tắt nhẹ)."""
+    for sig, wait in ((signal.SIGTERM, 3), (signal.SIGKILL, 3)):
+        try:
+            os.killpg(p.pid, sig)
+        except OSError:
+            pass
+        try:
+            p.wait(timeout=wait)
+            return
+        except subprocess.TimeoutExpired:
+            continue
 
 
 def _gemini_select_google_login(base):
@@ -324,10 +338,7 @@ def login_send(name, code):
 def login_cancel(name):
     st = LOGINS.get(name)
     if st and not st["done"]:
-        try:
-            os.killpg(st["pid"], signal.SIGTERM)
-        except OSError:
-            pass
+        threading.Thread(target=_stop_group, args=(st["proc"],), daemon=True).start()
 
 
 def logout(name):

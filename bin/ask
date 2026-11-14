@@ -18,12 +18,16 @@ Cách dùng: bin/ask <worker|claude|codex|gemini> [tuỳ chọn] "nội dung vi�
   -s <cỡ>       cỡ việc: nho | vua | lon — chọn model theo config/models.conf (việc nhỏ → model nhỏ)
   -m <model>    chọn model cụ thể (ưu tiên hơn -s); có thể kèm @mức_suy_nghĩ, vd sonnet@high
   --timeout <s> giới hạn thời gian mỗi lần thử (mặc định 1200 giây)
+  -r <vai trò>  vai trò subagent trong config/roles: review (kiểm tra), tra-cuu, code, viet
+                (review và tra-cuu luôn chỉ được đọc)
+  --fork <id>   hỏi tiếp trên BẢN SAO phiên Claude <id> (phiên gốc giữ nguyên); chỉ dùng cho đúng tài khoản đó
+  --followup-of <file>  đánh dấu đây là câu hỏi tiếp cho kết quả <file> (results/...)
 EOF
 }
 
 TARGET="$1"; shift
 case "$TARGET" in ""|-h|--help) usage; exit 1 ;; esac
-WRITE=0; WD=""; TASK=""; MODEL_ARG=""; SIZE=""; TIMEOUT="${ORCH_TIMEOUT:-1200}"
+WRITE=0; WD=""; TASK=""; MODEL_ARG=""; SIZE=""; ROLE=""; FORK=""; FOLLOWUP=""; TIMEOUT="${ORCH_TIMEOUT:-1200}"
 while [ $# -gt 0 ]; do
   case "$1" in
     -w) WRITE=1 ;;
@@ -32,6 +36,9 @@ while [ $# -gt 0 ]; do
     -m) MODEL_ARG="$2"; shift ;;
     -s) SIZE="$(norm_size "$2")"; [ -n "$SIZE" ] || die "cỡ việc không hợp lệ: $2 (dùng nho, vua, lon)"; shift ;;
     --timeout) TIMEOUT="$2"; shift ;;
+    -r) ROLE="$2"; shift ;;
+    --fork) FORK="$2"; shift ;;
+    --followup-of) FOLLOWUP="$2"; shift ;;
     -h|--help) usage; exit 0 ;;
     --) shift; break ;;
     *) break ;;
@@ -61,6 +68,16 @@ else
 fi
 [ -n "$ROWS" ] || die "không có worker hay công cụ tên '$TARGET' trong config/workers.conf"
 
+# Vai trò subagent: lời dặn riêng; vai trò "quyền: đọc" thì luôn chỉ được đọc
+ROLE_NAME=""; ROLE_TEXT=""
+if [ -n "$ROLE" ]; then
+  RF="$ORCH_ROOT/config/roles/$ROLE.md"
+  [ -f "$RF" ] || die "không có vai trò '$ROLE' (xem config/roles/)"
+  ROLE_NAME="$(sed -n '1s/^# *//p' "$RF")"
+  grep -q '^quyền: *đọc' "$RF" && WRITE=0
+  ROLE_TEXT="$(awk 'f{print} /^$/{f=1}' "$RF")"
+fi
+
 if [ "$WRITE" = 1 ]; then
   PERM="Bạn ĐƯỢC PHÉP tạo/sửa file, nhưng chỉ trong thư mục làm việc: $WD"
 else
@@ -69,7 +86,10 @@ fi
 BASE_FULL="[Bạn là một AI worker trong hệ thống nhiều AI. Một AI quản lý giao cho bạn đúng một phần việc dưới đây.
 - Chỉ làm phần việc này và không hỏi lại. Nếu thiếu thông tin, tự giả định hợp lý và ghi rõ giả định.
 - Trả lời bằng tiếng Việt (trừ code). Kết thúc bằng mục \"## Kết quả\" tóm tắt ngắn gọn.
-- $PERM]
+- $PERM]${ROLE_TEXT:+
+
+[VAI TRÒ: $ROLE_NAME]
+$ROLE_TEXT}
 
 $PROMPT"
 FULL="$BASE_FULL"
@@ -78,7 +98,7 @@ CONT_NOTE=""   # lời dặn "làm tiếp" khi tài khoản trước hết hạn
 # Câu trả lời ngắn có chữ báo hết hạn mức thì coi như thất bại để chuyển tài khoản
 looks_limited() {
   [ "$(wc -c <"$1")" -lt 1500 ] &&
-    grep -Eiq 'usage limit|rate limit|limit reached|hit your limit|quota|exhausted|too many requests|429' "$1"
+    grep -Eiq 'usage limit|rate limit|limit reached|hit your ([0-9a-z-]+ )?limit|quota|exhausted|too many requests|429' "$1"
 }
 
 TMP="$(mktemp -d)"
@@ -115,8 +135,9 @@ mark_running() {   # mark_running <worker> <công_cụ>
   {
     echo "worker=$1"; echo "tool=$2"; echo "started=$(date +%s)"; echo "pid=$$"
     echo "perm=$PERM_TXT"; echo "model=$(model_txt)"; echo "wd=$WD"; echo "summary=$SUMMARY"
+    echo "role=$ROLE"; echo "followup=$FOLLOWUP"
   } >"$MARK"
-  echo "$(date '+%H:%M:%S') $1 START ($PERM_TXT, $(model_txt)): $SUMMARY" >>"$TASK/log.txt"
+  echo "$(date '+%H:%M:%S') $1 START ($PERM_TXT, $(model_txt)${ROLE:+, vai trò $ROLE}${FOLLOWUP:+, hỏi tiếp}): $SUMMARY" >>"$TASK/log.txt"
 }
 
 # Model + mức suy nghĩ cho một worker: -m > cỡ việc (-s, models.conf) > model trong workers.conf
@@ -135,6 +156,8 @@ run_one() {
     claude)
       # stream-json để ghi lại % hạn mức và token (thống kê usage trên web); pt_usage.py lấy ra câu trả lời dạng text
       args=(claude -p --output-format stream-json --verbose)
+      # hỏi tiếp: bản sao của phiên cũ (--fork-session), phiên gốc không bị đổi; chỉ tài khoản đang giữ phiên đó
+      [ -n "$FORK" ] && [ "$name" = "$TARGET" ] && args+=(--resume "$FORK" --fork-session)
       [ "$WRITE" = 1 ] && args+=(--permission-mode acceptEdits)
       [ -n "$MODEL" ] && args+=(--model "$MODEL")
       [ -n "$EFFORT" ] && args+=(--effort "$EFFORT")
@@ -178,22 +201,39 @@ while IFS='|' read -r name tool home_raw desc conf_model; do
 
   if [ "$rc" -eq 0 ] && [ -s "$OUT" ] && ! looks_limited "$OUT"; then
     say "[ask] $name xong (${secs}s)"
+    rm -f "$ORCH_DATA/usage/$name.blocked"
+    # mã phiên của subagent, để sau này hỏi tiếp được
+    SID=""
+    case "$tool" in
+      claude) SID="$(python3 -c 'import json,sys
+sid=""
+for l in open(sys.argv[1],errors="replace"):
+    try: e=json.loads(l)
+    except ValueError: continue
+    sid=e.get("session_id") or sid
+print(sid)' "$OUT.raw" 2>/dev/null)" ;;
+      codex) SID="$(grep -o -m1 'session id: [0-9a-f-]*' "$ERR" | awk '{print $3}')" ;;
+    esac
     if [ -n "$TASK" ]; then
       file="$TASK/results/$name-$(date +%H%M%S).md"
       {
-        echo "<!-- worker: $name ($tool) | $(date '+%Y-%m-%d %H:%M:%S') | ${secs}s | quyền: $([ "$WRITE" = 1 ] && echo sửa || echo đọc) | thư mục: $WD | model: $(model_txt) -->"
+        echo "<!-- worker: $name ($tool) | $(date '+%Y-%m-%d %H:%M:%S') | ${secs}s | quyền: $([ "$WRITE" = 1 ] && echo sửa || echo đọc) | thư mục: $WD | model: $(model_txt) | vai trò: $ROLE | phiên: $SID | hỏi tiếp: $FOLLOWUP -->"
         echo "## Việc được giao"; echo; echo "$PROMPT"; echo; echo "## Trả lời"; echo; cat "$OUT"
       } >"$file"
-      echo "$(date '+%H:%M:%S') $name ok ${secs}s ($(model_txt)) -> results/$(basename "$file")" >>"$TASK/log.txt"
+      echo "$(date '+%H:%M:%S') $name ok ${secs}s ($(model_txt)${ROLE:+, vai trò $ROLE}) -> results/$(basename "$file")" >>"$TASK/log.txt"
       say "[ask] đã lưu: $file"
     fi
     cat "$OUT"; [ -n "$(tail -c 1 "$OUT")" ] && echo
     exit 0
   fi
 
+  BLOCK_FILE="$ORCH_DATA/usage/$name.blocked"
   if [ "$rc" -eq 142 ]; then reason="quá ${TIMEOUT}s"
-  elif looks_limited "$OUT" || grep -Eiq 'usage limit|rate limit|quota|exhausted|429' "$ERR"; then reason="hết hạn mức"
-  elif ! is_logged_in "$tool" "$home"; then reason="chưa đăng nhập (chạy: bin/login $name)"
+  elif grep -Eqs 'UNSUPPORTED_CLIENT|IneligibleTier' "$ERR" "$OUT"; then
+    reason="Google chặn: tài khoản gói miễn phí không còn dùng được Gemini CLI"
+    mkdir -p "$ORCH_DATA/usage"; echo "$reason" >"$BLOCK_FILE"
+  elif looks_limited "$OUT" || grep -Eiq 'usage limit|rate limit|hit your ([0-9a-z-]+ )?limit|quota|exhausted|429' "$ERR"; then reason="hết hạn mức"
+  elif ! is_logged_in "$tool" "$home"; then reason="chưa đăng nhập (vào trang Nhân viên → Đăng nhập)"
   else reason="lỗi mã $rc: $(tail -c 300 "$ERR" | tr '\n' ' ')"
   fi
   say "[ask] $name thất bại: $reason -> thử tài khoản kế tiếp"

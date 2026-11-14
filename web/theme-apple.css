@@ -1,0 +1,51 @@
+/* Giao diện Apple — sáng sủa, bo góc vừa phải, bóng nhẹ. Nạp sau CSS gốc trong index.html. */
+:root{
+  --bg:#f5f5f7;--panel:#ffffff;--line:rgba(0,0,0,.08);--text:#1d1d1f;--muted:#6e6e73;--soft:#f2f2f7;
+  --accent:#0071e3;--ok:#34c759;--warn:#ff9f0a;--bad:#ff3b30;--run:#30b0c7;--mgr:#af52de;--me:#e8f1fd;
+  --fill:rgba(118,118,128,.12);--shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);--header:rgba(251,251,253,.78);
+  --pad:16px 18px;--gap-lg:18px;  /* thẻ của giao diện này rộng rãi hơn — áp chung cho mọi loại thẻ */
+}
+:root[data-dark="1"]{
+  --bg:#000000;--panel:#1c1c1e;--line:rgba(255,255,255,.10);--text:#f5f5f7;--muted:#98989d;--soft:#2c2c2e;
+  --accent:#0a84ff;--ok:#30d158;--warn:#ff9f0a;--bad:#ff453a;--run:#64d2ff;--mgr:#bf5af2;--me:rgba(10,132,255,.22);
+  --fill:rgba(118,118,128,.24);--shadow:none;--header:rgba(22,22,23,.78);
+}
+body{font:14px/1.47 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+header{background:var(--header);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line);padding:10px 28px;gap:16px}
+.brand{font-size:15px;letter-spacing:.14em;font-weight:600}
+.brand img{height:24px;filter:none}
+.nav,.seg{background:var(--fill);border:0;border-radius:8px;padding:2px}
+.nav a,.seg button{border-radius:6px;font-weight:500;color:var(--text);opacity:.75;padding:4px 14px}
+.nav a.on,.seg button.on{background:var(--panel);opacity:1;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+:root[data-dark="1"] .nav a.on,:root[data-dark="1"] .seg button.on{background:#636366}
+.btn{border:0;background:var(--fill);border-radius:8px;padding:6px 14px;font-weight:500;color:var(--text)}
+.btn:hover{border:0;filter:brightness(.96)}
+.btn.pri{background:var(--accent);color:#fff}
+.btn.danger{color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,transparent)}
+.btn.sm{padding:4px 11px;font-size:12.5px}
+.page{padding:32px 28px 60px}
+.page>h2,.pagehead h2,.head h2,.page>.row h2{font-size:28px!important;font-weight:700;letter-spacing:-.022em;line-height:1.15}
+.page h4{text-transform:none;font-size:15px;color:var(--text);font-weight:600;letter-spacing:0}
+.crumb{color:var(--accent);font-weight:500}
+.card,.stat,.tbl,.desk,.emp,.tcard,.htmlprev,.imgs a,.modal .box{border:0!important;border-radius:12px;background:var(--panel);box-shadow:var(--shadow)}
+.card h3{font-size:16px;font-weight:600}
+.stat b{font-size:30px;font-weight:700;letter-spacing:-.02em}
+.tbl{overflow:hidden}
+.tr{padding:13px 18px}
+.tr.hd{background:transparent;color:var(--muted);font-weight:500;font-size:12px}
+.kcol{background:var(--fill);border:0;border-radius:12px}
+.kcard{border:0;border-radius:8px;box-shadow:var(--shadow)}
+.desk .tool,.emp .prio{border:0;background:var(--fill);border-radius:6px}
+.desk .job,.loginbox,.viewer,.note{background:var(--soft);border:0;border-radius:8px}
+.badge{border-radius:6px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font-weight:600}
+.badge.xong{background:color-mix(in srgb,var(--ok) 16%,transparent);color:color-mix(in srgb,var(--ok) 80%,var(--text))}
+.badge.cho{background:color-mix(in srgb,var(--warn) 18%,transparent);color:color-mix(in srgb,var(--warn) 85%,var(--text))}
+.badge.loi{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.chip{border:0;background:var(--fill);border-radius:6px}
+textarea,input[type=text],input[type=search],input[type=password],.field select,.settings select,.hire input,.hire select,.picker>button{
+  border:0!important;background:var(--soft)!important;border-radius:8px!important;padding:9px 12px!important}
+textarea:focus,input:focus,select:focus{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+.msg{border-radius:12px}.msg.owner{background:var(--accent);color:#fff}
+.mstatus{border-radius:8px}.mstatus.wait{border:0}
+.toast{border-radius:10px;background:rgba(29,29,31,.92);color:#fff}
+.final-card{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--ok) 45%,transparent),var(--shadow)!important}

@@ -18,7 +18,7 @@ Thế mạnh mặc định của từng loại:
 ## Cách giao việc cho worker
 
 ```bash
-bin/ask <worker|claude|codex|gemini> [-s nho|vua|lon] [-w] [-C thư_mục] [-t thư_mục_task] "nội dung việc"
+bin/ask <worker|claude|codex|gemini> [-r vai_trò] [-s nho|vua|lon] [-w] [-C thư_mục] [-t thư_mục_task] "nội dung việc"
 ```
 - Gọi theo **tên công cụ** (`claude`, `codex`, `gemini`) để tự xoay vòng qua các tài khoản của công cụ đó:
   tài khoản đầu hết hạn mức thì tự chuyển sang tài khoản kế tiếp, và tài khoản sau **làm tiếp phần dở** (không làm lại).
@@ -28,6 +28,9 @@ bin/ask <worker|claude|codex|gemini> [-s nho|vua|lon] [-w] [-C thư_mục] [-t t
 - `-w` cho phép worker sửa file trong thư mục `-C`. Mặc định worker chỉ được đọc.
 - `-t` lưu kết quả vào `<task>/results/`. Luôn truyền `-t` khi đang làm một task.
 - Nếu chủ chỉ định AI làm việc thì giao đúng AI đó. Nếu chủ để "quản lý tự chọn" thì ưu tiên worker đang rảnh.
+- **Subagent theo vai trò** (`-r`, định nghĩa trong `config/roles/`): `code` lập trình, `viet` viết nội dung,
+  `tra-cuu` tìm và tổng hợp thông tin, `review` kiểm tra kết quả. `review` và `tra-cuu` luôn chỉ được đọc.
+  Làm xong việc quan trọng thì giao một subagent `-r review` (khác loại với người làm) kiểm tra lại.
 - **Mặc định KHÔNG chạy song song**: giao cho một worker phù hợp nhất, nhiều bước thì làm lần lượt.
 - Chạy `bin/ask` trực tiếp, chờ nó xong, không chạy nền rồi bỏ đi. Kết thúc lượt khi worker còn chạy thì worker bị dừng.
   Chỉ chia cho nhiều worker cùng lúc (nhiều agent `worker` trong một lượt) khi chủ chọn "song song".

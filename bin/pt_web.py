@@ -15,19 +15,64 @@ import sys
 import threading
 import time
 import getpass
+import mimetypes
+import base64
+import binascii
+import datetime
+from urllib.parse import unquote
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 import pt_manager
+import pt_notify
+import pt_followup
 import tracker
 from tracker import ROOT, TASKS, read, summary, task_ids
 
 PAGE = os.path.join(ROOT, "web", "index.html")
 LOGIN_PAGE = os.path.join(ROOT, "web", "login.html")
 AUTH_FILE = os.path.join(ROOT, "config", "auth.conf")
-STATIC = {"logo.png", "mark.png", "favicon.png", "favicon-32.png", "apple-touch-icon.png", "favicon.ico"}
+STATIC = {"logo.png", "mark.png", "favicon.png", "favicon-32.png", "apple-touch-icon.png", "favicon.ico",
+          "theme-sieu-anh-hung.css", "theme-quan-su.css", "theme-apple.css"}
 WORKERS = {"items": [], "checked": 0}
 PORT = [8765]
+POST_LIMIT = 200000                     # request POST thường / chưa đăng nhập
+POST_LIMIT_BIG = 56 * 1024 * 1024       # /api/giao, /api/send có ảnh (8 ảnh × 5 MB, base64 ≈ +33%)
+
+
+def human_size(n):
+    return "%.1f MB" % (n / 1048576) if n >= 1048576 else "%d KB" % max(1, round(n / 1024))
+
+
+# ---------------- phát hiện server đang chạy code cũ (file .py đổi sau khi khởi động)
+CODE_FILES = ("pt_web.py", "pt_manager.py", "pt_notify.py", "pt_followup.py", "tracker.py",
+              "pt_accounts.py", "pt_usage.py")
+
+
+def code_mtimes():
+    out = {}
+    for name in CODE_FILES:
+        try:
+            out[name] = os.path.getmtime(os.path.join(ROOT, "bin", name))
+        except OSError:
+            pass
+    return out
+
+
+CODE_AT_START = code_mtimes()  # ghi lúc nạp module = lúc server khởi động
+_STALE = {"at": 0.0, "files": []}
+
+
+def stale_code():
+    """Danh sách file .py của server đã đổi sau khi khởi động (cache 5 giây cho rẻ)."""
+    now = time.time()
+    if now - _STALE["at"] > 5:
+        cur = code_mtimes()
+        _STALE["files"] = sorted(f for f, m in cur.items() if f in CODE_AT_START and m != CODE_AT_START[f])
+        _STALE["at"] = now
+    return _STALE["files"]
+
+
 SESSIONS = {}
 AUTH_LOCK = threading.Lock()
 VERIFY_LOCK = threading.Lock()
@@ -172,6 +217,153 @@ def refresh_workers_once():
             sys.stderr.write("[dashboard] không đọc được bin/workers: %s\n" % e)
 
 
+# ---------------- sản phẩm của task (trang Kết quả)
+INTERNAL_FILES = {"brief.md", "plan.md", "final.md", "status", "log.txt", "limited", ".deleted_at", ".DS_Store"}
+SKIP_DIRS = {"manager", "running", "prompts", "__pycache__", ".git", "node_modules", ".venv"}
+KINDS = {
+    "image": {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp"},
+    "html": {".html", ".htm"},
+    "video": {".mp4", ".webm", ".mov"},
+    "audio": {".mp3", ".wav", ".m4a", ".ogg"},
+    "pdf": {".pdf"},
+    "text": {".md", ".txt", ".py", ".js", ".ts", ".tsx", ".jsx", ".css", ".json", ".csv", ".yml", ".yaml", ".sh",
+             ".java", ".go", ".rs", ".c", ".cpp", ".h", ".sql", ".xml", ".toml", ".ini", ".rb", ".php", ".swift", ".kt"},
+}
+
+
+def file_kind(name):
+    ext = os.path.splitext(name)[1].lower()
+    for k, exts in KINDS.items():
+        if ext in exts:
+            return k
+    return "other"
+
+
+def task_files(tid):
+    """Sản phẩm (file do worker/quản lý tạo ra) và báo cáo của từng nhân viên (results/*.md)."""
+    base = os.path.join(TASKS, tid)
+    products, reports = [], []
+    for root, dirs, files in os.walk(base):
+        rel_root = os.path.relpath(root, base)
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith("backup")
+                         and not (rel_root == "." and d.startswith(".")))
+        for n in sorted(files):
+            rel = n if rel_root == "." else os.path.join(rel_root, n)
+            if rel_root == "." and n in INTERNAL_FILES:
+                continue
+            p = os.path.join(root, n)
+            try:
+                st = os.stat(p)
+            except OSError:
+                continue
+            item = {"path": rel, "name": n, "size": st.st_size, "mtime": int(st.st_mtime), "kind": file_kind(n)}
+            if rel_root == "results" and (n.endswith(".md") or n.startswith("dang-do-")):
+                reports.append(item)
+            else:
+                products.append(item)
+            if len(products) > 400:
+                return {"products": products, "reports": reports, "truncated": True}
+    products.sort(key=lambda x: ({"html": 0, "image": 1, "pdf": 2, "video": 3, "audio": 3, "text": 4}.get(x["kind"], 5), x["path"]))
+    return {"products": products, "reports": reports, "truncated": False}
+
+
+def decode_images(images):
+    """Validate client data URLs and return (server filename, bytes)."""
+    if not isinstance(images, list) or len(images) > 8:
+        raise ValueError("Tối đa 8 ảnh mỗi lần gửi")
+    result = []
+    total = 0
+    signatures = {"image/png": ("png", b"\x89PNG\r\n\x1a\n"),
+                  "image/jpeg": ("jpg", b"\xff\xd8\xff"),
+                  "image/gif": ("gif", b"GIF8"),
+                  "image/webp": ("webp", b"RIFF")}
+    for index, item in enumerate(images, 1):
+        if not isinstance(item, dict):
+            raise ValueError("Ảnh đính kèm không hợp lệ")
+        data_url = item.get("data", "")
+        if not isinstance(data_url, str) or "," not in data_url:
+            raise ValueError("Dữ liệu ảnh không hợp lệ")
+        header, encoded = data_url.split(",", 1)
+        mime = header[5:].split(";", 1)[0].lower() if header.startswith("data:") else ""
+        if mime not in signatures or not header.lower().endswith(";base64"):
+            raise ValueError("Chỉ nhận ảnh PNG, JPEG, GIF hoặc WebP")
+        if len(encoded) > 7_000_000:
+            raise ValueError("Mỗi ảnh phải có dung lượng tối đa 5 MB")
+        try:
+            raw = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError):
+            raise ValueError("Dữ liệu base64 của ảnh không hợp lệ")
+        if not raw or len(raw) > 5 * 1024 * 1024:
+            raise ValueError("Mỗi ảnh phải có dung lượng tối đa 5 MB")
+        total += len(raw)
+        if total > 40 * 1024 * 1024:
+            raise ValueError("Tổng dung lượng ảnh tối đa 40 MB")
+        ext, magic = signatures[mime]
+        if not raw.startswith(magic) or (mime == "image/webp" and raw[8:12] != b"WEBP"):
+            raise ValueError("Nội dung ảnh không khớp định dạng khai báo")
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        result.append(("img-%s-%02d-%s.%s" % (stamp, index, secrets.token_hex(3), ext), raw))
+    return result
+
+
+def save_images(tid, images):
+    return pt_manager.save_task_images(tid, images)
+
+
+# ---------------- xem trên điện thoại (cùng Wi-Fi)
+LAN = {"server": None, "ip": ""}
+
+
+def lan_ip():
+    """Địa chỉ của máy trong mạng nội bộ (không gửi gói tin nào ra ngoài)."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("10.255.255.255", 1))
+        ip = s.getsockname()[0]
+    except OSError:
+        ip = ""
+    finally:
+        s.close()
+    if ip.startswith("127.") or not ip:
+        return ""
+    return ip
+
+
+def lan_private(ip):
+    import ipaddress
+    try:
+        return ipaddress.ip_address(ip).is_private
+    except ValueError:
+        return False
+
+
+def start_lan():
+    if LAN["server"]:
+        return LAN["ip"]
+    ip = lan_ip()
+    if not ip or not lan_private(ip):
+        raise RuntimeError("không tìm thấy mạng Wi-Fi nội bộ của máy")
+    srv = ThreadingHTTPServer((ip, PORT[0]), Handler)
+    srv.is_lan = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    LAN.update(server=srv, ip=ip)
+    return ip
+
+
+def stop_lan():
+    srv = LAN["server"]
+    LAN.update(server=None, ip="")
+    if srv:
+        threading.Thread(target=lambda: (srv.shutdown(), srv.server_close()), daemon=True).start()
+
+
+def lan_status():
+    on = bool(LAN["server"])
+    return {"enabled": on, "url": ("http://%s:%d" % (LAN["ip"], PORT[0])) if on else "",
+            "ip": LAN["ip"] or lan_ip()}
+
+
 def accounts_view():
     """Trang Tài khoản: mọi tài khoản trong workers.conf + đăng nhập, rảnh/bận, usage, phiên đăng nhập web."""
     import pt_accounts
@@ -182,7 +374,8 @@ def accounts_view():
     for a in pt_accounts.accounts():
         d = desks.get(a["name"], {})
         home = "" if a["default"] else os.path.expanduser(a["home"])
-        a.update(login=login.get(a["name"], "?" if a["enabled"] else "off"),
+        blocked = tracker.read(os.path.join(pt_usage.UDIR, a["name"] + ".blocked")) or ""
+        a.update(login=login.get(a["name"], "?" if a["enabled"] else "off"), blocked=blocked.strip(),
                  busy=len(d.get("working", [])), done_today=d.get("done_today", 0), fails_today=d.get("fails_today", 0),
                  usage=d.get("usage") or pt_usage.usage_for(a["name"], a["tool"], home),
                  login_session=pt_accounts.login_status(a["name"]))
@@ -243,6 +436,7 @@ def office():
     homes = {r[0]: pt_manager.resolve_home(r[2]) for r in pt_manager.conf_rows(pt_manager.WORKERS)}
     for d in desks.values():
         d["usage"] = pt_usage.usage_for(d["name"], d.get("tool", ""), homes.get(d["name"], ""))
+        d["blocked"] = (tracker.read(os.path.join(pt_usage.UDIR, d["name"] + ".blocked")) or "").strip()
     return {"now": int(now), "desks": list(desks.values()), "managers": managers,
             "workers_checked": WORKERS["checked"]}
 
@@ -265,6 +459,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def json(self, obj, code=200, extra_headers=None):
         self.send(code, json.dumps(obj, ensure_ascii=False), extra_headers=extra_headers)
+
+    def discard_body(self, n, cap=128 * 1024 * 1024):
+        """Đọc bỏ tối đa `cap` byte thân request (không giữ trong bộ nhớ)."""
+        left = min(n, cap)
+        try:
+            while left > 0:
+                chunk = self.rfile.read(min(left, 1 << 20))
+                if not chunk:
+                    break
+                left -= len(chunk)
+        except OSError:
+            pass
 
     def session_tokens(self):
         tokens = []
@@ -293,8 +499,41 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def serve_task_file(self, rest, download=False):
+        tid, _, rel = rest.partition("/")
+        if tid not in task_ids() or not rel:
+            return self.send(404, "không có file", "text/plain; charset=utf-8")
+        base = os.path.realpath(os.path.join(TASKS, tid))
+        p = os.path.realpath(os.path.join(base, rel))
+        if not p.startswith(base + os.sep) or not os.path.isfile(p) or os.path.getsize(p) > 50 * 1024 * 1024:
+            return self.send(404, "không có file", "text/plain; charset=utf-8")
+        ctype = mimetypes.guess_type(p)[0] or "application/octet-stream"
+        if file_kind(p) == "text" or ctype.startswith("text/"):
+            ctype = ("text/html" if file_kind(p) == "html" else "text/plain") + "; charset=utf-8"
+        elif ctype in ("text/html", "image/svg+xml") or file_kind(p) == "html":
+            ctype += "; charset=utf-8" if "charset" not in ctype else ""
+        with open(p, "rb") as f:
+            data = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        # Cách ly: trang/ảnh do AI tạo chạy ở origin riêng, không gọi được API của Pentagon, không đọc được cookie
+        self.send_header("Content-Security-Policy", "sandbox allow-scripts allow-popups allow-forms allow-modals")
+        if download:
+            self.send_header("Content-Disposition", "attachment; filename*=UTF-8''%s" % quote(os.path.basename(p)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def from_lan(self):
+        return getattr(self.server, "is_lan", False)
+
     def host_ok(self):
         host = (self.headers.get("Host") or "").lower()
+        if self.from_lan():  # truy cập từ điện thoại: chỉ khi đã có mật khẩu và đúng địa chỉ nội bộ
+            return bool(LAN["ip"]) and host == "%s:%d" % (LAN["ip"], PORT[0]) and bool(auth_config()) \
+                and lan_private(self.client_address[0])
         return host in ("127.0.0.1:%d" % PORT[0], "localhost:%d" % PORT[0])
 
     def do_GET(self):
@@ -314,18 +553,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, read(LOGIN_PAGE) or "thiếu web/login.html", "text/html; charset=utf-8")
             if encoded and u.path.startswith("/api/") and not self.logged_in(encoded):
                 return self.json({"error": "chưa đăng nhập"}, 401)
-            is_page = u.path in ("/", "/dieu-hanh", "/van-phong", "/giao", "/thung-rac", "/tai-khoan", "/nhan-vien", "/cai-dat") or u.path.startswith("/task/")
+            is_page = u.path in ("/", "/dieu-hanh", "/van-phong", "/giao", "/thung-rac", "/tai-khoan", "/nhan-vien", "/cai-dat", "/thong-bao", "/agent") or u.path.startswith("/task/")
             if encoded and is_page and not self.logged_in(encoded):
                 return self.redirect("/login")
             if is_page:
                 return self.send(200, read(PAGE) or "thiếu web/index.html", "text/html; charset=utf-8")
+            if u.path.startswith("/files/"):  # sản phẩm của task: ảnh, trang HTML, file chữ…
+                if encoded and not self.logged_in(encoded):
+                    return self.send(401, "chưa đăng nhập", "text/plain; charset=utf-8")
+                return self.serve_task_file(unquote(u.path[len("/files/"):]), q.get("dl") == "1")
             name = u.path[8:] if u.path.startswith("/static/") else u.path[1:] if u.path in (
                 "/favicon.ico", "/apple-touch-icon.png") else ""
             if name in STATIC:  # ảnh logo / icon tab: không cần đăng nhập
                 with open(os.path.join(ROOT, "web", name), "rb") as f:
                     data = f.read()
                 self.send_response(200)
-                self.send_header("Content-Type", "image/x-icon" if name.endswith(".ico") else "image/png")
+                self.send_header("Content-Type", "image/x-icon" if name.endswith(".ico") else
+                                 "text/css; charset=utf-8" if name.endswith(".css") else "image/png")
                 self.send_header("Cache-Control", "public, max-age=86400")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
@@ -335,8 +579,26 @@ class Handler(BaseHTTPRequestHandler):
                 tasks = [summary(i) for i in task_ids()]
                 busy = sorted({r.get("worker") for t in tasks for r in t["running"]})
                 return self.json({"now": int(time.time()), "tasks": tasks, "busy": busy, "auth": bool(encoded),
-                                  "sizes": pt_manager.manager_models(),
-                                  "workers": WORKERS["items"], "workers_checked": WORKERS["checked"]})
+                                  "sizes": pt_manager.manager_models(), "model_options": pt_manager.model_options(),
+                                  "roles": pt_manager.role_names(),
+                                  "workers": WORKERS["items"], "workers_checked": WORKERS["checked"],
+                                  "stale": bool(stale_code()), "stale_files": stale_code()})
+            if u.path == "/api/config":  # Cài đặt: quyền quản lý, bảng model theo cỡ, vai trò subagent
+                return self.json({"manager": pt_manager.manager_settings(), "models": pt_manager.models_table(),
+                                  "roles": pt_manager.roles_list()})
+            if u.path == "/api/files":
+                tid = q.get("id", "")
+                if tid not in task_ids():
+                    return self.json({"error": "không có task"}, 404)
+                return self.json(task_files(tid))
+            if u.path == "/api/lan":
+                return self.json(lan_status())
+            if u.path == "/api/agents":
+                return self.json(pt_followup.agents_view())
+            if u.path == "/api/notifications":
+                lst = pt_notify.items()
+                return self.json({"items": lst[:100], "unread": sum(1 for n in lst if not n.get("read")),
+                                  "settings": pt_notify.settings()})
             if u.path == "/api/auth":
                 return self.json({"enabled": bool(encoded)})
             if u.path == "/api/accounts":
@@ -351,6 +613,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": "không có task"}, 404)
                 t = summary(tid, with_docs=True)
                 t["chat"] = pt_manager.chat(tid)
+                t["inbox"] = pt_manager.inbox_view(tid)
                 last = t["chat"][-1]["role"] if t["chat"] else ""
                 t["manager_stderr"] = pt_manager.stderr_tail(tid) if last == "error" or (
                     t["manager"]["session"] and not t["manager"]["running"] and last not in ("end", "event")) else ""
@@ -373,20 +636,36 @@ class Handler(BaseHTTPRequestHandler):
                 or not (self.headers.get("Content-Type") or "").startswith("application/json"):
             return self.json({"error": "từ chối"}, 403)
         origin = self.headers.get("Origin")
-        if origin and origin.lower() not in ("http://127.0.0.1:%d" % PORT[0], "http://localhost:%d" % PORT[0]):
+        if origin and origin.lower() not in ("http://127.0.0.1:%d" % PORT[0], "http://localhost:%d" % PORT[0]) + (
+                ("http://%s:%d" % (LAN["ip"], PORT[0]),) if self.from_lan() else ()):
             return self.json({"error": "từ chối"}, 403)
+        path = urlparse(self.path).path
         try:
             n = int(self.headers.get("Content-Length") or 0)
             if n < 0:
                 return self.json({"error": "Content-Length không hợp lệ"}, 400)
-            if n > 200000:
-                return self.json({"error": "nội dung quá dài"}, 413)
+            encoded = auth_config()
+            if encoded is None:
+                return self.json({"error": "config/auth.conf bị hỏng"}, 503)
+            # Login always stays small; unauthenticated callers cannot make us read a large body.
+            authed = not encoded or self.logged_in(encoded)
+            if not authed and path not in ("/api/login", "/api/logout"):
+                # hết phiên: báo 401 (để trang chuyển sang đăng nhập) thay vì 413 khi gửi kèm ảnh
+                self.close_connection = True
+                return self.json({"error": "chưa đăng nhập"}, 401)
+            limit = POST_LIMIT_BIG if authed and path in ("/api/giao", "/api/send") else POST_LIMIT
+            if n > limit:
+                if authed:
+                    self.discard_body(n)  # đọc bỏ phần thân để trình duyệt nhận được mã 413 thay vì lỗi mạng
+                self.close_connection = True
+                return self.json({"error": "Nội dung gửi lên quá lớn (%s), server chỉ nhận tối đa %s%s" % (
+                    human_size(n), human_size(limit),
+                    " — ảnh đính kèm quá lớn" if path in ("/api/giao", "/api/send") else "")}, 413)
             body = json.loads(self.rfile.read(n) or b"{}")
             if not isinstance(body, dict):
                 body = {}
         except ValueError:
             return self.json({"error": "JSON không hợp lệ"}, 400)
-        path = urlparse(self.path).path
         encoded = auth_config()
         if encoded is None:
             return self.json({"error": "config/auth.conf bị hỏng — chạy bin/dashboard --set-password hoặc --clear-password"}, 503)
@@ -444,6 +723,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/auth/disable":
                 write_auth(None)
                 clear_sessions()
+                stop_lan()  # không còn mật khẩu thì đóng truy cập từ điện thoại
+                pt_notify.update_settings(lan_access=False)
                 return self.json({"ok": True, "enabled": False},
                                  extra_headers=[("Set-Cookie", "pentagon_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")])
             new, confirm = body.get("new", ""), body.get("confirm", "")
@@ -457,12 +738,52 @@ class Handler(BaseHTTPRequestHandler):
         tid = body.get("id", "")
         try:
             if path == "/api/giao":
+                images = decode_images(body.get("images") or [])
+                request = str(body.get("text", "")).strip() or ("Xem ảnh đính kèm" if images else "")
                 mode = body.get("mode") if body.get("mode") in ("duyet", "lam-luon") else "tu-quyet"
                 size = body.get("size") if body.get("size") in ("nho", "vua", "lon") else "auto"
                 split = body.get("split") if body.get("split") in ("mot", "song-song") else "auto"
-                tid = pt_manager.launch_new(str(body.get("text", "")), mode, size, split, background=True,
-                                            assignee=str(body.get("assignee") or ""))
+                tid = pt_manager.launch_new(request, mode, size, split, background=True,
+                                            assignee=str(body.get("assignee") or ""), images=images)
                 return self.json({"ok": True, "id": tid})
+            if path == "/api/lan":
+                if self.from_lan():
+                    return self.json({"error": "chỉ bật/tắt được trên chính máy Mac"}, 403)
+                if body.get("enabled"):
+                    if not auth_config():
+                        return self.json({"error": "Đặt mật khẩu trang web trước (mục bên dưới)"}, 400)
+                    try:
+                        start_lan()
+                    except (RuntimeError, OSError) as e:
+                        return self.json({"error": str(e)}, 400)
+                else:
+                    stop_lan()
+                pt_notify.update_settings(lan_access=bool(body.get("enabled")))
+                return self.json(dict(lan_status(), ok=True))
+            if path == "/api/notifications/read":
+                pt_notify.mark_read(body.get("id") or None)
+                return self.json({"ok": True})
+            if path == "/api/notifications/clear":
+                pt_notify.clear()
+                return self.json({"ok": True})
+            if path == "/api/notifications/test":
+                pt_notify.add("thu", "", "Thông báo thử", "Pentagon sẽ báo như thế này khi task có kết quả.")
+                return self.json({"ok": True})
+            if path == "/api/settings":
+                return self.json({"ok": True, "settings": pt_notify.update_settings(
+                    **{k: body[k] for k in ("notify_macos", "notify_sound") if k in body})})
+            if path == "/api/config/manager":  # {model?: str, allow?: [quyền, ...]}
+                return self.json({"ok": True, "manager": pt_manager.save_manager_settings(
+                    model=body.get("model"), allow=body.get("allow"))})
+            if path == "/api/config/models":  # {rows: {vai_trò: [nhỏ, vừa, lớn]}}
+                return self.json({"ok": True, "models": pt_manager.save_models_table(body.get("rows"))})
+            if path == "/api/config/roles/save":  # {key, name, perm: doc|theo-viec, desc, body, create: bool}
+                role = pt_manager.save_role(body.get("key"), body.get("name"), body.get("perm"), body.get("desc"),
+                                            body.get("body"), create=bool(body.get("create")))
+                return self.json({"ok": True, "role": role, "roles": pt_manager.roles_list()})
+            if path == "/api/config/roles/delete":  # {key}
+                pt_manager.delete_role(body.get("key"))
+                return self.json({"ok": True, "roles": pt_manager.roles_list()})
             if path.startswith("/api/accounts/"):
                 import pt_accounts
                 name = str(body.get("name", ""))
@@ -505,8 +826,30 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"ok": True, "trash_id": pt_manager.delete_task(tid)})
             elif path == "/api/task/reopen":
                 pt_manager.reopen(tid)
+            elif path == "/api/followup":
+                pt_followup.start(tid, str(body.get("file", "")), str(body.get("question", "")))
             elif path == "/api/send":
-                pt_manager.send(tid, str(body.get("text", "")), reaper=True)
+                if not isinstance(tid, str) or tid not in task_ids():
+                    return self.json({"error": "không có task"}, 404)
+                images = decode_images(body.get("images") or [])
+                message = str(body.get("text", "")).strip() or ("Xem ảnh đính kèm" if images else "")
+                attachment = save_images(tid, images)
+                try:
+                    sent = pt_manager.send(tid, message + attachment, reaper=True, size=str(body.get("size") or "auto"),
+                                           model=str(body.get("model") or ""), worker=str(body.get("worker") or ""),
+                                           worker_model=str(body.get("worker_model") or ""))
+                except Exception:
+                    for line in attachment.splitlines():
+                        candidate = line.removeprefix("- ")
+                        if candidate:
+                            try: os.remove(candidate)
+                            except OSError: pass
+                    raise
+                return self.json({"ok": True, "id": tid, **(sent if isinstance(sent, dict) else {"queued": False})})
+            elif path == "/api/task/inbox/clear":
+                pt_manager.clear_inbox(tid)
+            elif path == "/api/task/inbox/run":
+                pt_manager.run_paused_inbox(tid)
             elif path == "/api/stop":
                 pt_manager.stop(tid)
             elif path == "/api/kill-worker":
@@ -534,6 +877,8 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 return self.json({"error": "không có"}, 404)
             return self.json({"ok": True, "id": tid})
+        except ValueError as e:
+            return self.json({"error": str(e)}, 400)
         except RuntimeError as e:
             return self.json({"error": str(e)}, 409)
         except (BrokenPipeError, ConnectionResetError):
@@ -573,8 +918,14 @@ def cmd_dashboard(argv):
         print("Không mở được cổng %d-%d" % (port, port + 9), file=sys.stderr)
         return 1
     PORT[0] = port
+    if pt_notify.settings().get("lan_access") and auth_config():
+        try:
+            print("Xem trên điện thoại: http://%s:%d" % (start_lan(), port), flush=True)
+        except (RuntimeError, OSError) as e:
+            print("Không mở được cho điện thoại: %s" % e, flush=True)
     threading.Thread(target=refresh_workers_forever, daemon=True).start()
     threading.Thread(target=retry_forever, daemon=True).start()
+    threading.Thread(target=pt_notify.watch_forever, daemon=True).start()
     url = "http://127.0.0.1:%d" % port
     print("Pentagon: %s   (Ctrl+C để tắt; các quản lý đang chạy nền vẫn tiếp tục)" % url, flush=True)
     if do_open:

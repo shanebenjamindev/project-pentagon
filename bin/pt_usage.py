@@ -180,12 +180,31 @@ def claude_usage(name):
     return out
 
 
+def apply_resets(u):
+    """Đã qua giờ làm mới của một khung hạn mức mà chưa có lần chạy mới -> khung đó về 0% (thay vì giữ số cũ)."""
+    now = time.time()
+    any_reset = False
+    for w in u.get("windows") or []:
+        r = w.get("resets_at")
+        try:
+            r = float(r)
+        except (TypeError, ValueError):
+            continue
+        if r and r <= now and (u.get("rate_at") or 0) < r:
+            w["used"], w["reset"], w["status"] = 0, True, "allowed"
+            any_reset = True
+    if any_reset and u.get("limited"):
+        u["limited"] = any(w.get("status") not in (None, "allowed", "allowed_warning") and not w.get("reset")
+                           for w in u.get("windows") or [])
+    return u
+
+
 def usage_for(name, tool, home):
     try:
         if tool == "claude":
-            return claude_usage(name)
+            return apply_resets(claude_usage(name))
         if tool == "codex":
-            return codex_usage(home)
+            return apply_resets(codex_usage(home))
     except Exception as e:
         return {"error": str(e)}
     return {}

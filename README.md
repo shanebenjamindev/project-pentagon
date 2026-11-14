@@ -36,9 +36,11 @@ Mỗi trang có địa chỉ riêng:
 | Chi tiết task | `/task/<id>` | Theo dõi và thao tác trên một task |
 | Giao task | `/giao` | Giao task mới |
 | Văn phòng làm việc | `/van-phong` | Xem các AI đang làm gì |
+| Agent | `/agent` | Quản lý agent đang chạy (dừng từng cái), hỏi tiếp subagent đã xong |
+| Thông báo | `/thong-bao` | Task xong / cần bạn trả lời / bị dừng / hết hạn mức |
 | Quản lý nhân viên | `/nhan-vien` | Thêm, sửa, đăng nhập tài khoản AI, xếp theo phòng ban |
 | Thùng rác | `/thung-rac` | Task đã xoá |
-| Cài đặt | `/cai-dat` | Đặt / đổi / tắt mật khẩu trang web |
+| Cài đặt | `/cai-dat` | Giao diện, thông báo, mật khẩu, xem trên điện thoại; quyền và model của AI quản lý, model theo cỡ việc, vai trò subagent |
 
 **Phòng Điều hành**: số task đang làm / chờ bạn / worker đang chạy / hoàn thành, ô tìm kiếm, bộ lọc,
 và bảng task với các nút **Mở / Sửa / Xoá**.
@@ -84,8 +86,18 @@ Phòng Claude, Phòng Codex, Phòng Gemini.
   Số liệu lấy từ chính các lần chạy, không tốn thêm lượt gọi. Claude được cập nhật sau mỗi lần chạy;
   Codex đọc từ `~/.codex/sessions`; Gemini chưa có nguồn số liệu.
 
+### Subagent theo vai trò và hỏi tiếp
+- Quản lý giao việc cho subagent kèm **vai trò** (`bin/ask -r …`, định nghĩa trong `config/roles/*.md`, sửa được ở Cài đặt):
+  **Lập trình** (`code`), **Viết nội dung** (`viet`), **Tra cứu** (`tra-cuu`), **Kiểm tra** (`review`).
+  Tra cứu và Kiểm tra luôn chỉ được đọc. Làm xong việc quan trọng, quản lý giao một subagent Kiểm tra (khác loại) soát lại.
+- Mỗi kết quả lưu kèm **mã phiên** của subagent.
+- **Hỏi tiếp** (trang Agent hoặc tab Kết quả của task):
+  - Claude chạy trên **bản sao phiên** (`--fork-session`), nên phiên gốc và kết quả gốc giữ nguyên.
+  - Codex chạy phiên mới, kèm việc và câu trả lời cũ làm ngữ cảnh.
+  - Câu trả lời hiện ngay dưới báo cáo gốc, thành chuỗi hỏi–đáp.
+
 ### Model theo cỡ task
-AI quản lý tự phân loại task là **nhỏ / vừa / lớn** để chọn model; bảng chọn nằm ở `config/models.conf`:
+AI quản lý tự phân loại task là **nhỏ / vừa / lớn** để chọn model; bảng chọn nằm ở `config/models.conf` (sửa trên web: Cài đặt → Model theo cỡ việc):
 
 | | Nhỏ | Vừa | Lớn |
 |---|---|---|---|
@@ -94,7 +106,14 @@ AI quản lý tự phân loại task là **nhỏ / vừa / lớn** để chọn 
 | Worker codex | gpt-6-luna, suy nghĩ ít | gpt-6-luna, vừa | gpt-6-luna, nhiều |
 
 - Mỗi việc con, quản lý gọi `bin/ask … -s nho|vua|lon` theo độ khó của chính việc đó.
-- Làm giữa chừng mà thấy cỡ sai, quản lý tự đổi bằng `bin/manager size`; model đổi theo từ lượt sau.
+- **Chọn theo từng tin nhắn, không chốt cứng.** Dưới ô nhắn cho quản lý có 3 ô chọn:
+  - **Quản lý dùng**: Tự động hoặc model cụ thể.
+    - Tự động: quản lý xem yêu cầu mới lớn hay nhỏ rồi chọn model cho lượt đó. Câu ngắn kiểu "tiếp tục / đồng ý" thì giữ model đang dùng.
+    - Hoặc chọn Nhỏ / Vừa / Lớn hay đúng tên model.
+  - **Giao cho**: quản lý tự chọn, hoặc chỉ định một nhân viên (kèm trạng thái rảnh / bận) làm việc của lượt này.
+  - **Model nhân viên**: model cho nhân viên vừa chọn. Danh sách lấy từ bảng model của phòng ban đó.
+  - Mọi lựa chọn đều được ghi vào khung trao đổi.
+- Quản lý cũng tự đổi được cỡ giữa chừng bằng `bin/manager size`.
 
 ### Hết hạn mức giữa chừng
 - **Worker**: `bin/ask` tự chuyển sang tài khoản kế tiếp cùng công cụ. Phần trả lời dở được lưu vào `results/dang-do-*.txt`
@@ -108,7 +127,17 @@ AI quản lý tự phân loại task là **nhỏ / vừa / lớn** để chọn 
 Quản lý chạy nền bằng Claude Code (tài khoản Claude mặc định trên máy), mỗi task một phiên riêng nên nó nhớ ngữ cảnh
 giữa các lần bạn nhắn. Đóng trình duyệt hay tắt `bin/dashboard` không làm dừng quản lý đang chạy.
 Khi chạy nền, quản lý chỉ được dùng một số lệnh an toàn (bin/ask, bin/progress, đọc/ghi file trong dự án…);
-muốn cho thêm quyền (vd chạy test python) hay đổi model: sửa `config/manager.conf`.
+muốn cho thêm quyền (vd chạy test python) hay đổi model: vào **Cài đặt → Quyền của AI quản lý** (lưu vào `config/manager.conf`).
+
+**Cài đặt → AI quản lý và nhân viên** (không cần sửa file; áp dụng từ lượt sau của quản lý / lần gọi worker sau):
+- **Quyền của AI quản lý**: công tắc theo nhóm (Tải trang web, Tìm trên mạng, Chạy Python, Node/npm, Git, curl/wget,
+  Chuyển đổi ảnh…), danh sách mọi quyền đang có (bỏ từng quyền bằng ×), ô thêm quyền riêng theo cú pháp `--allowedTools`
+  của Claude Code (vd `Bash(ffmpeg:*)`, `WebFetch(domain:example.com)`; dấu cách chỉ được nằm trong ngoặc), và chọn model mặc định.
+- **Model theo cỡ việc**: sửa trực tiếp bảng `config/models.conf` (AI quản lý, Claude, Codex, Gemini × nhỏ/vừa/lớn).
+  Ô là tên model, có thể thêm `@low|medium|high|xhigh|max`; `-` = không đổi. Ô sai được tô đỏ và không lưu được.
+- **Vai trò subagent**: xem, sửa, thêm, xoá vai trò trong `config/roles/` (tên hiển thị, mô tả, quyền chỉ đọc / được sửa file,
+  lời dặn). Kiểm tra và Tra cứu luôn chỉ đọc; 4 vai trò mặc định không xoá được. Quản lý được báo danh sách vai trò mới ở mỗi lượt.
+- Các dòng chú thích `#` trong file được giữ nguyên khi lưu; file được ghi an toàn (ghi file tạm rồi thay).
 Không có web thì dùng dòng lệnh tương đương: `bin/manager new|send|stop|kill-worker` (xem `bin/manager --help`).
 
 Bảo mật:
@@ -116,7 +145,12 @@ Bảo mật:
 - Web chặn các yêu cầu đến từ trang web lạ.
 - Muốn có trang đăng nhập: vào **⚙ Cài đặt** trên web → đặt mật khẩu. Đổi hoặc tắt cũng ở đó (cần mật khẩu hiện tại).
   Mật khẩu chỉ lưu dạng băm trong `config/auth.conf`, file này không lên git.
-- Đừng mở cổng này ra mạng ngoài.
+- **Xem trên điện thoại** (Cài đặt → Xem trên điện thoại):
+  - Bật lên thì trang mở thêm cho mạng Wi-Fi nội bộ, kèm địa chỉ và mã QR để quét.
+  - Bắt buộc phải đặt mật khẩu trước; điện thoại vào phải đăng nhập.
+  - Chỉ bật/tắt được trên chính máy Mac. Tắt mật khẩu thì truy cập từ điện thoại tự đóng.
+  - Kết nối trong Wi-Fi nhà không mã hoá (http), nên chỉ dùng ở mạng tin cậy.
+- Đừng mở cổng này ra Internet.
 
 Xem nhanh trong terminal:
 

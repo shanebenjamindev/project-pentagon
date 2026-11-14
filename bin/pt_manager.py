@@ -23,7 +23,8 @@ Dòng lệnh (bin/manager):
   bin/manager new [--duyet|--lam-luon] [--co auto|nho|vua|lon] [--mot|--song-song] [--ai <worker>] "yêu cầu"
                                                    tạo task và cho quản lý bắt đầu (mặc định: quản lý tự phân loại cỡ,
                                                    tự chọn cách giao và AI làm; --ai chỉ định AI, AI bận thì task chờ)
-  bin/manager send <task> "tin nhắn"               gửi tin nhắn (lượt mới) cho quản lý của task
+  bin/manager send <task> [--co auto|nho|vua|lon] "tin nhắn"
+                                                   gửi tin nhắn (lượt mới); model của lượt: auto = quản lý chọn theo yêu cầu
   bin/manager stop <task>                          dừng quản lý (và các worker nó đang chạy)
   bin/manager kill-worker <task> <pid>             huỷ một worker đang chạy
   bin/manager size <task> <nho|vua|lon> ["lý do"]  quản lý đổi cỡ task (model đổi từ lượt sau)
@@ -38,6 +39,8 @@ import sys
 import threading
 import time
 import uuid
+import fcntl
+from contextlib import contextmanager
 
 import tracker
 from tracker import ROOT, TASKS, kv, pid_alive, read
@@ -46,10 +49,11 @@ CONF = os.path.join(ROOT, "config", "manager.conf")
 MODELS = os.path.join(ROOT, "config", "models.conf")
 WORKERS = os.environ.get("ORCH_CONF") or os.path.join(ROOT, "config", "workers.conf")
 SIZES = {"nho": "nhỏ", "vua": "vừa", "lon": "lớn"}
-LIMIT_RE = re.compile(r"usage limit|rate limit|limit reached|hit your limit|out of (usage|credits)|quota|"
+LIMIT_RE = re.compile(r"usage limit|rate limit|limit reached|hit your (?:[0-9a-z-]+ )?limit|out of (usage|credits)|quota|"
                       r"exhausted|too many requests|\b429\b", re.I)
 
-# Quyền mặc định của quản lý khi chạy nền. Muốn thêm: config/manager.conf, dòng allow=...
+# Quyền mặc định của quản lý khi chạy nền. Muốn thêm: web → Cài đặt → Quyền của AI quản lý
+# (ghi vào config/manager.conf, dòng allow=...)
 BASE_TOOLS = [
     "Bash(bin/ask:*)", "Bash(bin/progress:*)", "Bash(bin/new-task:*)", "Bash(bin/workers)",
     "Bash(bin/workers:*)", "Bash(bin/status:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)",
@@ -70,6 +74,12 @@ Chủ làm việc với bạn qua giao diện web: chủ chỉ thấy các câu 
   Mỗi việc con, chọn cỡ theo độ khó của CHÍNH việc đó và truyền cho bin/ask:
   -s nho (việc ngắn, rõ ràng) | -s vua | -s lon (khó, cần suy luận sâu). Việc dễ luôn dùng -s nho để đỡ tốn hạn mức.
   Ghi cỡ đã chọn vào cột Worker trong plan.md, vd "codex (-s nho)".
+- SUBAGENT THEO VAI TRÒ: thêm -r <vai trò> khi gọi bin/ask —
+  -r code (lập trình) hoặc -r viet (viết nội dung) cho việc làm ra sản phẩm;
+  -r tra-cuu khi cần tìm/tổng hợp thông tin trước khi làm;
+  -r review để KIỂM TRA kết quả sau khi làm (nên dùng worker khác loại với người làm, vd codex làm thì claude review).
+  review và tra-cuu luôn chỉ được đọc. Ghi vai trò vào cột Worker trong plan.md, vd "claude (-r review, -s nho)".
+  Các vai trò đang có (config/roles/, chủ sửa được trên web): {roles}.
 - Khi cần chủ duyệt hoặc trả lời: chạy bin/progress {task} cho "<câu hỏi ngắn>", rồi KẾT THÚC lượt bằng câu hỏi rõ ràng.
   Chủ sẽ trả lời ở lượt sau. Không dùng công cụ hỏi tương tác, không ngồi chờ.
 - Chạy bin/ask TRỰC TIẾP (không chạy nền, không dùng run_in_background, không dùng Monitor để chờ), đặt timeout của lệnh
@@ -101,9 +111,26 @@ RETRY_MSG = ("Hạn mức đã được làm mới. Kiểm tra lại tình trạ
 
 # ---------------------------------------------------------------- cấu hình
 
+def split_rules(text):
+    """Tách danh sách quyền theo dấu cách, nhưng giữ nguyên phần trong ngoặc: "Bash(python3 -I x.py:*)" là MỘT quyền."""
+    out, buf, depth = [], "", 0
+    for ch in text or "":
+        if ch.isspace() and depth == 0:
+            if buf:
+                out.append(buf)
+            buf = ""
+            continue
+        buf += ch
+        depth += (ch == "(") - (ch == ")")
+        depth = max(depth, 0)
+    if buf:
+        out.append(buf)
+    return out
+
+
 def conf():
     d = kv(CONF)
-    return {"model": d.get("model", ""), "allow": d.get("allow", "").split()}
+    return {"model": d.get("model", ""), "allow": split_rules(d.get("allow", ""))}
 
 
 def conf_rows(path):
@@ -147,6 +174,313 @@ def norm_size(s):
         if s else ""
 
 
+# ---------------------------------------------------------------- sửa cấu hình từ trang Cài đặt (web)
+# Ba thứ trước đây chỉ sửa được bằng file: config/manager.conf, config/models.conf, config/roles/*.md.
+# Ghi lại luôn giữ nguyên các dòng chú thích # và ghi an toàn (file tạm rồi đổi tên).
+
+ROLES_DIR = os.path.join(ROOT, "config", "roles")
+CONF_LOCK = threading.Lock()
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+SPEC_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,59}(@(%s))?$" % "|".join(EFFORTS))
+ROLE_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+RULE_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,99}$")
+READ_ONLY_ROLES = ("review", "tra-cuu")          # luôn chỉ được đọc, không đổi được
+BUILTIN_ROLES = ("code", "viet", "review", "tra-cuu")  # quản lý dùng thường xuyên: sửa được, không xoá
+MODEL_ROWS = ("quan-ly", "claude", "codex", "gemini")
+
+# Nhóm quyền dễ hiểu cho công tắc trên web: bật = thêm đủ các quyền của nhóm, tắt = bỏ hết.
+ALLOW_GROUPS = [
+    ("web", "Tải trang web", "đọc nội dung một địa chỉ web (mọi trang)", ["WebFetch"]),
+    ("search", "Tìm trên mạng", "tìm kiếm Google/Bing…", ["WebSearch"]),
+    ("python", "Chạy Python", "chạy script python3", ["Bash(python3:*)"]),
+    ("pytest", "Chạy test Python", "pytest", ["Bash(pytest:*)"]),
+    ("node", "Node / npm", "node, npm, npx", ["Bash(node:*)", "Bash(npm:*)", "Bash(npx:*)"]),
+    ("git", "Git", "xem/sửa kho mã git", ["Bash(git:*)"]),
+    ("download", "Tải file (curl / wget)", "tải file từ Internet", ["Bash(curl:*)", "Bash(wget:*)"]),
+    ("image", "Chuyển đổi ảnh", "sips, ImageMagick (convert, magick)",
+     ["Bash(sips:*)", "Bash(convert:*)", "Bash(magick:*)"]),
+    ("files", "Chép / di chuyển file", "cp, mv", ["Bash(cp:*)", "Bash(mv:*)"]),
+]
+
+
+def write_atomic(path, text):
+    """Ghi ra file tạm cùng thư mục rồi os.replace — không bao giờ để file ghi dở. Giữ quyền của file cũ."""
+    d = os.path.dirname(path)
+    tmp = os.path.join(d, ".%s.%s.tmp" % (os.path.basename(path), uuid.uuid4().hex[:8]))
+    try:
+        os.makedirs(d, exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        try:
+            os.chmod(tmp, os.stat(path).st_mode & 0o777)
+        except OSError:
+            pass
+        os.replace(tmp, path)
+    except OSError as e:
+        raise RuntimeError("không ghi được %s: %s" % (os.path.basename(path), e.strerror or e))
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def check_rule(rule):
+    """Kiểm tra cú pháp một quyền: Tên hoặc Tên(nội dung). Trả về chuỗi lỗi, rỗng nếu hợp lệ."""
+    if not isinstance(rule, str) or not rule.strip():
+        return "quyền đang trống"
+    rule = rule.strip()
+    if len(rule) > 400:
+        return "quyền quá dài"
+    if any(c in rule for c in "\r\n\t\0"):
+        return "quyền không được xuống dòng"
+    name, paren, rest = rule.partition("(")
+    if not RULE_NAME_RE.match(name):
+        return "tên quyền phải bắt đầu bằng chữ cái, chỉ gồm chữ, số, _ . - (vd WebFetch, Bash(git:*))"
+    if paren:
+        if not rest.endswith(")") or not rest[:-1].strip():
+            return "thiếu nội dung hoặc thiếu dấu ) ở cuối — dạng đúng: Tên(nội dung)"
+        depth = 1
+        for ch in rest[:-1]:
+            depth += (ch == "(") - (ch == ")")
+            if depth <= 0:
+                return "ngoặc không cân"
+        if depth != 1:
+            return "ngoặc không cân"
+    # Ghi ra rồi đọc lại (tách theo dấu cách ngoài ngoặc) phải ra đúng một quyền như cũ
+    if split_rules(rule) != [rule]:
+        return "quyền có dấu cách nằm ngoài ngoặc"
+    return ""
+
+
+def check_spec(v, allow_dash=False, allow_empty=False):
+    v = (v or "").strip() if isinstance(v, str) else ""
+    if not v:
+        return "" if allow_empty else "đang trống"
+    if allow_dash and v == "-":
+        return ""
+    if "|" in v or "#" in v or any(c.isspace() for c in v):
+        return "không được có dấu |, # hay dấu cách"
+    if "@" in v and v.split("@", 1)[1] not in EFFORTS:
+        return "mức suy nghĩ sau @ phải là một trong: " + ", ".join(EFFORTS)
+    if not SPEC_RE.match(v):
+        return "tên model chỉ gồm chữ, số và . _ : / - (tối đa 60 ký tự), có thể thêm @mức_suy_nghĩ"
+    return ""
+
+
+def manager_settings():
+    c = conf()
+    allow = c["allow"]
+    groups = [{"key": k, "label": lb, "hint": h, "rules": rs, "on": all(r in allow for r in rs)}
+              for k, lb, h, rs in ALLOW_GROUPS]
+    return {"model": c["model"], "allow": allow, "groups": groups, "base": BASE_TOOLS,
+            "quan_ly": {s: tier_spec("quan-ly", s) for s in SIZES}}
+
+
+def save_manager_settings(model=None, allow=None):
+    """Ghi model= / allow= vào config/manager.conf, giữ nguyên chú thích và các dòng khác."""
+    if model is not None:
+        model = str(model).strip()
+        err = check_spec(model, allow_empty=True)
+        if err:
+            raise RuntimeError("model: " + err)
+    if allow is not None:
+        if not isinstance(allow, list):
+            raise RuntimeError("danh sách quyền không hợp lệ")
+        clean = []
+        for r in allow:
+            err = check_rule(r)
+            if err:
+                raise RuntimeError("quyền “%s”: %s" % (str(r)[:80], err))
+            if r.strip() not in clean:
+                clean.append(r.strip())
+        if len(clean) > 200:
+            raise RuntimeError("quá nhiều quyền")
+        allow = clean
+    with CONF_LOCK:
+        lines = (read(CONF) or "").splitlines()
+        new = {"model": model, "allow": " ".join(allow) if allow is not None else None}
+        done, out = set(), []
+        for line in lines:
+            s = line.strip()
+            key = s.split("=", 1)[0].strip() if "=" in s and not s.startswith("#") else ""
+            if key in new and new[key] is not None:
+                if key in done:
+                    continue  # dòng trùng: kv() lấy dòng cuối, nên bỏ đi để khỏi lẫn
+                out.append("%s=%s" % (key, new[key]))
+                done.add(key)
+            else:
+                out.append(line)
+        for key in ("model", "allow"):
+            if new[key] is not None and key not in done:
+                out.append("%s=%s" % (key, new[key]))
+        write_atomic(CONF, "\n".join(out) + "\n")
+    return manager_settings()
+
+
+def models_table():
+    rows = {r[0]: [r[1], r[2], r[3]] for r in conf_rows(MODELS)}
+    order = list(MODEL_ROWS) + [k for k in rows if k not in MODEL_ROWS]
+    return {"rows": [{"role": k, "cells": rows.get(k, ["-", "-", "-"])} for k in order], "efforts": list(EFFORTS),
+            "suggest": suggest_models()}
+
+
+def suggest_models():
+    """Gợi ý cho ô nhập model: model hay dùng + mọi model đang có trong models.conf / workers.conf."""
+    base = ["haiku", "sonnet", "opus", "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5",
+            "gpt-6-luna", "gemini-2.5-pro", "gemini-2.5-flash"]
+    opts = model_options()
+    seen = []
+    for m in base + opts["manager"] + [x for v in opts["by_tool"].values() for x in v]:
+        m = m.split("@")[0]
+        if m and m != "-" and m not in seen:
+            seen.append(m)
+    return seen
+
+
+def save_models_table(rows):
+    """rows = {vai_trò: [nhỏ, vừa, lớn]}. Ghi lại config/models.conf, giữ chú thích, căn cột cho dễ đọc."""
+    if not isinstance(rows, dict) or not rows:
+        raise RuntimeError("bảng model không hợp lệ")
+    known = {r[0] for r in conf_rows(MODELS)}
+    clean = {}
+    for role, cells in rows.items():
+        if role not in known and role not in MODEL_ROWS:
+            raise RuntimeError("không có dòng “%s” trong bảng model" % str(role)[:40])
+        if not isinstance(cells, list) or len(cells) != 3:
+            raise RuntimeError("dòng %s phải có đủ 3 ô nhỏ / vừa / lớn" % role)
+        vals = []
+        for size, v in zip(("nhỏ", "vừa", "lớn"), cells):
+            v = v.strip() if isinstance(v, str) else ""
+            err = check_spec(v, allow_dash=True)
+            if err:
+                raise RuntimeError("ô %s / %s: %s" % (role, size, err))
+            vals.append(v)
+        clean[role] = vals
+    with CONF_LOCK:
+        merged = {r[0]: [r[1], r[2], r[3]] for r in conf_rows(MODELS)}
+        merged.update(clean)
+        order = [k for k in MODEL_ROWS if k in merged] + [k for k in merged if k not in MODEL_ROWS]
+        head = ["# vai trò", "nhỏ", "vừa", "lớn"]  # dòng tiêu đề bảng là một dòng chú thích
+        table = [[k] + merged[k] for k in order]
+        w = [max(len(head[i]), *(len(r[i]) for r in table)) for i in range(4)]
+        fmt = lambda cells: " | ".join(c.ljust(w[i]) for i, c in enumerate(cells)).rstrip()
+        out, placed = [], False
+        for line in (read(MODELS) or "").splitlines():
+            data = line.split("#", 1)[0]
+            if re.match(r"^#\s*vai trò\s*\|", line):
+                # dòng tiêu đề bảng (chú thích): căn lại cho khớp cột mới
+                out.append(fmt(head))
+                continue
+            if "|" in data and data.split("|", 1)[0].strip():
+                if not placed:  # thay toàn bộ các dòng dữ liệu tại vị trí dòng dữ liệu đầu tiên
+                    out += [fmt(r) for r in table]
+                    placed = True
+                continue
+            out.append(line)
+        if not placed:
+            out += [fmt(r) for r in table]
+        write_atomic(MODELS, "\n".join(out) + "\n")
+    return models_table()
+
+
+def _role_path(key):
+    if not isinstance(key, str) or not ROLE_KEY_RE.match(key):
+        raise RuntimeError("khoá vai trò chỉ gồm chữ thường a-z, số 0-9 và dấu - (tối đa 40 ký tự)")
+    config_root = os.path.realpath(os.path.join(ROOT, "config"))
+    roles_root = os.path.realpath(ROLES_DIR)
+    # Chặn cả symlink của toàn bộ thư mục roles, không chỉ symlink của từng file.
+    if not roles_root.startswith(config_root + os.sep):
+        raise RuntimeError("thư mục vai trò phải nằm trong config/")
+    p = os.path.realpath(os.path.join(roles_root, key + ".md"))
+    if os.path.dirname(p) != roles_root:
+        raise RuntimeError("đường dẫn vai trò không hợp lệ")
+    return p
+
+
+def parse_role(key, text):
+    """Định dạng (bin/ask đọc): dòng 1 "# Tên", dòng "quyền: đọc|theo việc", các dòng mô tả ngắn,
+    một dòng trống, rồi lời dặn (bin/ask lấy mọi dòng sau dòng trống đầu tiên)."""
+    lines = (text or "").splitlines()
+    name = re.sub(r"^#\s*", "", lines[0]).strip() if lines else key
+    perm, desc, i = "theo-viec", [], 1
+    while i < len(lines) and lines[i].strip():
+        m = re.match(r"^quyền:\s*(.*)$", lines[i])
+        if m:
+            perm = "doc" if m.group(1).strip().startswith("đọc") else "theo-viec"
+        else:
+            desc.append(lines[i].strip())
+        i += 1
+    if key in READ_ONLY_ROLES:
+        perm = "doc"
+    return {"key": key, "name": name or key, "perm": perm, "desc": " ".join(desc),
+            "body": "\n".join(lines[i + 1:]).strip("\n"), "locked_perm": key in READ_ONLY_ROLES,
+            "builtin": key in BUILTIN_ROLES}
+
+
+def roles_list():
+    out = []
+    try:
+        names = sorted(f[:-3] for f in os.listdir(ROLES_DIR) if f.endswith(".md") and ROLE_KEY_RE.match(f[:-3]))
+    except OSError:
+        names = []
+    for k in names:
+        out.append(parse_role(k, read(os.path.join(ROLES_DIR, k + ".md"))))
+    order = {k: i for i, k in enumerate(BUILTIN_ROLES)}
+    return sorted(out, key=lambda r: (order.get(r["key"], 99), r["key"]))
+
+
+def role_names():
+    return {r["key"]: r["name"] for r in roles_list()}
+
+
+def save_role(key, name, perm, desc, body, create=False):
+    p = _role_path(key)
+    name = str(name or "").strip()
+    desc = " ".join(str(desc or "").split())
+    body = str(body or "").replace("\r\n", "\n").strip("\n")
+    if not name or len(name) > 60 or any(ord(c) < 32 for c in name):
+        raise RuntimeError("tên hiển thị phải có, một dòng, tối đa 60 ký tự")
+    if len(desc) > 300:
+        raise RuntimeError("mô tả ngắn tối đa 300 ký tự")
+    if not body.strip():
+        raise RuntimeError("lời dặn đang trống")
+    if len(body) > 20000:
+        raise RuntimeError("lời dặn quá dài (tối đa 20000 ký tự)")
+    if perm not in ("doc", "theo-viec"):
+        raise RuntimeError("quyền phải là chỉ đọc hoặc được sửa file")
+    if key in READ_ONLY_ROLES and perm != "doc":
+        raise RuntimeError("vai trò “%s” luôn chỉ được đọc" % key)
+    with CONF_LOCK:
+        exists = os.path.isfile(p)
+        if create and exists:
+            raise RuntimeError("đã có vai trò “%s”" % key)
+        if not create and not exists:
+            raise RuntimeError("không có vai trò “%s”" % key)
+        text = "# %s\nquyền: %s\n%s\n%s\n" % (name, "đọc" if perm == "doc" else "theo việc",
+                                              (desc + "\n") if desc else "", body)
+        write_atomic(p, text)
+    return parse_role(key, read(p))
+
+
+def delete_role(key):
+    p = _role_path(key)
+    if key in BUILTIN_ROLES:
+        raise RuntimeError("vai trò “%s” là vai trò mặc định quản lý luôn dùng — sửa được, không xoá được" % key)
+    with CONF_LOCK:
+        if not os.path.isfile(p):
+            raise RuntimeError("không có vai trò “%s”" % key)
+        try:
+            os.remove(p)
+        except OSError as e:
+            raise RuntimeError("không xoá được: %s" % (e.strerror or e))
+
+
+def roles_hint():
+    """Dòng nhắc cho quản lý chạy nền: các vai trò đang có (kể cả vai trò chủ thêm trên web)."""
+    rs = roles_list()
+    return ", ".join("%s (%s%s)" % (r["key"], r["name"], ", chỉ đọc" if r["perm"] == "doc" else "") for r in rs) \
+        or "chưa có"
+
+
 # ---------------------------------------------------------------- file trạng thái của phiên
 
 def mdir(tid):
@@ -176,6 +510,217 @@ def append_event(tid, kind, text):
         f.write(json.dumps({"type": kind, "text": text, "ts": int(time.time())}, ensure_ascii=False) + "\n")
 
 
+def throttled_event(tid, key, text):
+    """Ghi event cùng key nhiều nhất một lần mỗi 5 phút cho từng task."""
+    safe_key = re.sub(r"[^A-Za-z0-9_-]", "_", key)
+    stamp = os.path.join(mdir(tid), "event-throttle-" + safe_key)
+    try:
+        if time.time() - float(read(stamp) or 0) < 300:
+            return False
+    except (OSError, ValueError):
+        pass
+    append_event(tid, "pentagon_event", text)
+    put(tid, "event-throttle-" + safe_key, int(time.time()))
+    return True
+
+
+@contextmanager
+def inbox_lock(tid):
+    """Khoá xuyên tiến trình cho enqueue/drain/start hàng chờ của task."""
+    path = os.path.join(mdir(tid), "inbox.lock")
+    os.makedirs(mdir(tid), exist_ok=True)
+    with open(path, "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def inbox_read(tid):
+    path = os.path.join(mdir(tid), "inbox.jsonl")
+    rows = []
+    # Nếu dashboard/manager bị tắt ngay sau rename, đưa claim cũ về inbox trước khi đọc.
+    try:
+        claims = sorted(n for n in os.listdir(mdir(tid)) if n.startswith("inbox.claimed."))
+    except OSError:
+        claims = []
+    if claims:
+        with open(path, "a", encoding="utf-8") as out:
+            for name in claims:
+                claim = os.path.join(mdir(tid), name)
+                try:
+                    with open(claim, encoding="utf-8") as src:
+                        out.write(src.read())
+                    os.remove(claim)
+                except OSError:
+                    pass
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    rows.append(json.loads(line))
+                except ValueError:
+                    continue
+    except OSError:
+        pass
+    return rows
+
+
+def inbox_view(tid):
+    with inbox_lock(tid):
+        rows = inbox_read(tid)
+    return {"count": len(rows), "items": rows, "paused": os.path.exists(os.path.join(mdir(tid), "inbox.paused"))}
+
+
+def clear_inbox(tid):
+    with inbox_lock(tid):
+        names = ["inbox.jsonl", "inbox.paused"]
+        try:
+            names.extend(n for n in os.listdir(mdir(tid)) if n.startswith("inbox.claimed."))
+        except OSError:
+            pass
+        for name in names:
+            try:
+                os.remove(os.path.join(mdir(tid), name))
+            except OSError:
+                pass
+    append_event(tid, "pentagon_event", "Chủ đã xoá hàng chờ tin nhắn.")
+
+
+def enqueue_inbox_locked(tid, message, size, model, worker, worker_model):
+    path = os.path.join(mdir(tid), "inbox.jsonl")
+    normalized_size = norm_size(size)
+    if normalized_size not in SIZES:
+        normalized_size = "auto"
+    item = {"text": message, "size": normalized_size, "model": model or "", "worker": worker or "",
+            "worker_model": worker_model or "", "ts": int(time.time())}
+    # Ghi JSONL bằng một lần write dưới khoá dùng chung; flush để UI đọc thấy ngay.
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(item, ensure_ascii=False) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    count = len(inbox_read(tid))
+    append_event(tid, "pentagon_owner", message)
+    append_event(tid, "pentagon_event", "Đã xếp hàng — quản lý sẽ nhận khi xong lượt hiện tại (%d tin đang chờ)%s" %
+                 (count, " · đã Dừng, cần xoá hàng chờ để tiếp tục" if os.path.exists(os.path.join(mdir(tid), "inbox.paused")) else ""))
+    return count
+
+
+def merged_inbox_prompt(rows):
+    if len(rows) == 1 and rows[0].get("text"):
+        return rows[0]["text"]
+    lines = []
+    for i, item in enumerate(rows, 1):
+        text = item.get("text", "")
+        worker = item.get("worker")
+        if worker:
+            text = "[Tin này chủ chỉ định giao việc cho %s%s] %s" % (
+                worker, (", model " + item.get("worker_model", "")) if item.get("worker_model") else "", text)
+        lines.append("%d. %s" % (i, text))
+    return "Trong lúc bạn làm, chủ đã gửi thêm %d tin nhắn (theo thứ tự). Hãy đọc hết, tự sắp xếp thứ tự ưu tiên / gộp việc trùng, rồi xử lý:\n%s" % (len(rows), "\n".join(lines))
+
+
+def apply_inbox_options(tid, rows):
+    """Áp dụng lựa chọn quản lý gần nhất có chỉ định rõ trong các tin đã xếp hàng."""
+    for item in reversed(rows):
+        if item.get("model"):
+            put(tid, "model", item["model"])
+            return
+        size = item.get("size")
+        # size="auto" không ghi đè lựa chọn hiện tại; chỉ áp dụng model/cỡ được chỉ định rõ.
+        if size not in (None, "", "auto"):
+            set_size(tid, size)
+            return
+
+
+def restore_claim(tid, claimed, path):
+    """Trả claim về inbox trong lúc vẫn giữ inbox_lock."""
+    if not claimed or not os.path.exists(claimed):
+        return
+    if not os.path.exists(path):
+        os.replace(claimed, path)
+    else:
+        with open(claimed, encoding="utf-8") as src, open(path, "a", encoding="utf-8") as out:
+            out.write(src.read())
+        os.remove(claimed)
+
+
+def start_inbox_rows_locked(tid, rows, claimed, path, prefix=""):
+    """Bắt đầu lượt từ các tin đã claim; claim chỉ mất sau khi start_turn thành công."""
+    try:
+        if not rows:
+            if claimed and os.path.exists(claimed):
+                os.remove(claimed)
+            return False
+        try:
+            apply_inbox_options(tid, rows)
+        except Exception:
+            # Lựa chọn cỡ/model cũ hoặc không hợp lệ không được làm kẹt tin nhắn.
+            pass
+        prompt = (prefix + "\n\n" if prefix else "") + merged_inbox_prompt(rows)
+        if not session_started(tid):
+            prompt = resume_prompt(tid, prompt)
+        st = kv(os.path.join(TASKS, tid, "status"))
+        if st.get("state") == "cho":
+            progress(tid, "tiep", "chủ đã gửi thêm tin")
+        append_event(tid, "pentagon_event", "Quản lý nhận %d tin từ hàng chờ." % len(rows))
+        start_turn(tid, prompt, reaper=True, _locked=True)
+        if claimed and os.path.exists(claimed):
+            os.remove(claimed)
+        return True
+    except Exception:
+        restore_claim(tid, claimed, path)
+        raise
+
+
+def drain_inbox(tid, stopped=False, ignore_paused=False):
+    """Gộp inbox và bắt đầu đúng một lượt; lock bao trùm thao tác rename và spawn."""
+    with inbox_lock(tid):
+        d = mdir(tid)
+        path = os.path.join(d, "inbox.jsonl")
+        if stopped or (not ignore_paused and os.path.exists(os.path.join(d, "inbox.paused"))) or get(tid, "retry_at"):
+            return False
+        if tracker.manager_info(os.path.join(TASKS, tid))["running"] or get(tid, "pending"):
+            return False
+        claims = sorted(n for n in os.listdir(d) if n.startswith("inbox.claimed."))
+        if not os.path.exists(path) and not claims:
+            return False
+        claimed = os.path.join(d, "inbox.claimed.%d" % os.getpid())
+        if os.path.exists(path):
+            try:
+                os.replace(path, claimed)
+            except OSError:
+                return False
+        else:
+            claimed = os.path.join(d, claims[0])
+        try:
+            rows = []
+            with open(claimed, encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        rows.append(json.loads(line))
+                    except ValueError:
+                        continue
+            return start_inbox_rows_locked(tid, rows, claimed, path)
+        except Exception:
+            raise
+
+
+def run_paused_inbox(tid):
+    """Chủ động chạy hàng chờ đã dừng; gọi từ nút giao diện."""
+    put(tid, "retry_at", None)
+    started = drain_inbox(tid, ignore_paused=True)
+    if not started:
+        raise RuntimeError("quản lý đang bận")
+    with inbox_lock(tid):
+        try:
+            os.remove(os.path.join(mdir(tid), "inbox.paused"))
+        except FileNotFoundError:
+            pass
+    return True
+
+
 def log_line(tid, text):
     with open(os.path.join(TASKS, tid, "log.txt"), "a", encoding="utf-8") as f:
         f.write("%s quan-ly %s\n" % (time.strftime("%H:%M:%S"), text))
@@ -202,7 +747,7 @@ def rules_for(tid):
                 "(nếu nó hết hạn mức, bin/ask tự chuyển sang tài khoản khác cùng công cụ)." % (who, who)) if who else \
                "AI LÀM VIỆC: bạn tự chọn worker phù hợp (xem bin/workers), ưu tiên worker đang rảnh."
     return WEB_RULES.format(task=os.path.join(TASKS, tid), split=SPLIT_RULES.get(split, SPLIT_RULES["auto"]),
-                            assignee=assignee,
+                            assignee=assignee, roles=roles_hint(),
                             size="%s (task nhỏ thì cả quản lý lẫn worker dùng model nhỏ)" % SIZES.get(size, size))
 
 
@@ -239,20 +784,38 @@ def start_or_queue(tid, prompt, reaper=False):
 def check_queue():
     """Gọi định kỳ từ bin/dashboard: task pending vì AI được chỉ định đang bận → chạy khi AI đó rảnh."""
     for tid in tracker.task_ids():
-        qf = os.path.join(mdir(tid), "queued.txt")
-        if not os.path.exists(qf):
-            continue
-        who = get(tid, "assignee")
-        if who and worker_busy(who):
-            continue
-        prompt = read(qf) or ""
-        os.remove(qf)
-        put(tid, "pending", None)
-        append_event(tid, "pentagon_event", "%s đã rảnh → bắt đầu task." % (who or "AI"))
+        d = mdir(tid)
         try:
-            start_turn(tid, prompt, reaper=True)
-        except RuntimeError as e:
-            append_event(tid, "pentagon_event", "Không bắt đầu được: %s" % e)
+            names = os.listdir(d)
+            has_inbox = "inbox.jsonl" in names or any(n.startswith("inbox.claimed.") for n in names)
+            if has_inbox:
+                drain_inbox(tid)
+            pending_path = os.path.join(d, "pending")
+            pending_text = get(tid, "pending")
+            manager_running = tracker.manager_info(os.path.join(TASKS, tid))["running"]
+            # Chỉ pending chờ worker cùng queued.txt được giữ; pending chuẩn bị/phân loại stale hết hạn sau 10 phút.
+            waiting_for_worker = (pending_text.startswith("Đang chờ ")
+                                 and os.path.exists(os.path.join(d, "queued.txt"))) if pending_text else False
+            prep_is_stale = (pending_text and not waiting_for_worker
+                             and time.time() - os.path.getmtime(pending_path) > 600 and not manager_running)
+            if prep_is_stale:
+                put(tid, "pending", None)
+            qf = os.path.join(mdir(tid), "queued.txt")
+            if not os.path.exists(qf):
+                continue
+            who = get(tid, "assignee")
+            if who and worker_busy(who):
+                continue
+            with inbox_lock(tid):
+                if not os.path.exists(qf):
+                    continue
+                prompt = read(qf) or ""
+                append_event(tid, "pentagon_event", "%s đã rảnh → bắt đầu task." % (who or "AI"))
+                start_turn(tid, prompt, reaper=True, _locked=True)
+                os.remove(qf)
+                put(tid, "pending", None)
+        except Exception as e:
+            throttled_event(tid, "queue-error", "Lỗi xử lý hàng chờ: %s" % e)
 
 
 # ---------------------------------------------------------------- phân loại cỡ task
@@ -291,11 +854,14 @@ def classify_size(text):
 
 # ---------------------------------------------------------------- chạy một lượt
 
-def start_turn(tid, message, owner_text=None, reaper=False):
+def start_turn(tid, message, owner_text=None, reaper=False, _locked=False):
     """Bắt đầu một lượt của quản lý ở nền (qua tiến trình _run). Trả về pid. Lỗi thì raise RuntimeError."""
     tdir = os.path.join(TASKS, tid)
     if not os.path.isdir(tdir):
         raise RuntimeError("không có task %s" % tid)
+    if not _locked:
+        with inbox_lock(tid):
+            return start_turn(tid, message, owner_text, reaper, _locked=True)
     info = tracker.manager_info(tdir)
     if info["running"]:
         raise RuntimeError("quản lý đang làm, chờ xong lượt này hoặc bấm Dừng")
@@ -544,6 +1110,7 @@ def run_turn(tid, inp):
         os.remove(os.path.join(d, "pid"))
     except OSError:
         pass
+    drain_inbox(tid)
     return 0
 
 
@@ -619,14 +1186,39 @@ def check_retries():
             continue
         if not due or tracker.manager_info(os.path.join(TASKS, tid))["running"]:
             continue
+        if os.path.exists(os.path.join(mdir(tid), "inbox.paused")):
+            continue
         try:
-            put(tid, "account", claude_accounts()[0]["name"])
-            append_event(tid, "pentagon_event", "Đến giờ hẹn: quản lý tự làm tiếp.")
-            if st.get("state") == "cho":
-                progress(tid, "tiep", "tự làm tiếp sau khi hết hạn mức")
-            start_turn(tid, RETRY_MSG, reaper=True)
-        except RuntimeError as e:
-            append_event(tid, "pentagon_event", "Không tự làm tiếp được: %s" % e)
+            with inbox_lock(tid):
+                if tracker.manager_info(os.path.join(TASKS, tid))["running"]:
+                    continue
+                inbox_path = os.path.join(mdir(tid), "inbox.jsonl")
+                claimed = ""
+                rows = inbox_read(tid)
+                if rows:
+                    claimed = os.path.join(mdir(tid), "inbox.claimed.%d" % os.getpid())
+                    if os.path.exists(inbox_path):
+                        os.replace(inbox_path, claimed)
+                    else:
+                        with open(claimed, "w", encoding="utf-8") as f:
+                            for item in rows:
+                                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+                try:
+                    put(tid, "account", claude_accounts()[0]["name"])
+                    append_event(tid, "pentagon_event", "Đến giờ hẹn: quản lý tự làm tiếp.")
+                    if rows:
+                        start_inbox_rows_locked(tid, rows, claimed, inbox_path, prefix=RETRY_MSG)
+                    else:
+                        if st.get("state") == "cho":
+                            progress(tid, "tiep", "tự làm tiếp sau khi hết hạn mức")
+                        start_turn(tid, RETRY_MSG, reaper=True, _locked=True)
+                        if claimed and os.path.exists(claimed):
+                            os.remove(claimed)
+                except BaseException:
+                    restore_claim(tid, claimed, inbox_path)
+                    raise
+        except Exception as e:
+            throttled_event(tid, "retry-error", "Không tự làm tiếp được: %s" % e)
 
 
 # ---------------------------------------------------------------- tạo task, nhắn, dừng
@@ -641,17 +1233,20 @@ def giao_prompt(request, mode):
     return tpl.replace("$ARGUMENTS", request.strip()) + extra
 
 
-def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee=""):
+def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee="", images=None):
     """Tạo task từ yêu cầu của chủ. Trả về (id task, prompt lượt đầu). Chưa chạy quản lý."""
     request = request.strip()
     if not request:
         raise RuntimeError("yêu cầu đang trống")
+    if assignee and assignee not in worker_names():
+        raise RuntimeError("không có AI tên %s" % assignee)
     title = re.sub(r"\s+", " ", request.splitlines()[0])[:60].strip() or "task"
     r = subprocess.run([os.path.join(ROOT, "bin", "new-task"), title], capture_output=True, text=True)
     tdir = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
     if r.returncode != 0 or not os.path.isdir(tdir):
         raise RuntimeError("không tạo được task: %s" % (r.stderr.strip() or r.stdout.strip()))
     tid = os.path.basename(tdir)
+    request += save_task_images(tid, images)
     bp = os.path.join(tdir, "brief.md")
     brief = read(bp) or ""
     brief = brief.replace("## Yêu cầu gốc (nguyên văn)\n", "## Yêu cầu gốc (nguyên văn)\n\n" + request + "\n", 1)
@@ -659,20 +1254,38 @@ def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee=""):
         f.write(brief)
     put(tid, "split", split if split in SPLIT_RULES else "auto")
     if assignee:
-        if assignee not in worker_names():
-            raise RuntimeError("không có AI tên %s" % assignee)
         put(tid, "assignee", assignee)
     if norm_size(size) in SIZES:
         set_size(tid, size)
     return tid, giao_prompt(request, mode)
 
 
-def launch_new(request, mode="tu-quyet", size="auto", split="auto", background=True, assignee=""):
+def save_task_images(tid, images):
+    """Ghi ảnh đã được validate vào thư mục attachments và trả đoạn dẫn trong prompt."""
+    if not images:
+        return ""
+    folder = os.path.realpath(os.path.join(TASKS, tid, "attachments"))
+    base = os.path.realpath(TASKS)
+    if not folder.startswith(base + os.sep):
+        raise ValueError("Đường dẫn task không hợp lệ")
+    os.makedirs(folder, exist_ok=True)
+    paths = []
+    for name, data in images:
+        path = os.path.join(folder, os.path.basename(name))
+        if not os.path.realpath(path).startswith(base + os.sep):
+            raise ValueError("Đường dẫn ảnh không hợp lệ")
+        with open(path, "xb") as f:
+            f.write(data)
+        paths.append(path)
+    return "\n\nẢnh đính kèm (dùng công cụ Read để xem):\n" + "\n".join("- " + p for p in paths)
+
+
+def launch_new(request, mode="tu-quyet", size="auto", split="auto", background=True, assignee="", images=None):
     """Tạo task và cho quản lý bắt đầu. size=auto: AI phân loại cỡ trước (ở luồng nền nếu background).
     assignee: AI chủ chỉ định; nếu AI đó đang bận, task pending đến khi nó rảnh."""
     if assignee and assignee not in worker_names():
         raise RuntimeError("không có AI tên %s" % assignee)
-    tid, prompt = new_task(request, mode, size, split, assignee)
+    tid, prompt = new_task(request, mode, size, split, assignee, images=images)
     append_event(tid, "pentagon_owner", request.strip())
     extra = (" · giao cho %s" % assignee) if assignee else ""
     if norm_size(size) in SIZES:
@@ -707,20 +1320,165 @@ def resume_prompt(tid, message):
             "final.md (nếu có) và results/ để nắm tình hình, rồi xử lý tin nhắn sau của chủ:\n\n%s") % (tdir, message)
 
 
-def send(tid, message, reaper=False):
+ACK_RE = re.compile(r"^\W*(ok|oke|okay|đồng ý|tiếp tục|tiếp|làm tiếp|làm luôn|tiến hành|được|duyệt|yes|chạy tiếp|go)\b", re.I)
+
+
+def is_ack(message):
+    """Tin nhắn ngắn kiểu "tiếp tục / đồng ý" -> giữ nguyên model đang dùng (không hạ cấp nhầm)."""
+    m = message.strip()
+    return len(m) <= 40 and bool(ACK_RE.match(m))
+
+
+def classify_turn(tid, message):
+    """Cỡ của lượt này, dựa trên tin nhắn mới (kèm tiêu đề task làm ngữ cảnh)."""
+    title = tracker.summary(tid)["title"]
+    text = ("Task đang làm: %s\n\nTin nhắn mới của chủ (đánh giá độ lớn của VIỆC CẦN LÀM trong tin nhắn này):\n%s"
+            % (title, message))
+    return classify_size(text)
+
+
+MODEL_OK = re.compile(r"^[A-Za-z0-9._:@/-]{1,60}$")
+
+
+def model_options():
+    """Các model để chọn trên giao diện: lấy từ config/models.conf và model riêng trong workers.conf."""
+    by_tool = {"claude": [], "codex": [], "gemini": []}
+    mgr = []
+    for r in conf_rows(MODELS):
+        vals = [v for v in r[1:4] if v and v != "-"]
+        if r[0] == "quan-ly":
+            mgr += vals
+        elif r[0] in by_tool:
+            by_tool[r[0]] += vals
+    for r in conf_rows(WORKERS):
+        if r[1] in by_tool and len(r) > 4 and r[4]:
+            by_tool[r[1]].append(r[4])
+    dedup = lambda xs: [x for i, x in enumerate(xs) if x not in xs[:i]]
+    return {"manager": dedup(mgr + by_tool["claude"]), "by_tool": {k: dedup(v) for k, v in by_tool.items()}}
+
+
+def send(tid, message, reaper=False, size="auto", model="", worker="", worker_model=""):
+    """Gửi tin; khi đang dừng/hết hạn mức, tin mới nhập ngay vào lượt tiếp theo."""
     message = message.strip()
+    for v, name in ((model, "model"), (worker_model, "model nhân viên")):
+        if v and not MODEL_OK.match(v):
+            raise RuntimeError("%s không hợp lệ" % name)
+    if worker and worker not in worker_names():
+        raise RuntimeError("không có nhân viên %s" % worker)
     if not message:
         raise RuntimeError("tin nhắn đang trống")
-    if get(tid, "pending"):
-        raise RuntimeError("đang chuẩn bị quản lý, đợi vài giây")
-    prompt = message if session_started(tid) else resume_prompt(tid, message)
-    if not get(tid, "split"):
-        put(tid, "split", "auto")
-    pid = start_turn(tid, prompt, owner_text=message, reaper=reaper)
-    st = kv(os.path.join(TASKS, tid, "status"))
-    if st.get("state") == "cho":  # chủ đã trả lời: chuyển task về "đang làm"
-        progress(tid, "tiep", "chủ đã trả lời")
-    return pid
+    with inbox_lock(tid):
+        busy_now = tracker.manager_info(os.path.join(TASKS, tid))["running"] or bool(get(tid, "pending"))
+        path = os.path.join(mdir(tid), "inbox.jsonl")
+        paused = os.path.exists(os.path.join(mdir(tid), "inbox.paused"))
+        try:
+            has_claims = any(n.startswith("inbox.claimed.") for n in os.listdir(mdir(tid)))
+        except OSError:
+            has_claims = False
+        if has_claims:
+            inbox_read(tid)
+        queued = os.path.exists(path)
+        retrying = bool(get(tid, "retry_at"))
+        if busy_now:
+            count = enqueue_inbox_locked(tid, message, size, model, worker, worker_model)
+            return {"queued": True, "queued_count": count}
+        if paused or queued or retrying:
+            # Dừng/hết hạn mức không nên giữ tin mới vô hạn: nhập chung và khởi chạy ngay.
+            claimed = os.path.join(mdir(tid), "inbox.claimed.%d" % os.getpid())
+            if queued:
+                os.replace(path, claimed)
+            else:
+                with open(claimed, "w", encoding="utf-8") as f:
+                    pass
+            normalized_size = norm_size(size)
+            if normalized_size not in SIZES:
+                normalized_size = "auto"
+            item = {"text": message, "size": normalized_size, "model": model or "", "worker": worker or "",
+                    "worker_model": worker_model or "", "ts": int(time.time())}
+            with open(claimed, "a", encoding="utf-8") as f:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+            rows = []
+            with open(claimed, encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        rows.append(json.loads(line))
+                    except ValueError:
+                        continue
+            try:
+                os.remove(os.path.join(mdir(tid), "inbox.paused"))
+            except OSError:
+                pass
+            put(tid, "retry_at", None)
+            append_event(tid, "pentagon_owner", message)
+            start_inbox_rows_locked(tid, rows, claimed, path)
+            return {"queued": False}
+        # Đặt reservation trước mọi thao tác có thể lỗi; mọi lỗi phải giải phóng nó.
+        put(tid, "pending", "Đang chuẩn bị lượt mới…")
+    try:
+        body = message
+        if worker:
+            body = ("[Chủ chỉ định cho lượt này: giao phần việc trong tin nhắn dưới đây cho nhân viên %s — "
+                    "dùng bin/ask %s%s …]\n\n%s" % (worker, worker, (" -m " + worker_model) if worker_model else "", message))
+        prompt = body if session_started(tid) else resume_prompt(tid, body)
+        if not get(tid, "split"):
+            put(tid, "split", "auto")
+        append_event(tid, "pentagon_owner", message)
+        if worker:
+            append_event(tid, "pentagon_event", "Chủ giao lượt này cho %s%s." % (worker, (", model " + worker_model) if worker_model else ""))
+        st = kv(os.path.join(TASKS, tid, "status"))
+        if st.get("state") == "cho":
+            progress(tid, "tiep", "chủ đã trả lời")
+        before = get(tid, "model")
+
+        def note(who):
+            if get(tid, "model") != before or who == "Chủ":
+                append_event(tid, "pentagon_event", "%s chọn model cho lượt này: cỡ %s → %s."
+                             % (who, SIZES.get(get(tid, "size"), "?"), get(tid, "model") or "mặc định"))
+
+        def start_reserved():
+            try:
+                return start_turn(tid, prompt, reaper=reaper)
+            finally:
+                put(tid, "pending", None)
+
+        def work():
+            try:
+                try:
+                    set_size(tid, classify_turn(tid, message))
+                    note("Quản lý")
+                except Exception:
+                    pass
+                start_turn(tid, prompt, reaper=reaper)
+            except RuntimeError as e:
+                append_event(tid, "pentagon_event", "Không bắt đầu được: %s" % e)
+            finally:
+                put(tid, "pending", None)
+
+        if model:
+            put(tid, "model", model)
+            append_event(tid, "pentagon_event", "Chủ chọn model cho quản lý ở lượt này: %s." % model)
+            return start_reserved()
+        chosen_size = norm_size(size) if size and size != "auto" else "auto"
+        if chosen_size in SIZES:
+            set_size(tid, chosen_size)
+            note("Chủ")
+            return start_reserved()
+        if is_ack(message) or not get(tid, "size"):
+            return start_reserved()
+        put(tid, "pending", "Quản lý đang chọn model cho yêu cầu mới…")
+        if reaper:
+            thread = threading.Thread(target=work, daemon=True)
+            try:
+                thread.start()
+            except BaseException:
+                put(tid, "pending", None)
+                raise
+            return 0
+        work()
+        return 0
+    except BaseException:
+        put(tid, "pending", None)
+        raise
 
 
 def descendants(pid):
@@ -759,8 +1517,16 @@ def stop(tid):
     put(tid, "retry_at", None)
     if not info["running"]:
         raise RuntimeError("quản lý không chạy")
+    with inbox_lock(tid):
+        put(tid, "inbox.paused", "1")
     kill_tree(info["pid"])
     put(tid, "pid", None)
+    with inbox_lock(tid):
+        if not inbox_read(tid):
+            try:
+                os.remove(os.path.join(mdir(tid), "inbox.paused"))
+            except OSError:
+                pass
     append_event(tid, "pentagon_event", "Chủ đã dừng quản lý giữa chừng.")
 
 
@@ -783,6 +1549,7 @@ def cancel_task(tid):
         stop(tid)
     for r in tracker.running_workers(os.path.join(TASKS, tid)):
         kill_tree(int(r["pid"]))
+    clear_inbox(tid)
     progress(tid, "loi", "chủ huỷ task")
 
 
@@ -1005,9 +1772,18 @@ def cmd_manager(argv):
                   % (tid, SIZES.get(get(tid, "size"), "?"), get(tid, "model") or "mặc định", tid))
         elif argv[0] == "send" and len(argv) >= 2:
             tid = resolve_or_die(argv[1])
-            msg = " ".join(argv[2:]) if len(argv) > 2 else sys.stdin.read()
-            pid = send(tid, msg)
-            print("Đã gửi cho quản lý của %s (pid %d)" % (tid, pid))
+            rest, size = argv[2:], "auto"
+            if len(rest) >= 2 and rest[0] == "--co":
+                size, rest = rest[1], rest[2:]
+            msg = " ".join(rest) if rest else sys.stdin.read()
+            result = send(tid, msg, size=size)
+            if isinstance(result, dict):
+                if result.get("queued"):
+                    print("Đã xếp hàng (%d tin chờ)" % result.get("queued_count", 0))
+                else:
+                    print("Đã gửi")
+            else:
+                print("Đã gửi cho quản lý của %s (pid %d)" % (tid, result))
         elif argv[0] == "stop" and len(argv) >= 2:
             tid = resolve_or_die(argv[1])
             stop(tid)

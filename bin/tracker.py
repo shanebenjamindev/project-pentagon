@@ -115,13 +115,21 @@ def list_results(tdir):
         p = os.path.join(rdir, n)
         if not os.path.isfile(p):
             continue
-        head = (read(p) or "")[:400]
+        head = (read(p) or "")[:1500]
         m = HDR_RE.search(head)
         item = {"file": "results/" + n, "name": n, "size": os.path.getsize(p),
                 "mtime": int(os.path.getmtime(p))}
         if m:
             item.update(worker=m.group(1), tool=m.group(2), at=m.group(3).strip(),
                         secs=int(m.group(4)), perm=m.group(5).strip())
+            hdr = head[:head.find("-->")] if "-->" in head else head
+            for key, field in (("thư mục", "wd"), ("model", "model"), ("vai trò", "role"), ("phiên", "session"),
+                               ("hỏi tiếp", "followup_of")):
+                mm = re.search(r"\| %s: ([^|]*?) *(?=\||$)" % key, hdr)
+                item[field] = mm.group(1).strip() if mm else ""
+            if item.get("followup_of"):  # câu hỏi tiếp: lấy lại câu hỏi để hiện thành chuỗi hỏi–đáp
+                q = re.search(r"## Câu hỏi tiếp\n(.*?)\n\n\(Chỉ trả lời", read(p) or "", re.S)
+                item["question"] = q.group(1).strip() if q else ""
         out.append(item)
     return out
 
