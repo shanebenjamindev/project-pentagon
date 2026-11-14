@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Cài đặt Claude Code riêng của từng máy
+.claude/settings.local.json
+
+# Rác khi chạy code trong các task
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+node_modules/
+
+# Muốn giữ lịch sử task riêng trên từng máy (không đồng bộ) thì bỏ dấu # dòng dưới
+# tasks/

@@ -1,0 +1,85 @@
+#!/bin/bash
+# Dựng Pentagon trên máy này: kiểm tra công cụ, cài CLI còn thiếu, đăng nhập worker.
+#   bin/setup              kiểm tra và in việc còn thiếu (không cài, không đăng nhập)
+#   bin/setup --install    cài các CLI còn thiếu (claude, codex, gemini)
+#   bin/setup --login      đăng nhập các worker chưa đăng nhập (mở trình duyệt)
+#   bin/setup --all        cả hai
+source "$(dirname "$0")/lib.sh"
+
+INSTALL=0; LOGIN=0
+for a in "$@"; do
+  case "$a" in
+    --install) INSTALL=1 ;;
+    --login) LOGIN=1 ;;
+    --all) INSTALL=1; LOGIN=1 ;;
+    -h|--help) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 0 ;;
+    *) die "tuỳ chọn không hợp lệ: $a (xem bin/setup --help)" ;;
+  esac
+done
+
+TODO=0
+ok()   { say "  [ok]  $*"; }
+miss() { say "  [--]  $*"; TODO=1; }
+
+install_cmd() {
+  case "$1" in
+    claude) echo "curl -fsSL https://claude.ai/install.sh | bash" ;;
+    codex)  echo "npm install -g @openai/codex" ;;
+    gemini) echo "npm install -g @google/gemini-cli" ;;
+  esac
+}
+
+say "1. Công cụ hệ thống"
+case "$(uname -s)" in
+  Darwin|Linux) ok "hệ điều hành: $(uname -s)" ;;
+  *) miss "hệ điều hành $(uname -s) chưa hỗ trợ — trên Windows hãy chạy trong WSL" ;;
+esac
+for c in perl awk sed iconv; do
+  if command -v "$c" >/dev/null 2>&1; then ok "$c"; else miss "thiếu $c"; fi
+done
+if command -v npm >/dev/null 2>&1; then ok "node/npm $(node --version 2>/dev/null)"
+else miss "thiếu node/npm (cần để cài codex, gemini) — https://nodejs.org hoặc: brew install node"
+fi
+
+say "2. Thư mục"
+chmod +x "$ORCH_ROOT"/bin/* && ok "quyền chạy cho bin/*"
+mkdir -p "$ORCH_DATA/workspace" "$ORCH_ROOT/tasks" && ok "$ORCH_DATA/workspace"
+
+say "3. CLI của các worker (theo config/workers.conf)"
+TOOLS="$(conf_rows | cut -d'|' -f2 | sort -u)"
+[ -n "$TOOLS" ] || miss "config/workers.conf chưa có worker nào"
+for t in $TOOLS; do
+  if command -v "$t" >/dev/null 2>&1; then ok "$t đã cài"; continue; fi
+  cmd="$(install_cmd "$t")"
+  if [ "$INSTALL" = 1 ]; then
+    say "  ...   cài $t: $cmd"
+    if bash -c "$cmd" && hash -r && command -v "$t" >/dev/null 2>&1; then ok "$t đã cài"
+    else miss "cài $t chưa xong — mở terminal mới rồi chạy lại bin/setup (có thể do PATH)"
+    fi
+  else
+    miss "$t chưa cài — chạy: $cmd   (hoặc bin/setup --install)"
+  fi
+done
+
+say "4. Đăng nhập worker"
+while IFS='|' read -r name tool home_raw _; do
+  [ -n "$name" ] || continue
+  home="$(resolve_home "$home_raw")"
+  command -v "$tool" >/dev/null 2>&1 || { miss "$name: chưa cài $tool"; continue; }
+  if is_logged_in "$tool" "$home"; then ok "$name"; continue; fi
+  if [ "$LOGIN" = 1 ]; then
+    "$ORCH_ROOT/bin/login" "$name" </dev/tty
+    is_logged_in "$tool" "$home" || miss "$name vẫn chưa đăng nhập"
+  else
+    miss "$name chưa đăng nhập — chạy: bin/login $name   (hoặc bin/setup --login)"
+  fi
+done <<<"$(conf_rows)"
+
+say ""
+"$ORCH_ROOT/bin/workers"
+say ""
+if [ "$TODO" = 1 ]; then
+  say "Còn việc cần làm ở trên (dòng [--]). Xong thì chạy lại bin/setup để kiểm tra."
+else
+  say "Sẵn sàng. Mở AI quản lý bằng: claude   rồi gõ /giao <mô tả task>"
+fi

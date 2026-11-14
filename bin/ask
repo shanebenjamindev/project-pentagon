@@ -1,0 +1,136 @@
+#!/bin/bash
+# Giao một việc cho một AI worker và in kết quả ra stdout.
+set -o pipefail
+source "$(dirname "$0")/lib.sh"
+
+usage() {
+  cat >&2 <<'EOF'
+Cách dùng: bin/ask <worker|claude|codex|gemini> [tuỳ chọn] "nội dung việc"
+           bin/ask <...> [tuỳ chọn] -        (đọc nội dung việc từ stdin)
+
+  <worker>      tên trong config/workers.conf, vd claude-2 (đúng tài khoản đó)
+  claude|codex|gemini
+                xoay vòng các tài khoản của công cụ đó; tài khoản lỗi/hết hạn mức thì chuyển tài khoản kế tiếp
+  -w            cho phép sửa file trong thư mục làm việc (mặc định: chỉ đọc)
+  -C <dir>      thư mục làm việc (mặc định: ~/.pentagon/workspace)
+  -t <dir>      thư mục task: lưu kết quả vào <dir>/results/
+  -m <model>    chọn model cụ thể
+  --timeout <s> giới hạn thời gian mỗi lần thử (mặc định 1200 giây)
+EOF
+}
+
+TARGET="$1"; shift
+case "$TARGET" in ""|-h|--help) usage; exit 1 ;; esac
+WRITE=0; WD=""; TASK=""; MODEL_ARG=""; TIMEOUT="${ORCH_TIMEOUT:-1200}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -w) WRITE=1 ;;
+    -C) WD="$2"; shift ;;
+    -t) TASK="$2"; shift ;;
+    -m) MODEL_ARG="$2"; shift ;;
+    --timeout) TIMEOUT="$2"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    *) break ;;
+  esac
+  shift
+done
+PROMPT="$*"
+if [ -z "$PROMPT" ] || [ "$PROMPT" = "-" ]; then PROMPT="$(cat)"; fi
+[ -n "$PROMPT" ] || die "chưa có nội dung việc"
+
+if [ -z "$WD" ]; then WD="$ORCH_DATA/workspace"; mkdir -p "$WD"; fi
+WD="$(cd "$WD" 2>/dev/null && pwd)" || die "không vào được thư mục $WD"
+if [ -n "$TASK" ]; then
+  mkdir -p "$TASK/results"
+  TASK="$(cd "$TASK" && pwd)"
+fi
+
+# Chọn danh sách tài khoản sẽ thử
+ROWS="$(conf_rows | awk -F'|' -v t="$TARGET" '$1 == t')"
+[ -n "$ROWS" ] || ROWS="$(conf_rows | awk -F'|' -v t="$TARGET" '$2 == t')"
+[ -n "$ROWS" ] || die "không có worker hay công cụ tên '$TARGET' trong config/workers.conf"
+
+if [ "$WRITE" = 1 ]; then
+  PERM="Bạn ĐƯỢC PHÉP tạo/sửa file, nhưng chỉ trong thư mục làm việc: $WD"
+else
+  PERM="Bạn CHỈ ĐƯỢC ĐỌC, không tạo hay sửa file. Đưa toàn bộ kết quả vào câu trả lời."
+fi
+FULL="[Bạn là một AI worker trong hệ thống nhiều AI. Một AI quản lý giao cho bạn đúng một phần việc dưới đây.
+- Chỉ làm phần việc này và không hỏi lại. Nếu thiếu thông tin, tự giả định hợp lý và ghi rõ giả định.
+- Trả lời bằng tiếng Việt (trừ code). Kết thúc bằng mục \"## Kết quả\" tóm tắt ngắn gọn.
+- $PERM]
+
+$PROMPT"
+
+# Câu trả lời ngắn có chữ báo hết hạn mức thì coi như thất bại để chuyển tài khoản
+looks_limited() {
+  [ "$(wc -c <"$1")" -lt 1500 ] &&
+    grep -Eiq 'usage limit|rate limit|limit reached|hit your limit|quota|exhausted|too many requests|429' "$1"
+}
+
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+OUT="$TMP/out"; ERR="$TMP/err"
+
+run_one() {
+  local tool="$1" home="$2" MODEL="${MODEL_ARG:-$3}" args
+  : >"$OUT"; : >"$ERR"
+  case "$tool" in
+    claude)
+      args=(claude -p --output-format text)
+      [ "$WRITE" = 1 ] && args+=(--permission-mode acceptEdits)
+      [ -n "$MODEL" ] && args+=(--model "$MODEL")
+      (cd "$WD" && perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
+        env $( [ -n "$home" ] && echo "CLAUDE_CONFIG_DIR=$home" ) "${args[@]}" "$FULL") >"$OUT" 2>"$ERR" ;;
+    codex)
+      args=(codex exec --skip-git-repo-check --color never -C "$WD" -o "$OUT")
+      if [ "$WRITE" = 1 ]; then args+=(-s workspace-write); else args+=(-s read-only); fi
+      [ -n "$MODEL" ] && args+=(-m "$MODEL")
+      [ -n "$home" ] && mkdir -p "$home"
+      perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
+        env $( [ -n "$home" ] && echo "CODEX_HOME=$home" ) "${args[@]}" "$FULL" </dev/null >"$ERR" 2>&1 ;;
+    gemini)
+      args=(gemini -o text)
+      if [ "$WRITE" = 1 ]; then args+=(--approval-mode auto_edit); else args+=(--approval-mode plan); fi
+      [ -n "$MODEL" ] && args+=(-m "$MODEL")
+      [ -n "$home" ] && mkdir -p "$home"
+      # GOOGLE_GENAI_USE_GCA: dùng đăng nhập Google (gói thuê bao), không cần API key
+      (cd "$WD" && perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
+        env GOOGLE_GENAI_USE_GCA=true $( [ -n "$home" ] && echo "GEMINI_CLI_HOME=$home" ) \
+        "${args[@]}" --skip-trust -p "$FULL" </dev/null) >"$OUT" 2>"$ERR" ;;
+  esac
+}
+
+while IFS='|' read -r name tool home_raw desc conf_model; do
+  home="$(resolve_home "$home_raw")"
+  case "$home" in *" "*) say "[ask] bỏ qua $name: thư mục tài khoản không được có dấu cách"; continue ;; esac
+  say "[ask] $name ($tool) đang làm..."
+  start=$(date +%s)
+  run_one "$tool" "$home" "$conf_model"; rc=$?
+  secs=$(( $(date +%s) - start ))
+
+  if [ "$rc" -eq 0 ] && [ -s "$OUT" ] && ! looks_limited "$OUT"; then
+    say "[ask] $name xong (${secs}s)"
+    if [ -n "$TASK" ]; then
+      file="$TASK/results/$name-$(date +%H%M%S).md"
+      {
+        echo "<!-- worker: $name ($tool) | $(date '+%Y-%m-%d %H:%M:%S') | ${secs}s | quyền: $([ "$WRITE" = 1 ] && echo sửa || echo đọc) | thư mục: $WD -->"
+        echo "## Việc được giao"; echo; echo "$PROMPT"; echo; echo "## Trả lời"; echo; cat "$OUT"
+      } >"$file"
+      echo "$(date '+%H:%M:%S') $name ok ${secs}s -> results/$(basename "$file")" >>"$TASK/log.txt"
+      say "[ask] đã lưu: $file"
+    fi
+    cat "$OUT"; [ -n "$(tail -c 1 "$OUT")" ] && echo
+    exit 0
+  fi
+
+  if [ "$rc" -eq 142 ]; then reason="quá ${TIMEOUT}s"
+  elif looks_limited "$OUT" || grep -Eiq 'usage limit|rate limit|quota|exhausted|429' "$ERR"; then reason="hết hạn mức"
+  elif ! is_logged_in "$tool" "$home"; then reason="chưa đăng nhập (chạy: bin/login $name)"
+  else reason="lỗi mã $rc: $(tail -c 300 "$ERR" | tr '\n' ' ')"
+  fi
+  say "[ask] $name thất bại: $reason -> thử tài khoản kế tiếp"
+  [ -n "$TASK" ] && echo "$(date '+%H:%M:%S') $name FAIL ${secs}s: $reason" >>"$TASK/log.txt"
+done <<<"$ROWS"
+
+die "mọi tài khoản cho '$TARGET' đều thất bại"

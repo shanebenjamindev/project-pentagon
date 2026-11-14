@@ -1,0 +1,23 @@
+#!/bin/bash
+# Đăng nhập một tài khoản cho worker: bin/login <tên-worker>
+source "$(dirname "$0")/lib.sh"
+
+name="$1"
+[ -n "$name" ] || die "cách dùng: bin/login <tên-worker>   (xem tên bằng bin/workers)"
+row="$(conf_rows | awk -F'|' -v n="$name" '$1 == n')"
+[ -n "$row" ] || die "không có worker '$name' trong config/workers.conf"
+IFS='|' read -r _ tool home_raw _ <<<"$row"
+home="$(resolve_home "$home_raw")"
+
+say "Đăng nhập $name ($tool) — thư mục tài khoản: ${home:-mặc định của CLI}"
+case "$tool" in
+  claude)
+    with_account claude "$home" claude auth login ;;
+  codex)
+    with_account codex "$home" codex login ;;
+  gemini)
+    say "Gemini mở chế độ tương tác: chọn \"Sign in with Google\", đăng nhập xong gõ /quit."
+    with_account gemini "$home" gemini ;;
+esac
+
+if is_logged_in "$tool" "$home"; then say "OK: $name đã đăng nhập."; else say "Chưa thấy đăng nhập cho $name — thử lại."; fi

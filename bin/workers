@@ -1,0 +1,13 @@
+#!/bin/bash
+# Liệt kê các worker và trạng thái đăng nhập của từng tài khoản.
+source "$(dirname "$0")/lib.sh"
+
+printf '%-14s %-8s %-16s %-12s %s\n' "WORKER" "CONG CU" "TRANG THAI" "MODEL" "THE MANH"
+conf_rows | while IFS='|' read -r name tool home_raw desc model; do
+  home="$(resolve_home "$home_raw")"
+  if ! command -v "$tool" >/dev/null 2>&1; then st="chua cai CLI"
+  elif is_logged_in "$tool" "$home"; then st="da dang nhap"
+  else st="CHUA dang nhap"
+  fi
+  printf '%-14s %-8s %-16s %-12s %s\n' "$name" "$tool" "$st" "${model:-mac dinh}" "$desc"
+done

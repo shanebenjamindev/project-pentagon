@@ -1,0 +1,32 @@
+#!/bin/bash
+# Tạo thư mục cho một task mới và in đường dẫn: bin/new-task "tiêu đề"
+source "$(dirname "$0")/lib.sh"
+
+title="$*"
+[ -n "$title" ] || die "cách dùng: bin/new-task \"tiêu đề ngắn\""
+slug="$(printf '%s' "$title" | sed 's/[đĐ]/d/g' | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null \
+  | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//; s/-*$//' | cut -c1-40)"
+dir="$ORCH_ROOT/tasks/$(date +%Y%m%d-%H%M)-${slug:-task}"
+mkdir -p "$dir/results"
+
+cat >"$dir/brief.md" <<EOF
+# $title
+
+## Yêu cầu gốc (nguyên văn)
+
+## Yêu cầu đã tối ưu
+- Mục tiêu:
+- Đầu ra mong muốn:
+- Ràng buộc:
+- Tiêu chí xong:
+- Giả định:
+EOF
+
+cat >"$dir/plan.md" <<'EOF'
+# Kế hoạch
+
+| # | Việc con | Worker | Song song? | Trạng thái |
+|---|----------|--------|------------|------------|
+EOF
+
+echo "$dir"
