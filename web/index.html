@@ -36,7 +36,8 @@ header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 20px
 .nav a{color:var(--muted);padding:4px 12px;border-radius:7px;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap}
 .nav a.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .sub{color:var(--muted);font-size:12.5px}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto;text-decoration:none;color:inherit}
+a.chips:hover .chip{border-color:var(--muted)}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;background:var(--soft)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none;display:inline-block}
 .dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.run{background:var(--run);animation:pulse 1.2s infinite}.dot.mgr{background:var(--mgr);animation:pulse 1.2s infinite}
@@ -67,7 +68,7 @@ header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 20px
 .tbl{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .tr{display:grid;grid-template-columns:minmax(220px,2.2fr) minmax(170px,1.3fr) minmax(120px,1fr) 110px 200px;gap:12px;align-items:center;padding:11px 16px;border-top:1px solid var(--line)}
 .tr.hd{border-top:0;background:var(--soft);font-size:12px;color:var(--muted);font-weight:600;padding:8px 16px}
-.tr.row{cursor:pointer}.tr.row:hover{background:var(--soft)}
+.trow{cursor:pointer}.tr.trow:hover{background:var(--soft)}
 .tr .t{font-weight:600}
 .tr .acts{display:flex;gap:6px;justify-content:flex-end}
 .tr.trash{grid-template-columns:minmax(220px,2fr) 160px 160px 230px}
@@ -191,6 +192,28 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .hire{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end}
 .hire label{font-size:12.5px;font-weight:600;display:flex;flex-direction:column;gap:4px}
 .hire input,.hire select{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:6px 8px}
+/* nhiều kiểu xem */
+.viewseg button{display:inline-flex;align-items:center;gap:5px}
+.pagehead{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.pagehead .grow{flex:1;min-width:260px}
+.tcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.tcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0}
+.tcard:hover{border-color:var(--muted)}
+.tcard .t{font-weight:600}
+.tcard .acts{display:flex;gap:6px;margin-top:auto;padding-top:6px;border-top:1px dashed var(--line)}
+.kanban{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:12px;overflow-x:auto;padding-bottom:6px}
+.kcol{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.kcol>h5{margin:0 2px 2px;font-size:12.5px;display:flex;gap:6px;align-items:center}
+.kcol>h5 .sub{margin-left:auto}
+.kcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;font-size:12.5px;display:flex;flex-direction:column;gap:4px}
+.kcard:hover{border-color:var(--accent)}
+.kcard b{font-size:13px}
+.tr.emprow{grid-template-columns:minmax(200px,1.6fr) 110px 70px minmax(130px,1fr) minmax(150px,1.1fr) 90px minmax(230px,1.6fr)}
+.tr.deskrow{grid-template-columns:minmax(170px,1.2fr) 110px minmax(130px,1fr) minmax(200px,1.8fr) minmax(150px,1.1fr) 120px}
+.tr .loginrow{grid-column:1/-1}
+.mini{display:flex;align-items:center;gap:6px;font-size:12px}
+.mini .trk{flex:1;height:6px;border-radius:4px;background:var(--line);overflow:hidden;min-width:50px}
+.mini .trk i{display:block;height:100%;background:var(--ok)}.mini .trk i.mid{background:var(--warn)}.mini .trk i.hi{background:var(--bad)}
 /* hộp sửa task */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:10}
 .modal.on{display:flex}
@@ -203,7 +226,8 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .toast.on{opacity:.95}
 @media (max-width:1250px){.grid{grid-template-columns:1fr}}
 @media (max-width:980px){
-  .tr,.tr.trash{grid-template-columns:1fr;gap:6px}
+  .tr,.tr.trash,.tr.emprow,.tr.deskrow{grid-template-columns:1fr;gap:6px}
+  .kanban{grid-template-columns:repeat(5,minmax(240px,80vw))}
   .tr.hd{display:none}
   .tr .acts{justify-content:flex-start}
 }
@@ -221,10 +245,11 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
     <a href="/dieu-hanh" data-link data-nav="dh">Phòng Điều hành</a>
     <a href="/van-phong" data-link data-nav="vp">Văn phòng làm việc</a>
     <a href="/nhan-vien" data-link data-nav="nv">Nhân viên</a>
+    <a href="/cai-dat" data-link data-nav="cd" title="Cài đặt">⚙ Cài đặt</a>
   </nav>
   <a class="btn pri" href="/giao" data-link>+ Giao task</a>
   <span class="sub" id="summary">đang tải…</span>
-  <div class="chips" id="workers"></div>
+  <a class="chips" id="workers" href="/nhan-vien" data-link title="Xem nhân viên"></a>
   <button class="btn sm" id="logoutBtn" hidden>Đăng xuất</button>
 </header>
 
@@ -238,6 +263,7 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
     <div class="seg" id="filter">
       <button data-f="active" class="on">Đang làm</button><button data-f="wait">Chờ bạn</button><button data-f="done">Xong</button><button data-f="all">Tất cả</button><button data-f="trash">Thùng rác</button>
     </div>
+    <div class="seg viewseg" data-page="dh" style="margin-left:auto" title="Kiểu xem"><button data-v="bang">☰ Bảng</button><button data-v="the">▦ Thẻ</button><button data-v="kanban">▥ Kanban</button></div>
   </div>
   <div class="tbl" id="tbl"></div>
 </section>
@@ -249,13 +275,17 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 </section>
 
 <!-- Trang 3: Văn phòng làm việc -->
-<section class="page" data-page="vp" hidden><div id="office"></div></section>
+<section class="page" data-page="vp" hidden>
+  <div class="pagehead"><div class="grow"><h2 style="margin:0 0 2px;font-size:21px">Văn phòng làm việc</h2><div class="sub" id="officeSub"></div></div>
+    <div class="seg viewseg" data-page="vp" title="Kiểu xem"><button data-v="ban">▦ Bàn làm việc</button><button data-v="ds">☰ Danh sách</button></div></div>
+  <div id="office"></div></section>
 
 <!-- Trang 5: Quản lý nhân viên (tài khoản AI), xếp theo phòng ban -->
 <section class="page" data-page="nv" hidden>
   <div class="row"><div class="grow"><h2 style="margin:0 0 2px;font-size:21px">Quản lý nhân viên</h2>
     <div class="sub">Mỗi tài khoản AI là một nhân viên, xếp theo phòng ban. Thứ tự trong phòng = thứ tự ưu tiên khi giao việc;
     nhân viên hết hạn mức thì việc tự chuyển sang người kế tiếp cùng phòng.</div></div>
+    <div class="seg viewseg" data-page="nv" title="Kiểu xem"><button data-v="the">▦ Thẻ theo phòng ban</button><button data-v="bang">☰ Bảng</button></div>
     <button class="btn pri" id="hireBtn">+ Tuyển nhân viên</button></div>
   <div class="card" id="hireCard" hidden style="margin-top:14px">
     <h3>Tuyển nhân viên mới <span class="sub">thêm một tài khoản AI của bạn (hoặc một ghế trong gói Team)</span></h3>
@@ -269,6 +299,22 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
       <span class="grow"></span><button class="btn" id="hCancel">Huỷ</button><button class="btn pri" id="hGo">Tuyển</button></div>
   </div>
   <div id="nvList"></div>
+</section>
+
+<!-- Trang 6: Cài đặt -->
+<section class="page" data-page="cd" hidden>
+  <h2 style="margin:0 0 2px;font-size:21px">Cài đặt</h2>
+  <div class="sub">Trang web chỉ mở được trên chính máy này (127.0.0.1), máy khác không vào được.</div>
+  <div class="card" style="margin-top:16px;max-width:620px">
+    <h3>Mật khẩu trang web <span class="sub" id="authState"></span></h3>
+    <div class="sub" id="authHelp" style="margin-bottom:12px"></div>
+    <div class="hire" style="grid-template-columns:1fr">
+      <label id="curWrap">Mật khẩu hiện tại<input type="password" id="pwCur" autocomplete="current-password"></label>
+      <label>Mật khẩu mới (ít nhất 8 ký tự)<input type="password" id="pwNew" autocomplete="new-password"></label>
+      <label>Nhập lại mật khẩu mới<input type="password" id="pwNew2" autocomplete="new-password"></label>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn danger" id="pwOff">Tắt đăng nhập</button><span class="grow"></span><button class="btn pri" id="pwSave"></button></div>
+  </div>
 </section>
 
 <!-- Trang 4: giao task mới -->
@@ -327,6 +373,11 @@ function ago(t){if(!t)return"?";const d=now()-t;if(d<60)return"vừa xong";if(d<
 function hhmm(t){return new Date(t*1000).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}
 function toast(m){if(redirecting)return;const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),3200)}
 const taskUrl=id=>"/task/"+encodeURIComponent(id);
+let VIEWS={dh:"bang",nv:"the",vp:"ban"};
+try{Object.assign(VIEWS,JSON.parse(localStorage.getItem("pentagon.views")||"{}"))}catch(e){}
+function setView(page,v){VIEWS[page]=v;try{localStorage.setItem("pentagon.views",JSON.stringify(VIEWS))}catch(e){}
+  syncViewSegs();parts={_id:parts._id};tick()}
+function syncViewSegs(){document.querySelectorAll(".viewseg").forEach(g=>g.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===VIEWS[g.dataset.page])))}
 
 // Markdown tối giản: tiêu đề, bảng, danh sách, code, trích dẫn, in đậm
 function inline(s){return esc(s).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>")}
@@ -375,6 +426,7 @@ function parseRoute(){
   if(p.startsWith("/task/"))return{page:"task",id:decodeURIComponent(p.slice(6))};
   if(p==="/van-phong")return{page:"vp"};
   if(p==="/nhan-vien"||p==="/tai-khoan")return{page:"nv"};
+  if(p==="/cai-dat")return{page:"cd"};
   if(p==="/giao")return{page:"giao"};
   if(p==="/thung-rac"){filter="trash";return{page:"dh"}}
   return{page:"dh"};
@@ -386,6 +438,7 @@ function route(){
   document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("on",a.dataset.nav===(R.page==="task"||R.page==="giao"?"dh":R.page)));
   if(R.page==="nv")parts.nvList=null;
   document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x.dataset.f===filter));
+  syncViewSegs();
   if(R.page!=="task"||prev.id!==R.id){parts={};openSet.clear();cur=null;$("#detail").innerHTML=""}
   if(R.page==="giao")setTimeout(()=>$("#newText").focus(),0);
   window.scrollTo(0,0);tick();
@@ -396,6 +449,7 @@ document.addEventListener("click",e=>{
   e.preventDefault();go(a.getAttribute("href"));
 });
 window.addEventListener("popstate",route);
+document.addEventListener("click",e=>{const b=e.target.closest(".viewseg button");if(b)setView(b.closest(".viewseg").dataset.page,b.dataset.v)});
 
 function bar(t){let h='<div class="bar">';for(let k=1;k<=6;k++){const d=t.state==="xong"||k<t.step,c=!d&&k===t.step;h+=`<i class="${d?"d":""} ${c?"c "+t.state:""}"></i>`}return h+"</div>"}
 function badge(t){const txt=t.state==="dang-lam"?`Bước ${t.step}/6 · ${t.step_label}`:t.state==="xong"?"Hoàn thành":`${t.state_label} · bước ${t.step}`;return `<span class="badge ${t.state}">${esc(txt)}</span>`}
@@ -406,13 +460,12 @@ const isWait=t=>t.state==="cho"&&!t.manager.running;
 function renderHeader(d){
   const busy=new Set(d.busy);
   busySet=busy;workerList=d.workers;if(R.page==="giao")renderPicker();
-  setPart("workers",d.workers.map(w=>{
-    const cls=w.login!=="ok"?"bad":busy.has(w.name)?"busy":"ok";
-    const tip=busy.has(w.name)?"đang làm việc":w.login==="ok"?"rảnh, đã đăng nhập":w.login==="logout"?"chưa đăng nhập":"chưa cài CLI";
-    return `<span class="chip" title="${esc(tip+(w.model?" · model "+w.model:"")+" · "+w.desc)}"><span class="dot ${cls}"></span>${esc(w.name)}</span>`}).join("")||'<span class="sub">đang kiểm tra worker…</span>');
+  const cnt={ok:0,busy:0,bad:0};d.workers.forEach(w=>cnt[w.login!=="ok"?"bad":busy.has(w.name)?"busy":"ok"]++);
+  setPart("workers",d.workers.length?`<span class="chip"><i class="dot ok"></i>${cnt.ok} rảnh</span><span class="chip"><i class="dot busy"></i>${cnt.busy} bận</span>${cnt.bad?`<span class="chip"><i class="dot bad"></i>${cnt.bad} chưa sẵn sàng</span>`:""}`
+    :'<span class="sub">đang kiểm tra nhân viên…</span>');
   const nact=d.tasks.filter(isActive).length, nrun=d.tasks.reduce((a,t)=>a+t.running.length,0), nwait=d.tasks.filter(isWait).length;
   $("#summary").textContent=`${d.tasks.length} task · ${nact} đang làm · ${nrun} worker đang chạy`+(nwait?` · ${nwait} chờ bạn`:"");
-  document.title=(nwait?`(${nwait}) `:"")+({dh:"Phòng Điều hành",vp:"Văn phòng làm việc",giao:"Giao task",task:"Task",nv:"Quản lý nhân viên"}[R.page])+" · Pentagon";
+  document.title=(nwait?`(${nwait}) `:"")+({dh:"Phòng Điều hành",vp:"Văn phòng làm việc",giao:"Giao task",task:"Task",nv:"Quản lý nhân viên",cd:"Cài đặt"}[R.page])+" · Pentagon";
 }
 
 // ---------------- Trang 1: Phòng Điều hành
@@ -428,17 +481,42 @@ function renderDH(d){
   const qq=q.trim().toLowerCase();
   let ts=d.tasks.filter(t=>filter==="all"||(filter==="active"&&isActive(t))||(filter==="wait"&&isWait(t))||(filter==="done"&&!isActive(t)));
   if(qq)ts=ts.filter(t=>(t.title+" "+t.id).toLowerCase().includes(qq));
+  const empty=`<div class="empty">${qq?"Không có task nào khớp.":filter==="active"?"Không có task nào đang làm. Bấm “+ Giao task” để bắt đầu.":filter==="wait"?"Không có task nào chờ bạn.":"Chưa có task."}</div>`;
+  const v=VIEWS.dh;
+  $("#tbl").className=v==="bang"?"tbl":"";
+  if(v==="kanban"){
+    // Kanban xem toàn bộ quy trình: lọc "Đang làm" thì vẫn hiện cả cột Xong
+    let src=filter==="active"?d.tasks:ts;if(qq)src=src.filter(t=>(t.title+" "+t.id).toLowerCase().includes(qq));
+    const COLS=[["wait","Chờ bạn / pending","busy"],["prep","Tiếp nhận → Kế hoạch (1–3)",""],["work","Giao việc (4)","run"],["check","Kiểm tra → Tổng hợp (5–6)","mgr"],["done","Xong / dừng","ok"]];
+    const col=t=>t.state==="xong"||t.state==="loi"?"done":isWait(t)||t.manager.queued||t.manager.retry_at>1?"wait":t.step<=3?"prep":t.step===4?"work":"check";
+    setPart("tbl",`<div class="kanban">${COLS.map(([k,name,dot])=>{const list=src.filter(t=>col(t)===k);
+      return `<div class="kcol"><h5><i class="dot ${dot}"></i>${name}<span class="sub">${list.length}</span></h5>${list.map(t=>`<div class="kcard trow" data-id="${esc(t.id)}">
+        <b>${esc(t.title)}</b>${bar(t)}<div class="meta">${badge(t)}${mgrState(t)}</div>
+        <div class="meta">${t.plan_total?`<span>${t.plan_done}/${t.plan_total} việc con</span>`:""}<span data-ago="${t.updated}">${ago(t.updated)}</span></div></div>`).join("")||'<span class="sub" style="padding:4px">—</span>'}</div>`}).join("")}</div>`);
+    return;
+  }
+  if(v==="the"){
+    setPart("tbl",ts.length?`<div class="tcards">${ts.map(t=>`<div class="tcard trow" data-id="${esc(t.id)}">
+      <div class="t">${esc(t.title)}</div>${bar(t)}<div class="meta">${badge(t)}${t.manager.size?`<span>cỡ ${SIZE_TXT[t.manager.size]||esc(t.manager.size)}</span>`:""}${t.manager.assignee?`<span>→ ${esc(t.manager.assignee)}</span>`:""}</div>
+      <div class="meta">${mgrState(t)}${t.running.length?`<span style="color:var(--run)">▶ ${t.running.length} worker</span>`:""}</div>
+      <div class="meta">${t.plan_total?`<span>${t.plan_done}/${t.plan_total} việc con</span>`:""}<span>${t.results_count} kết quả</span>${t.fails?`<span style="color:var(--bad)">${t.fails} lỗi</span>`:""}<span data-ago="${t.updated}">${ago(t.updated)}</span></div>
+      <div class="acts"><a class="btn sm" href="${taskUrl(t.id)}" data-link>Mở</a><button class="btn sm" data-edit="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-del="${esc(t.id)}">Xoá</button></div></div>`).join("")}</div>`:empty);
+    return;
+  }
   setPart("tbl",`<div class="tr hd"><span>Task</span><span>Tiến độ</span><span>Quản lý · worker</span><span>Cập nhật</span><span style="text-align:right">Thao tác</span></div>`+
-    (ts.map(t=>`<div class="tr row" data-id="${esc(t.id)}">
+    (ts.map(t=>`<div class="tr trow" data-id="${esc(t.id)}">
       <div><div class="t">${esc(t.title)}</div><div class="meta"><span>${esc(t.id)}</span>${t.manager.size?`<span>cỡ ${SIZE_TXT[t.manager.size]||esc(t.manager.size)}</span>`:""}${t.manager.split==="song-song"?"<span>song song</span>":""}${t.manager.assignee?`<span>→ ${esc(t.manager.assignee)}</span>`:""}</div></div>
       <div>${badge(t)}${bar(t)}<div class="meta">${t.plan_total?`<span>${t.plan_done}/${t.plan_total} việc con</span>`:""}<span>${t.results_count} kết quả</span>${t.fails?`<span style="color:var(--bad)">${t.fails} lỗi</span>`:""}</div></div>
-      <div class="meta">${t.manager.running?`<span style="color:var(--mgr)">● quản lý đang làm</span>`:t.manager.queued?`<span style="color:var(--warn)">● pending — chờ ${esc(t.manager.assignee)} rảnh</span>`:t.manager.pending?`<span style="color:var(--mgr)">● đang chuẩn bị</span>`:t.manager.retry_at>1?`<span style="color:var(--warn)">⏸ hết hạn mức</span>`:isWait(t)?`<span style="color:var(--warn)">chờ bạn</span>`:"<span>nghỉ</span>"}
-        ${t.running.length?`<span style="color:var(--run)">▶ ${t.running.length} worker</span>`:""}</div>
+      <div class="meta">${mgrState(t)}${t.running.length?`<span style="color:var(--run)">▶ ${t.running.length} worker</span>`:""}</div>
       <div class="sub" data-ago="${t.updated}">${ago(t.updated)}</div>
       <div class="acts"><a class="btn sm" href="${taskUrl(t.id)}" data-link>Mở</a><button class="btn sm" data-edit="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-del="${esc(t.id)}">Xoá</button></div>
-    </div>`).join("")||`<div class="empty">${qq?"Không có task nào khớp.":filter==="active"?"Không có task nào đang làm. Bấm “+ Giao task” để bắt đầu.":filter==="wait"?"Không có task nào chờ bạn.":"Chưa có task."}</div>`));
+    </div>`).join("")||empty));
 }
+function mgrState(t){const m=t.manager;
+  return m.running?`<span style="color:var(--mgr)">● quản lý đang làm</span>`:m.queued?`<span style="color:var(--warn)">● pending — chờ ${esc(m.assignee)} rảnh</span>`
+    :m.pending?`<span style="color:var(--mgr)">● đang chuẩn bị</span>`:m.retry_at>1?`<span style="color:var(--warn)">⏸ hết hạn mức</span>`:isWait(t)?`<span style="color:var(--warn)">chờ bạn</span>`:"<span>nghỉ</span>"}
 async function renderTrash(){
+  $("#tbl").className="tbl";
   const d=await (await apiFetch("/api/trash")).json();
   setPart("tbl",`<div class="tr trash hd"><span>Task đã xoá</span><span>Tạo lúc</span><span>Xoá lúc</span><span style="text-align:right">Thao tác</span></div>`+
     (d.items.map(i=>`<div class="tr trash"><div><div class="t">${esc(i.title)}</div><div class="meta">${esc(i.trash_id)}</div></div>
@@ -567,8 +645,24 @@ function renderOffice(o){
       <div class="sub">${esc(d.desc||"")}${d.model?" · model "+esc(d.model):""}</div>
       <div class="foot">Pentagon hôm nay: ${d.done_today} việc xong${d.secs_today?" · "+dur(d.secs_today):""}${d.fails_today?` · <span style="color:var(--bad)">${d.fails_today} lần lỗi</span>`:""}${d.last?" · gần nhất "+esc(d.last.slice(11,16)):""}</div></div>`}).join("");
   const nb=o.desks.filter(d=>d.working.length).length;
-  setPart("office",`<h2>Văn phòng làm việc</h2><div class="sub">Mỗi AI là một nhân viên ngồi một bàn. ${nb} đang làm · ${o.desks.length-nb} rảnh hoặc nghỉ. Bấm vào một việc để mở task.</div>
-    <h4>Ban điều hành</h4>${mg?`<div class="desks">${mg}</div>`:'<div class="sub">Không có AI quản lý nào đang chạy.</div>'}
+  $("#officeSub").textContent=`Mỗi AI là một nhân viên ngồi một bàn. ${nb} đang làm · ${o.desks.length-nb} rảnh hoặc nghỉ. Bấm vào một việc để mở task.`;
+  if(VIEWS.vp==="ds"){
+    const DN={claude:"Phòng Claude",codex:"Phòng Codex",gemini:"Phòng Gemini"};
+    const mrows=o.managers.map(m=>`<div class="tr deskrow"><div><i class="dot ${m.running||m.pending?"mgr":""}"></i> <b>AI quản lý</b><div class="sub">${esc(m.model||"mặc định")}${m.account?" · "+esc(m.account):""}</div></div>
+      <span class="sub">Ban điều hành</span><span>${m.running?`<span style="color:var(--mgr)">Đang điều phối · <span data-started="${m.started}"></span></span>`:m.pending?esc(m.pending):`<span style="color:var(--warn)">Hết hạn mức → ${hhmm(m.retry_at)}</span>`}</span>
+      <a href="${taskUrl(m.task)}" data-link>${esc(m.title)} <span class="sub">· bước ${m.step}/6</span></a><span></span><span></span></div>`).join("");
+    const drows=o.desks.slice().sort((a,b)=>(b.working.length-a.working.length)||a.name.localeCompare(b.name)).map(d=>{
+      const busy=d.working.length>0, off=d.login!=="ok", u=d.usage||{}, w=(u.windows||[])[0], p=w&&w.used!=null?Math.min(100,w.used):null;
+      return `<div class="tr deskrow"><div><i class="dot ${busy?"run":off?"bad":"ok"}"></i> <b>${esc(d.name)}</b><div class="sub">${esc(d.desc||"")}</div></div>
+        <span class="sub">${DN[d.tool]||esc(d.tool)}</span>
+        <span>${busy?`<span style="color:var(--run)">Đang làm</span>`:off?`<span style="color:var(--bad)">${d.login==="logout"?"Chưa đăng nhập":"Chưa cài CLI"}</span>`:d.limited_at?`<span style="color:var(--warn)">Hết hạn mức lúc ${esc(d.limited_at.slice(0,5))}</span>`:`<span style="color:var(--ok)">Rảnh</span>`}</span>
+        <div>${d.working.map(x=>`<a href="${taskUrl(x.task)}" data-link>${esc(x.title)}</a> <span class="sub" data-started="${x.started}"></span>`).join("<br>")||'<span class="sub">—</span>'}</div>
+        <div class="mini">${w?`<span>${esc(w.label)}</span><span class="trk"><i class="${p>=90?"hi":p>=70?"mid":""}" style="width:${p??0}%"></i></span><b>${p==null?"?":Math.round(p)+"%"}</b>`:'<span class="sub">chưa có số liệu</span>'}</div>
+        <span class="sub">${d.done_today} việc xong${d.fails_today?` · ${d.fails_today} lỗi`:""}</span></div>`}).join("");
+    setPart("office",`<div class="tbl" style="margin-top:16px"><div class="tr deskrow hd"><span>Nhân viên</span><span>Phòng ban</span><span>Trạng thái</span><span>Đang làm việc</span><span>Hạn mức</span><span>Hôm nay</span></div>${mrows}${drows}</div>`);
+    updTimers();return;
+  }
+  setPart("office",`<h4>Ban điều hành</h4>${mg?`<div class="desks">${mg}</div>`:'<div class="sub">Không có AI quản lý nào đang chạy.</div>'}
     <h4>Nhân viên</h4><div class="desks">${desks||'<div class="sub">Đang kiểm tra danh sách worker…</div>'}</div>`);
   updTimers();
 }
@@ -577,6 +671,12 @@ function renderOffice(o){
 const DEPTS={claude:["Phòng Claude","suy luận sâu, lập kế hoạch, code khó, review, viết nội dung"],
   codex:["Phòng Codex","viết code, sửa lỗi, refactor, chạy test"],gemini:["Phòng Gemini","đọc tài liệu/codebase dài, tra cứu, ảnh/video"]};
 let empEditing=null;
+function loginFailText(a,ls){
+  const t=(ls.text||"").toLowerCase();
+  if(a.tool==="gemini"&&t.includes("user code"))return "Google không chấp nhận mã (mã sai, hết hạn, hoặc tài khoản Google không được Gemini CLI hỗ trợ — gói miễn phí bị chặn). Bấm Đăng nhập để thử lại.";
+  if(ls.rc===143||ls.rc===-15)return "Đã huỷ đăng nhập.";
+  return `Đăng nhập chưa thành công (mã lỗi ${ls.rc}). Bấm Đăng nhập để thử lại.`;
+}
 function usageBars(u){
   const when=w=>new Date(w.resets_at*1000).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
   return (u.windows||[]).map(w=>{const p=w.used==null?null:Math.min(100,w.used);
@@ -586,6 +686,7 @@ function renderNV(d){
   const ae=document.activeElement;
   if(ae&&ae.closest&&ae.closest("#nvList")&&ae.tagName==="INPUT")return; // đang gõ mã đăng nhập: không vẽ lại
   const byDept={};d.accounts.forEach(a=>(byDept[a.tool]=byDept[a.tool]||[]).push(a));
+  if(VIEWS.nv==="bang")return renderNVTable(d);
   const html=Object.keys(DEPTS).map(tool=>{
     const list=byDept[tool]||[], on=list.filter(a=>a.enabled);
     const cards=list.map(a=>{
@@ -593,18 +694,19 @@ function renderNV(d){
       const stTxt={off:"Tạm nghỉ (đang tắt)",bad:a.login==="missing"?"Chưa cài CLI":a.login==="?"?"Đang kiểm tra…":"Chưa đăng nhập",busy:`Đang làm ${a.busy} việc`,ok:"Rảnh"}[st];
       const u=a.usage||{}, ls=a.login_session||{};
       const login=ls.active?`<div class="loginbox">
-          ${ls.done?(ls.rc===0?`<b style="color:var(--ok)">✓ Đăng nhập xong.</b>`:`<b style="color:var(--bad)">Đăng nhập chưa thành công (mã ${ls.rc}).</b>`)
-            :`<b>Đang đăng nhập…</b><span class="sub">Trình duyệt trên máy này đã mở trang đăng nhập — chọn đúng tài khoản rồi đồng ý.${ls.url?` Không thấy thì <a href="${esc(ls.url)}" target="_blank" rel="noopener">mở trang đăng nhập</a>.`:""}</span>
-            <div class="row"><input type="text" class="grow" data-code-for="${esc(a.name)}" placeholder="Nếu trang hiện mã, dán mã vào đây"><button class="btn sm pri" data-login-code="${esc(a.name)}">Gửi mã</button><button class="btn sm" data-login-cancel="${esc(a.name)}">Huỷ</button></div>`}
-          <pre>${esc((ls.text||"").replace(/https:\/\/\S+/g,"[link đăng nhập]").trim().split("\n").slice(-6).join("\n"))}</pre></div>`:"";
+          ${ls.done?(ls.rc===0?`<b style="color:var(--ok)">✓ Đăng nhập xong.</b>`:`<b style="color:var(--bad)">${loginFailText(a,ls)}</b>`)
+            :`<b>Đang đăng nhập…</b>${a.tool==="gemini"?`<span class="sub">${ls.url?`1. <a class="btn sm pri" href="${esc(ls.url)}" target="_blank" rel="noopener">Mở trang đăng nhập Google</a> hoặc <button class="btn sm" data-copy="${esc(ls.url)}">Sao chép link</button> rồi dán vào Chrome/Safari
+              2. Đăng nhập đúng tài khoản Google (gói Google AI Pro/Ultra hoặc Workspace) 3. Google hiện một mã — dán vào ô dưới rồi bấm Gửi mã.`:"Đang chuẩn bị link đăng nhập Google…"}</span>`:`<span class="sub">Trình duyệt trên máy này đã mở trang đăng nhập — chọn đúng tài khoản rồi đồng ý.${ls.url?` Không thấy thì <a href="${esc(ls.url)}" target="_blank" rel="noopener">mở trang đăng nhập</a>.`:""}</span>`}
+            <div class="row"><input type="text" class="grow" data-code-for="${esc(a.name)}" placeholder="${a.tool==="gemini"?"Dán mã Google vào đây":"Nếu trang hiện mã, dán mã vào đây"}"><button class="btn sm pri" data-login-code="${esc(a.name)}">Gửi mã</button><button class="btn sm" data-login-cancel="${esc(a.name)}">Huỷ</button></div>`}
+          ${a.tool==="gemini"&&ls.url&&!ls.done?"":`<pre>${esc((ls.text||"").replace(/https:\/\/\S+/g,"[link đăng nhập]").trim().split("\n").slice(-6).join("\n"))}</pre>`}</div>`:"";
       return `<div class="emp ${a.enabled?"":"off"}"><div class="top"><i class="dot ${st}"></i><span class="nm">${esc(a.name)}</span>${a.enabled?`<span class="prio">ưu tiên ${a.priority}</span>`:'<span class="prio">tạm nghỉ</span>'}</div>
         <div class="stt" style="font-weight:600">${stTxt}${u.limited?' <span style="color:var(--bad)">· đang chạm hạn mức</span>':""}</div>
-        <div class="sub">${esc(a.desc||"")} · model ${esc(a.model||"mặc định")} · ${a.default?"tài khoản mặc định của máy":esc(a.home)}</div>
+        <div class="sub" title="${a.default?"Tài khoản đang đăng nhập sẵn trên máy":"Thông tin đăng nhập lưu ở "+esc(a.home)}">${esc(a.desc||"")}${a.model?" · model "+esc(a.model):""}</div>
         ${a.enabled?`<div class="usage">${usageBars(u)||'<span class="sub">Chưa có số liệu hạn mức.</span>'}<span class="sub">Hôm nay: ${a.done_today} việc xong${a.fails_today?` · <span style="color:var(--bad)">${a.fails_today} lần lỗi</span>`:""}</span></div>`:""}
         ${login}
         <div class="acts">
-          ${a.enabled&&tool!=="gemini"?`<button class="btn sm ${a.login==="ok"?"":"pri"}" data-login="${esc(a.name)}">${a.login==="ok"?"Đăng nhập lại":"Đăng nhập"}</button>`:""}
-          ${a.enabled&&a.login==="ok"&&tool!=="gemini"?`<button class="btn sm" data-logout="${esc(a.name)}">Đăng xuất</button>`:""}
+          ${a.enabled?`<button class="btn sm ${a.login==="ok"?"":"pri"}" data-login="${esc(a.name)}">${a.login==="ok"?"Đăng nhập lại":"Đăng nhập"}</button>`:""}
+          ${a.enabled&&a.login==="ok"?`<button class="btn sm" data-logout="${esc(a.name)}">Đăng xuất</button>`:""}
           <button class="btn sm" data-emp-edit="${esc(a.name)}">Sửa</button>
           ${a.enabled?`<button class="btn sm" data-move="${esc(a.name)}" data-dir="up" title="Ưu tiên cao hơn">↑</button><button class="btn sm" data-move="${esc(a.name)}" data-dir="down" title="Ưu tiên thấp hơn">↓</button>`:""}
           <button class="btn sm" data-enable="${esc(a.name)}" data-on="${a.enabled?0:1}">${a.enabled?"Cho tạm nghỉ":"Đi làm lại"}</button>
@@ -613,6 +715,33 @@ function renderNV(d){
     return `<div class="dept"><div class="dept-h"><h3>${DEPTS[tool][0]}</h3><span class="sub">${DEPTS[tool][1]} · ${on.length} nhân viên đang làm${list.length>on.length?`, ${list.length-on.length} tạm nghỉ`:""}</span></div>
       ${cards?`<div class="emps">${cards}</div>`:`<div class="sub">Chưa có nhân viên. Bấm “+ Tuyển nhân viên” và chọn ${DEPTS[tool][0]}.</div>`}</div>`}).join("");
   setPart("nvList",html);
+}
+function empBits(a){
+  const tool=a.tool, st=!a.enabled?"off":a.login!=="ok"?"bad":a.busy?"busy":"ok";
+  const stTxt={off:"Tạm nghỉ",bad:a.login==="missing"?"Chưa cài CLI":a.login==="?"?"Đang kiểm tra…":"Chưa đăng nhập",busy:`Đang làm ${a.busy} việc`,ok:"Rảnh"}[st];
+  const ls=a.login_session||{};
+  const login=ls.active?`<div class="loginbox">${ls.done?(ls.rc===0?`<b style="color:var(--ok)">✓ Đăng nhập xong.</b>`:`<b style="color:var(--bad)">${loginFailText(a,ls)}</b>`)
+      :`<b>Đang đăng nhập ${esc(a.name)}…</b>${a.tool==="gemini"?`<span class="sub">${ls.url?`1. <a class="btn sm pri" href="${esc(ls.url)}" target="_blank" rel="noopener">Mở trang đăng nhập Google</a> hoặc <button class="btn sm" data-copy="${esc(ls.url)}">Sao chép link</button> rồi dán vào Chrome/Safari
+              2. Đăng nhập đúng tài khoản Google (gói Google AI Pro/Ultra hoặc Workspace) 3. Google hiện một mã — dán vào ô dưới rồi bấm Gửi mã.`:"Đang chuẩn bị link đăng nhập Google…"}</span>`:`<span class="sub">Trình duyệt trên máy này đã mở trang đăng nhập — chọn đúng tài khoản rồi đồng ý.${ls.url?` Không thấy thì <a href="${esc(ls.url)}" target="_blank" rel="noopener">mở trang đăng nhập</a>.`:""}</span>`}
+      <div class="row"><input type="text" class="grow" data-code-for="${esc(a.name)}" placeholder="${a.tool==="gemini"?"Dán mã Google vào đây":"Nếu trang hiện mã, dán mã vào đây"}"><button class="btn sm pri" data-login-code="${esc(a.name)}">Gửi mã</button><button class="btn sm" data-login-cancel="${esc(a.name)}">Huỷ</button></div>`}</div>`:"";
+  const acts=`${a.enabled?`<button class="btn sm ${a.login==="ok"?"":"pri"}" data-login="${esc(a.name)}">${a.login==="ok"?"Đăng nhập lại":"Đăng nhập"}</button>`:""}
+    <button class="btn sm" data-emp-edit="${esc(a.name)}">Sửa</button>
+    ${a.enabled?`<button class="btn sm" data-move="${esc(a.name)}" data-dir="up" title="Ưu tiên cao hơn">↑</button><button class="btn sm" data-move="${esc(a.name)}" data-dir="down" title="Ưu tiên thấp hơn">↓</button>`:""}
+    <button class="btn sm" data-enable="${esc(a.name)}" data-on="${a.enabled?0:1}">${a.enabled?"Tạm nghỉ":"Đi làm lại"}</button>
+    <button class="btn sm danger" data-fire="${esc(a.name)}" data-default="${a.default?1:0}">Nghỉ việc</button>`;
+  return {st,stTxt,login,acts};
+}
+function renderNVTable(d){
+  const order=Object.keys(DEPTS);
+  const list=d.accounts.slice().sort((x,y)=>order.indexOf(x.tool)-order.indexOf(y.tool)||(y.enabled-x.enabled)||x.priority-y.priority);
+  setPart("nvList",`<div class="tbl" style="margin-top:16px"><div class="tr emprow hd"><span>Nhân viên</span><span>Phòng ban</span><span>Ưu tiên</span><span>Trạng thái</span><span>Hạn mức</span><span>Hôm nay</span><span style="text-align:right">Thao tác</span></div>`+
+    list.map(a=>{const b=empBits(a), u=a.usage||{}, w=(u.windows||[])[0], p=w&&w.used!=null?Math.min(100,w.used):null;
+      return `<div class="tr emprow" style="${a.enabled?"":"opacity:.6"}"><div><i class="dot ${b.st}"></i> <b>${esc(a.name)}</b><div class="sub" title="${a.default?"Tài khoản đang đăng nhập sẵn trên máy":"Thông tin đăng nhập lưu ở "+esc(a.home)}">${esc(a.desc||"")}${a.model?" · model "+esc(a.model):""}</div></div>
+        <span class="sub">${DEPTS[a.tool][0]}</span><span>${a.enabled?"#"+a.priority:"—"}</span>
+        <span>${b.stTxt}${u.limited?' <span style="color:var(--bad)">· chạm hạn mức</span>':""}</span>
+        <div class="mini">${w&&a.enabled?`<span>${esc(w.label)}</span><span class="trk"><i class="${p>=90?"hi":p>=70?"mid":""}" style="width:${p??0}%"></i></span><b>${p==null?"?":Math.round(p)+"%"}</b>`:'<span class="sub">—</span>'}</div>
+        <span class="sub">${a.done_today} việc${a.fails_today?` · ${a.fails_today} lỗi`:""}</span>
+        <div class="acts" style="flex-wrap:wrap">${b.acts}</div>${b.login?`<div class="loginrow">${b.login}</div>`:""}</div>`}).join("")+`</div>`);
 }
 $("#hireBtn").onclick=()=>{$("#hireCard").hidden=false;$("#hName").focus()};
 $("#hCancel").onclick=()=>{$("#hireCard").hidden=true};
@@ -625,16 +754,17 @@ $("#hGo").onclick=async()=>{
   const d=await act("/api/accounts/add",{name,tool,desc:$("#hDesc").value,model:$("#hModel").value},`Đã tuyển ${name} vào ${DEPTS[tool][0]}`);
   if(!d)return;
   $("#hireCard").hidden=true;["hName","hDesc","hModel"].forEach(i=>$("#"+i).value="");
-  if($("#hLogin").checked&&tool!=="gemini")act("/api/accounts/login",{name:d.name},"Đã mở trang đăng nhập trên trình duyệt");
-  else if(tool==="gemini")toast(`Gemini cần đăng nhập trong terminal: bin/login ${d.name}`);
+  if($("#hLogin").checked)act("/api/accounts/login",{name:d.name},tool==="gemini"?"Bấm “Mở trang đăng nhập Google” trên thẻ nhân viên":"Đã mở trang đăng nhập trên trình duyệt");
 };
 $("#empCancel").onclick=()=>$("#empModal").classList.remove("on");
 $("#empSave").onclick=async()=>{const d=await act("/api/accounts/update",{name:empEditing,desc:$("#empDesc").value,model:$("#empModel").value},"Đã lưu");if(d)$("#empModal").classList.remove("on")};
 document.addEventListener("click",e=>{
   const g=k=>e.target.closest("[data-"+k+"]");let b;
-  if(b=g("login"))return act("/api/accounts/login",{name:b.dataset.login},"Đã mở trang đăng nhập trên trình duyệt");
+  if(b=g("login")){const ac=(lastAccounts||[]).find(x=>x.name===b.dataset.login)||{};
+    return act("/api/accounts/login",{name:b.dataset.login},ac.tool==="gemini"?"Bấm “Mở trang đăng nhập Google” bên dưới":"Đã mở trang đăng nhập trên trình duyệt")}
   if(b=g("login-code")){const inp=document.querySelector(`[data-code-for="${b.dataset.loginCode}"]`);
     return act("/api/accounts/login-code",{name:b.dataset.loginCode,code:inp?inp.value:""},"Đã gửi mã").then(()=>{if(inp)inp.blur()})}
+  if(b=g("copy")){navigator.clipboard.writeText(b.dataset.copy).then(()=>toast("Đã sao chép link — dán vào thanh địa chỉ Chrome/Safari"),()=>{window.prompt("Sao chép link này:",b.dataset.copy)});return}
   if(b=g("login-cancel"))return act("/api/accounts/login-cancel",{name:b.dataset.loginCancel},"Đã huỷ đăng nhập");
   if(b=g("logout")){if(confirm(`Đăng xuất ${b.dataset.logout}? Nhân viên này sẽ không làm được việc cho tới khi đăng nhập lại.`))act("/api/accounts/logout",{name:b.dataset.logout},"Đã đăng xuất");return}
   if(b=g("move"))return act("/api/accounts/move",{name:b.dataset.move,dir:b.dataset.dir},"Đã đổi thứ tự ưu tiên");
@@ -647,6 +777,24 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("#empModal").classList.remove("on")});
 
+// ---------------- Trang 6: Cài đặt — mật khẩu trang web
+function renderAuth(on){
+  $("#authState").textContent=on?"· đang BẬT":"· đang tắt";
+  $("#authHelp").textContent=on?"Mở trang web phải nhập mật khẩu. Đổi mật khẩu thì các trình duyệt khác đang đăng nhập sẽ phải đăng nhập lại."
+    :"Hiện ai dùng máy này cũng mở được trang web mà không cần mật khẩu. Đặt mật khẩu để bật trang đăng nhập.";
+  $("#curWrap").hidden=!on;$("#pwOff").hidden=!on;$("#pwSave").textContent=on?"Đổi mật khẩu":"Đặt mật khẩu và bật đăng nhập";
+}
+$("#pwSave").onclick=async()=>{
+  const d=await act("/api/auth/set",{current:$("#pwCur").value,new:$("#pwNew").value,confirm:$("#pwNew2").value},"Đã lưu mật khẩu");
+  if(d)["pwCur","pwNew","pwNew2"].forEach(i=>$("#"+i).value="");
+};
+$("#pwOff").onclick=async()=>{
+  if(!$("#pwCur").value){toast("Nhập mật khẩu hiện tại để tắt đăng nhập");$("#pwCur").focus();return}
+  if(!confirm("Tắt đăng nhập? Ai dùng máy này cũng mở được trang web."))return;
+  const d=await act("/api/auth/disable",{current:$("#pwCur").value},"Đã tắt đăng nhập");
+  if(d)["pwCur","pwNew","pwNew2"].forEach(i=>$("#"+i).value="");
+};
+
 // ---------------- làm mới định kỳ: chỉ tải dữ liệu của trang đang mở
 async function tick(){
   if(redirecting||ticking)return;ticking=true;
@@ -658,6 +806,7 @@ async function tick(){
     renderHeader(d);
     if(R.page==="dh")await renderDH(d);
     else if(R.page==="vp")renderOffice(await (await apiFetch("/api/office")).json());
+    else if(R.page==="cd")renderAuth(d.auth);
     else if(R.page==="nv"){const a=await (await apiFetch("/api/accounts")).json();lastAccounts=a.accounts;renderNV(a)}
     else if(R.page==="task"){const r=await apiFetch("/api/task?id="+encodeURIComponent(R.id));
       if(r.ok)renderDetail(await r.json());
@@ -698,7 +847,7 @@ document.addEventListener("click",e=>{
   const rs=e.target.closest("[data-restore]");if(rs)return act("/api/task/restore",{trash_id:rs.dataset.restore},"Đã khôi phục task");
   const pg=e.target.closest("[data-purge]");
   if(pg){if(confirm("Xoá VĨNH VIỄN task này cùng mọi file kết quả? Không khôi phục được."))act("/api/task/purge",{trash_id:pg.dataset.purge},"Đã xoá vĩnh viễn");return}
-  const row=e.target.closest(".tr.row");
+  const row=e.target.closest(".trow");
   if(row&&!e.target.closest("a,button"))return go(taskUrl(row.dataset.id));
   const b=e.target.closest("#detail [data-act]");if(!b||!cur)return;const a=b.dataset.act;
   if(a==="stop"&&confirm("Dừng quản lý? Các worker nó đang chạy cũng sẽ dừng."))act("/api/stop",{id:cur.id},"Đã dừng quản lý");

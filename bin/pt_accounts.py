@@ -5,6 +5,8 @@ workers.conf giữ nguyên định dạng cũ: mỗi dòng "tên | công cụ | 
 Tài khoản bị TẮT được ghi thành dòng chú thích "#tắt: tên | ...", nên bin/ask bỏ qua nhưng vẫn khôi phục được.
 Thứ tự dòng = thứ tự ưu tiên khi xoay vòng tài khoản.
 """
+import fcntl
+import json
 import os
 import pty
 import re
@@ -12,6 +14,8 @@ import select
 import shutil
 import signal
 import subprocess
+import struct
+import termios
 import threading
 import time
 
@@ -184,7 +188,7 @@ def remove(name, forget_login=False):
 # ---------------------------------------------------------------- đăng nhập trên web
 
 LOGINS = {}   # tên -> {"pid", "fd", "out", "started", "done", "rc"}
-ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07|\r")
+ANSI = re.compile(r"\x1b\[[0-9;?<>=]*[ -/]*[@-~]|\x1b\][^\x07]*\x07|\x1b[()][A-Za-z0-9]|\r")
 URL_RE = re.compile(r"https://\S+")
 
 
@@ -201,21 +205,38 @@ def login_start(name):
     cur = LOGINS.get(name)
     if cur and not cur["done"]:
         return
-    if a["tool"] == "gemini":
-        raise RuntimeError("Gemini đăng nhập trong chế độ tương tác — chạy trong terminal: bin/login %s" % name)
-    cmd = ["claude", "auth", "login"] if a["tool"] == "claude" else ["codex", "login"]
     env = dict(os.environ)
+    cwd, creds = ROOT, None
     if home:
         os.makedirs(home, exist_ok=True)
-        env["CLAUDE_CONFIG_DIR" if a["tool"] == "claude" else "CODEX_HOME"] = home
+    if a["tool"] == "gemini":
+        # Gemini không có lệnh login riêng: mở giao diện tương tác của nó, chọn sẵn "Đăng nhập bằng Google",
+        # chế độ không tự mở trình duyệt -> nó in link đăng nhập và chờ dán mã. Có file oauth_creds.json là xong.
+        base = os.path.join(home or os.path.expanduser("~"), ".gemini")
+        _gemini_select_google_login(base)
+        creds = os.path.join(base, "oauth_creds.json")
+        if os.path.exists(creds):
+            os.rename(creds, creds + ".cu")  # đăng nhập lại: giữ bản cũ, khôi phục nếu huỷ giữa chừng
+        env.update(GOOGLE_GENAI_USE_GCA="true", NO_BROWSER="true", GEMINI_CLI_TRUST_WORKSPACE="true",
+                   TERM="xterm-256color")
+        if home:
+            env["GEMINI_CLI_HOME"] = home
+        cwd = home or os.path.join(DATA, "workspace")
+        os.makedirs(cwd, exist_ok=True)
+        cmd = ["gemini"]
+    else:
+        cmd = ["claude", "auth", "login"] if a["tool"] == "claude" else ["codex", "login"]
+        if home:
+            env["CLAUDE_CONFIG_DIR" if a["tool"] == "claude" else "CODEX_HOME"] = home
     master, slave = pty.openpty()  # terminal ảo: CLI tưởng đang chạy trong terminal thật
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 50, 1000, 0, 0))  # rộng để link không bị xuống dòng
     try:
-        p = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, env=env, cwd=ROOT,
+        p = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave, env=env, cwd=cwd,
                              start_new_session=True, close_fds=True)
     finally:
         os.close(slave)
     st = {"pid": p.pid, "fd": master, "out": "", "started": int(time.time()), "done": False, "rc": None,
-          "proc": p, "tool": a["tool"]}
+          "proc": p, "tool": a["tool"], "creds": creds}
     LOGINS[name] = st
 
     def pump():
@@ -229,9 +250,27 @@ def login_start(name):
                     st["out"] = (st["out"] + data.decode("utf-8", "replace"))[-8000:]
                 elif p.poll() is not None:
                     break
+                if creds and os.path.exists(creds):  # Gemini đã lưu đăng nhập: tắt giao diện của nó
+                    time.sleep(1)
+                    try:
+                        os.killpg(p.pid, signal.SIGTERM)
+                    except OSError:
+                        pass
+                    p.wait()
+                    st["rc"] = 0
+                    break
             except OSError:
                 break
-        st["rc"] = p.wait()
+        rc = p.wait()
+        if st["rc"] is None:
+            st["rc"] = rc
+        if creds:  # bỏ bản cũ nếu đăng nhập mới thành công, khôi phục nếu không
+            old = creds + ".cu"
+            if os.path.exists(old):
+                if os.path.exists(creds):
+                    os.remove(old)
+                else:
+                    os.rename(old, creds)
         st["done"] = True
         try:
             os.close(master)
@@ -240,12 +279,33 @@ def login_start(name):
     threading.Thread(target=pump, daemon=True).start()
 
 
+def _gemini_select_google_login(base):
+    """Ghi vào settings.json của Gemini: kiểu đăng nhập = Google (giữ nguyên các cài đặt khác)."""
+    os.makedirs(base, exist_ok=True)
+    p = os.path.join(base, "settings.json")
+    try:
+        with open(p, encoding="utf-8") as f:
+            cfg = json.load(f)
+    except (OSError, ValueError):
+        cfg = {}
+    auth = cfg.setdefault("security", {}).setdefault("auth", {})
+    if auth.get("selectedType") != "oauth-personal":
+        auth["selectedType"] = "oauth-personal"
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+
 def login_status(name):
     st = LOGINS.get(name)
     if not st:
         return {"active": False}
     text = ANSI.sub("", st["out"])
-    urls = URL_RE.findall(text)
+    lines = []
+    for l in (x.strip() for x in text.split("\n")):
+        if l and l not in lines[-20:]:
+            lines.append(l)
+    text = "\n".join(lines)
+    urls = [u for u in URL_RE.findall(text) if "oauth" in u or "accounts.google" in u or "auth" in u] or URL_RE.findall(text)
     return {"active": True, "done": st["done"], "rc": st["rc"], "text": text[-3000:],
             "url": urls[-1] if urls else "", "wants_code": "code" in text.lower() and not st["done"],
             "started": st["started"]}
@@ -279,5 +339,10 @@ def logout(name):
         subprocess.run(["claude", "auth", "logout"], env=env, capture_output=True, timeout=60)
     elif a["tool"] == "codex":
         subprocess.run(["codex", "logout"], env=env, capture_output=True, timeout=60)
-    else:
-        raise RuntimeError("Gemini: đăng xuất trong terminal")
+    else:  # Gemini: xoá thông tin đăng nhập đã lưu
+        base = os.path.join(home or os.path.expanduser("~"), ".gemini")
+        for f in ("oauth_creds.json", "google_accounts.json"):
+            try:
+                os.remove(os.path.join(base, f))
+            except OSError:
+                pass

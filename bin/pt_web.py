@@ -98,6 +98,53 @@ def set_password_cli(clear=False):
     return 0
 
 
+def write_auth(encoded):
+    """Ghi (hoặc xoá khi encoded=None) file mật khẩu config/auth.conf, quyền 600."""
+    if encoded is None:
+        try:
+            os.remove(AUTH_FILE)
+        except FileNotFoundError:
+            pass
+        return
+    os.makedirs(os.path.dirname(AUTH_FILE), exist_ok=True)
+    fd = os.open(AUTH_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="ascii") as f:
+        f.write(encoded + "\n")
+    os.chmod(AUTH_FILE, 0o600)
+
+
+def check_password(password, encoded):
+    """Kiểm tra mật khẩu hiện tại, dùng chung bộ đếm sai/khoá tạm với trang đăng nhập.
+    Trả về None nếu đúng, hoặc (thông báo lỗi, mã HTTP)."""
+    global FAILURES, LAST_FAILURE, LOCKED_UNTIL
+    with VERIFY_LOCK:
+        now = time.time()
+        with AUTH_LOCK:
+            if LAST_FAILURE and now - LAST_FAILURE > 600:
+                FAILURES, LAST_FAILURE = 0, 0
+            wait = max(0, int(LOCKED_UNTIL - now + 0.999))
+        if wait:
+            return ("Nhập sai quá nhiều lần, thử lại sau %d giây" % wait, 429)
+        if isinstance(password, str) and valid_password(password, encoded):
+            with AUTH_LOCK:
+                FAILURES, LAST_FAILURE, LOCKED_UNTIL = 0, 0, 0
+            return None
+        with AUTH_LOCK:
+            FAILURES += 1
+            LAST_FAILURE = time.time()
+            if FAILURES >= 5:
+                FAILURES, LOCKED_UNTIL = 0, time.time() + 60
+        return ("Mật khẩu hiện tại không đúng", 401)
+
+
+def new_session(encoded):
+    token = secrets.token_urlsafe(32)
+    with AUTH_LOCK:
+        SESSIONS.clear()  # đổi/đặt mật khẩu: mọi phiên cũ hết hiệu lực, chỉ giữ phiên của trình duyệt vừa đổi
+        SESSIONS[token] = (time.time() + SESSION_SECONDS, encoded)
+    return ("Set-Cookie", "pentagon_session=%s; HttpOnly; SameSite=Strict; Path=/; Max-Age=%d" % (token, SESSION_SECONDS))
+
+
 def clear_sessions():
     with AUTH_LOCK:
         SESSIONS.clear()
@@ -267,7 +314,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, read(LOGIN_PAGE) or "thiếu web/login.html", "text/html; charset=utf-8")
             if encoded and u.path.startswith("/api/") and not self.logged_in(encoded):
                 return self.json({"error": "chưa đăng nhập"}, 401)
-            is_page = u.path in ("/", "/dieu-hanh", "/van-phong", "/giao", "/thung-rac", "/tai-khoan", "/nhan-vien") or u.path.startswith("/task/")
+            is_page = u.path in ("/", "/dieu-hanh", "/van-phong", "/giao", "/thung-rac", "/tai-khoan", "/nhan-vien", "/cai-dat") or u.path.startswith("/task/")
             if encoded and is_page and not self.logged_in(encoded):
                 return self.redirect("/login")
             if is_page:
@@ -290,6 +337,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"now": int(time.time()), "tasks": tasks, "busy": busy, "auth": bool(encoded),
                                   "sizes": pt_manager.manager_models(),
                                   "workers": WORKERS["items"], "workers_checked": WORKERS["checked"]})
+            if u.path == "/api/auth":
+                return self.json({"enabled": bool(encoded)})
             if u.path == "/api/accounts":
                 return self.json(accounts_view())
             if u.path == "/api/trash":
@@ -385,6 +434,26 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"ok": True}, extra_headers=[("Set-Cookie", "pentagon_session=%s; HttpOnly; SameSite=Strict; Path=/; Max-Age=%d" % (token, SESSION_SECONDS))])
         if encoded and path.startswith("/api/") and not self.logged_in(encoded):
             return self.json({"error": "chưa đăng nhập"}, 401)
+        if path in ("/api/auth/set", "/api/auth/disable"):
+            if encoded is None:
+                return self.json({"error": "file mật khẩu bị hỏng"}, 500)
+            if encoded:  # đang bật đăng nhập: phải nhập đúng mật khẩu hiện tại
+                bad = check_password(body.get("current", ""), encoded)
+                if bad:
+                    return self.json({"error": bad[0]}, bad[1])
+            if path == "/api/auth/disable":
+                write_auth(None)
+                clear_sessions()
+                return self.json({"ok": True, "enabled": False},
+                                 extra_headers=[("Set-Cookie", "pentagon_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")])
+            new, confirm = body.get("new", ""), body.get("confirm", "")
+            if not isinstance(new, str) or len(new) < 8:
+                return self.json({"error": "Mật khẩu mới phải có ít nhất 8 ký tự"}, 400)
+            if new != confirm:
+                return self.json({"error": "Hai lần nhập mật khẩu mới không khớp"}, 400)
+            enc = password_hash(new)
+            write_auth(enc)
+            return self.json({"ok": True, "enabled": True}, extra_headers=[new_session(enc)])
         tid = body.get("id", "")
         try:
             if path == "/api/giao":

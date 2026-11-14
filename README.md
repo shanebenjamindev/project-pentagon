@@ -38,6 +38,7 @@ Mỗi trang có địa chỉ riêng:
 | Văn phòng làm việc | `/van-phong` | Xem các AI đang làm gì |
 | Quản lý nhân viên | `/nhan-vien` | Thêm, sửa, đăng nhập tài khoản AI, xếp theo phòng ban |
 | Thùng rác | `/thung-rac` | Task đã xoá |
+| Cài đặt | `/cai-dat` | Đặt / đổi / tắt mật khẩu trang web |
 
 **Phòng Điều hành**: số task đang làm / chờ bạn / worker đang chạy / hoàn thành, ô tìm kiếm, bộ lọc,
 và bảng task với các nút **Mở / Sửa / Xoá**.
@@ -66,7 +67,8 @@ và bảng task với các nút **Mở / Sửa / Xoá**.
 Phòng Claude, Phòng Codex, Phòng Gemini.
 - **Tuyển nhân viên**: thêm một tài khoản mới (tên, phòng ban, vai trò, model), rồi **đăng nhập ngay trên web**.
   - Trình duyệt trên máy tự mở trang đăng nhập; trang web hiện link dự phòng và ô dán mã nếu cần.
-  - Gemini vẫn phải đăng nhập trong terminal: `bin/login <tên>`.
+  - Gemini cũng đăng nhập trên web: bấm “Mở trang đăng nhập Google”, đăng nhập, rồi dán mã Google hiện ra vào ô trên thẻ nhân viên.
+  - Không cần chạy lệnh nào để đăng nhập. `bin/login <tên>` vẫn dùng được nếu bạn thích terminal.
 - Mỗi nhân viên có:
   - trạng thái (🟢 rảnh, 🟡 đang làm, 🔴 chưa đăng nhập) và usage;
   - nút **Đăng nhập lại / Đăng xuất / Sửa / ↑↓**, để đổi thứ tự ưu tiên trong phòng;
@@ -112,8 +114,8 @@ Không có web thì dùng dòng lệnh tương đương: `bin/manager new|send|s
 Bảo mật:
 - Web chỉ nghe trên `127.0.0.1`, nên máy khác không vào được.
 - Web chặn các yêu cầu đến từ trang web lạ.
-- Muốn có trang đăng nhập: chạy `bin/dashboard --set-password`. Mật khẩu chỉ lưu dạng băm trong `config/auth.conf`,
-  file này không lên git. Tắt đăng nhập: `bin/dashboard --clear-password`.
+- Muốn có trang đăng nhập: vào **⚙ Cài đặt** trên web → đặt mật khẩu. Đổi hoặc tắt cũng ở đó (cần mật khẩu hiện tại).
+  Mật khẩu chỉ lưu dạng băm trong `config/auth.conf`, file này không lên git.
 - Đừng mở cổng này ra mạng ngoài.
 
 Xem nhanh trong terminal:
@@ -161,7 +163,7 @@ Yêu cầu: macOS hoặc Linux (Windows: chạy trong **WSL**), Node.js/npm, cá
 Lưu ý:
 - **Không copy thư mục đăng nhập** (`~/.claude`, `~/.codex`, `~/.pentagon/accounts/…`) sang máy khác.
   Token trên macOS thường nằm trong Keychain nên copy cũng không dùng được — cứ đăng nhập lại.
-- Tài khoản phụ (claude-2, codex-2…) cũng phải `bin/login <tên>` lại trên máy mới.
+- Tài khoản phụ (claude-2, codex-2…) cũng phải đăng nhập lại trên máy mới: trang Nhân viên → “Đăng nhập”.
 - Model riêng của từng worker (vd `gpt-6-luna` cho Codex) nằm trong `workers.conf`, đi theo thư mục, không cần cấu hình thêm.
 - Dùng **nhiều máy cùng lúc** được, nhưng chung hạn mức gói thuê bao. Thư mục `tasks/` mỗi máy riêng —
   muốn chung lịch sử thì đồng bộ dự án qua git (repo **private**) hoặc iCloud/Dropbox.
