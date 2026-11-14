@@ -25,7 +25,7 @@ from tracker import ROOT, TASKS, read, summary, task_ids
 PAGE = os.path.join(ROOT, "web", "index.html")
 LOGIN_PAGE = os.path.join(ROOT, "web", "login.html")
 AUTH_FILE = os.path.join(ROOT, "config", "auth.conf")
-STATIC = {"logo.png", "mark.png", "favicon.png"}
+STATIC = {"logo.png", "mark.png", "favicon.png", "favicon-32.png", "apple-touch-icon.png", "favicon.ico"}
 WORKERS = {"items": [], "checked": 0}
 PORT = [8765]
 SESSIONS = {}
@@ -149,6 +149,7 @@ def retry_forever():
         try:
             pt_manager.check_retries()
             pt_manager.check_queue()
+            pt_manager.check_orphans()
         except Exception as e:
             sys.stderr.write("[dashboard] lỗi khi tự làm tiếp: %s\n" % e)
         time.sleep(10)
@@ -271,9 +272,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.redirect("/login")
             if is_page:
                 return self.send(200, read(PAGE) or "thiếu web/index.html", "text/html; charset=utf-8")
-            if u.path.startswith("/static/") and u.path[8:] in STATIC:
-                with open(os.path.join(ROOT, "web", u.path[8:]), "rb") as f:
-                    return self.send(200, f.read(), "image/png")
+            name = u.path[8:] if u.path.startswith("/static/") else u.path[1:] if u.path in (
+                "/favicon.ico", "/apple-touch-icon.png") else ""
+            if name in STATIC:  # ảnh logo / icon tab: không cần đăng nhập
+                with open(os.path.join(ROOT, "web", name), "rb") as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/x-icon" if name.endswith(".ico") else "image/png")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
             if u.path == "/api/tasks":
                 tasks = [summary(i) for i in task_ids()]
                 busy = sorted({r.get("worker") for t in tasks for r in t["running"]})

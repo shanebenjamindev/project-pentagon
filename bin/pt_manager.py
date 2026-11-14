@@ -308,19 +308,50 @@ def start_turn(tid, message, owner_text=None, reaper=False):
     inp = os.path.join(d, "input-%d.txt" % int(time.time() * 1000))
     with open(inp, "w", encoding="utf-8") as f:
         f.write(message)
-    err = open(os.path.join(d, "stderr.log"), "a", encoding="utf-8")
-    try:
-        p = subprocess.Popen([sys.executable, os.path.join(ROOT, "bin", "tracker.py"), "manager", "_run", tid, inp],
-                             cwd=ROOT, stdin=subprocess.DEVNULL, stdout=err, stderr=err, start_new_session=True)
-    except OSError as e:
-        raise RuntimeError("không chạy được quản lý: %s" % e)
-    finally:
-        err.close()
+    pid = spawn_detached([sys.executable, os.path.join(ROOT, "bin", "tracker.py"), "manager", "_run", tid, inp],
+                         os.path.join(d, "stderr.log"))
     with open(os.path.join(d, "pid"), "w") as f:
-        f.write("pid=%d\nstarted=%d\n" % (p.pid, int(time.time())))
-    if reaper:  # máy chủ web sống lâu: phải thu hồi tiến trình con, nếu không nó thành zombie và trông như còn chạy
-        threading.Thread(target=p.wait, daemon=True).start()
-    return p.pid
+        f.write("pid=%d\nstarted=%d\n" % (pid, int(time.time())))
+    return pid
+
+
+def spawn_detached(cmd, log_path):
+    """Chạy tiến trình tách hẳn khỏi tiến trình gọi (fork 2 lần + setsid): tắt/khởi động lại bin/dashboard hay đóng
+    terminal không làm chết AI quản lý đang chạy. Trả về pid của tiến trình đó."""
+    r, w = os.pipe()
+    first = os.fork()
+    if first == 0:  # con thứ nhất: tạo session mới, fork tiếp rồi thoát ngay
+        try:
+            os.close(r)
+            os.setsid()
+            second = os.fork()
+            if second == 0:  # cháu: thành con của launchd/init, không còn thuộc cây tiến trình của dashboard
+                os.close(w)
+                fd_in = os.open(os.devnull, os.O_RDONLY)
+                fd_log = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+                os.dup2(fd_in, 0)
+                os.dup2(fd_log, 1)
+                os.dup2(fd_log, 2)
+                os.chdir(ROOT)
+                try:
+                    os.execvp(cmd[0], cmd)
+                finally:
+                    os._exit(127)
+            os.write(w, str(second).encode())
+        finally:
+            os._exit(0)
+    os.close(w)
+    data = b""
+    while True:
+        chunk = os.read(r, 64)
+        if not chunk:
+            break
+        data += chunk
+    os.close(r)
+    os.waitpid(first, 0)
+    if not data.strip().isdigit():
+        raise RuntimeError("không chạy được quản lý")
+    return int(data.strip())
 
 
 def project_dir(home):
@@ -425,6 +456,9 @@ def run_turn(tid, inp):
                 cmd += ["--effort", spec.split("@", 1)[1]]
         cmd += (["--resume", sid] if session_started(tid, acc["home"]) else ["--session-id", sid])
         env = dict(os.environ)
+        # lệnh Bash của quản lý (bin/ask) được chạy tới 10 phút, tối đa 20 phút; mặc định chỉ 2 phút là quá ngắn
+        env.setdefault("BASH_DEFAULT_TIMEOUT_MS", "600000")
+        env.setdefault("BASH_MAX_TIMEOUT_MS", "1200000")
         if acc["home"]:
             env["CLAUDE_CONFIG_DIR"] = acc["home"]
         offset = os.path.getsize(stream) if os.path.exists(stream) else 0
@@ -529,6 +563,43 @@ def killed_workers(tid, since):
             open_.pop(i["who"], None)
     alive = {r.get("worker") for r in tracker.running_workers(os.path.join(TASKS, tid))}
     return killed + [w for w in open_ if w not in alive and w not in killed]
+
+
+def check_orphans():
+    """Gọi định kỳ từ bin/dashboard: lượt của quản lý bị chết đột ngột (vd máy tắt, bị kill) — file pid còn mà tiến trình
+    không còn — thì cho quản lý làm tiếp, tối đa 2 lần liên tiếp."""
+    for tid in tracker.task_ids():
+        pf = os.path.join(mdir(tid), "pid")
+        if not os.path.exists(pf):
+            continue
+        st = kv(pf)
+        if st.get("pid") and pid_alive(st["pid"]):
+            continue
+        try:
+            started = int(st.get("started") or 0)
+        except ValueError:
+            started = 0
+        if time.time() - started < 15:  # vừa mới chạy, tiến trình có thể chưa kịp lên
+            continue
+        os.remove(pf)
+        status = kv(os.path.join(TASKS, tid, "status"))
+        auto = int(get(tid, "auto_continue") or 0)
+        if status.get("state") in ("xong", "loi") or auto >= 2:
+            append_event(tid, "pentagon_event", "Quản lý bị dừng đột ngột. Gửi tin nhắn để quản lý làm tiếp.")
+            continue
+        put(tid, "auto_continue", auto + 1)
+        killed = killed_workers(tid, started)
+        append_event(tid, "pentagon_event", "Quản lý bị dừng đột ngột giữa lượt%s. Phần đã làm được giữ; quản lý tự làm tiếp."
+                     % ((" (worker %s cũng bị dừng)" % ", ".join(killed)) if killed else ""))
+        log_line(tid, "[TỰ LÀM TIẾP] quản lý bị dừng đột ngột")
+        try:
+            start_turn(tid, ("Lượt trước của bạn bị dừng đột ngột (tiến trình bị tắt), không phải do bạn. "
+                             "Worker đang chạy lúc đó (%s) có thể đã làm xong một phần hoặc toàn bộ: kiểm tra results/, "
+                             "log.txt, plan.md và các file đầu ra trước. Việc nào đã có kết quả đúng thì KHÔNG giao lại; "
+                             "việc còn dở thì giao lại (chạy bin/ask trực tiếp, dặn làm tiếp phần dở). Sau đó đi tiếp các bước "
+                             "còn lại của quy trình." % (", ".join(killed) or "nếu có")))
+        except RuntimeError as e:
+            append_event(tid, "pentagon_event", "Không tự làm tiếp được: %s" % e)
 
 
 def check_retries():
