@@ -1040,9 +1040,11 @@ function renderDetail(t){
       :`<div class="msg ${c.role}">${esc(c.text)}</div>`).join("")||'<div class="sub">Chưa có trao đổi nào.</div>')&&atBottom) box.scrollTop=box.scrollHeight;
   $("#msg").disabled=false;$("#sendBtn").disabled=false;
   const inbox=t.inbox||{count:0,items:[]};
-  setPart("p-inbox",inbox.count?`<span class="sub grow">${inbox.paused?"Đã Dừng — hàng chờ chưa chạy":`${inbox.count} tin đang chờ quản lý`}</span>${inbox.paused?`<button class="btn sm" data-act="run-inbox">Chạy hàng chờ</button>`:""}<button class="btn sm danger" data-act="clear-inbox">Xoá hàng chờ</button>`:"");
+  // Lượt đang nhận tin (inbox.live): tin trong hàng chờ được nạp vào lượt trong ~1s → không hiện dải hàng chờ.
+  const inboxWaiting=inbox.count&&(inbox.paused||!inbox.live);
+  setPart("p-inbox",inboxWaiting?`<span class="sub grow">${inbox.paused?"Đã Dừng — hàng chờ chưa chạy":`${inbox.count} tin đang chờ — quản lý đọc khi xong lượt này`}</span>${inbox.paused?`<button class="btn sm" data-act="run-inbox">Chạy hàng chờ</button>`:""}<button class="btn sm danger" data-act="clear-inbox">Xoá hàng chờ</button>`:"");
   $("#okBtn").style.display=waiting?"":"none";
-  $("#p-hint").textContent=inbox.paused&&inbox.count?"Đã Dừng — hàng chờ chưa chạy":m.running?"Tin nhắn mới sẽ được xếp hàng.":"";
+  $("#p-hint").textContent=inbox.paused&&inbox.count?"Đã Dừng — hàng chờ chưa chạy":m.running?(inbox.live?"Cứ nhắn thêm — quản lý sẽ đọc ngay ở bước kế tiếp.":"Quản lý sắp xong lượt — tin mới sẽ được đọc ngay sau đó."):"";
   setPart("p-run",t.running.length?`<div class="card"><h3><span class="dot run"></span>Worker đang chạy</h3>${t.running.map(r=>`<div class="runner">
       <span class="el" data-started="${r.started}"></span>
       <div class="grow"><div class="w">${esc(r.worker)} ${r.followup?'<span class="badge cho">Hỏi tiếp</span>':r.role?`<span class="badge">${esc(ROLE_TXT[r.role]||r.role)}</span>`:""} <span class="sub">(${esc(r.tool)}, quyền ${esc(r.perm)}${r.model?", model "+esc(r.model):""})</span></div><div>${esc(r.summary)}</div></div>
@@ -1114,7 +1116,7 @@ async function sendMsg(){
   const mv=$("#turnMgr").value||"auto", worker=$("#turnWho").value, worker_model=worker?$("#turnWModel").value:"";
   const body={id:cur.id,text:v,images:imageDrafts.msg.map(x=>({name:x.name,data:x.data})),files:draftFiles("msg"),size:mv.startsWith("size:")?mv.slice(5):"auto",model:mv.startsWith("model:")?mv.slice(6):"",worker,worker_model};
   const d=await act("/api/send",body);
-  if(d)toast(d.queued?`Đã xếp hàng · ${d.queued_count} tin đang chờ`:`Đã gửi${worker?" — giao cho "+worker+(worker_model?" ("+worker_model+")":""):""}${mv==="auto"?"":" — quản lý dùng "+(body.model||SIZES[body.size]||body.size)}`);
+  if(d)toast(d.queued?(d.live?"Đã gửi — quản lý sẽ đọc ngay ở bước kế tiếp":d.paused?`Đã xếp hàng · ${d.queued_count} tin đang chờ (đã Dừng)`:`Đã xếp hàng · ${d.queued_count} tin — quản lý đọc khi xong lượt này`):`Đã gửi${worker?" — giao cho "+worker+(worker_model?" ("+worker_model+")":""):""}${mv==="auto"?"":" — quản lý dùng "+(body.model||SIZES[body.size]||body.size)}`);
   if(d){$("#msg").value="";clearDraftImages("msg");$("#turnMgr").value="auto";$("#turnWho").value="";fillTurnOpts()}
 }
 

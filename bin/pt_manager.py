@@ -13,6 +13,9 @@ Mỗi task có một phiên Claude Code riêng, lưu trong tasks/<id>/manager/:
   stream.jsonl   toàn bộ sự kiện các lượt (stream-json của Claude Code)
                  + dòng của Pentagon: {"type":"pentagon_owner"|"pentagon_event", ...}
   input-*.txt    nội dung đã gửi cho quản lý ở mỗi lượt
+  inbox.jsonl    tin chủ gửi khi quản lý đang bận, chưa được nạp
+  live           có file này = lượt đang chạy còn giữ stdin (stream-json) mở: tin trong inbox.jsonl được nạp
+                 thẳng vào lượt trong ~1s, quản lý đọc ở bước kế tiếp (xem LiveTurn)
   stderr.log     lỗi (nếu có)
 
 Hết hạn mức giữa chừng: lượt đang chạy dừng lại, phiên được chép sang tài khoản Claude kế tiếp trong
@@ -24,7 +27,8 @@ Dòng lệnh (bin/manager):
                                                    tạo task và cho quản lý bắt đầu (mặc định: quản lý tự phân loại cỡ,
                                                    tự chọn cách giao và AI làm; --ai chỉ định AI, AI bận thì task chờ)
   bin/manager send <task> [--co auto|nho|vua|lon] "tin nhắn"
-                                                   gửi tin nhắn (lượt mới); model của lượt: auto = quản lý chọn theo yêu cầu
+                                                   gửi tin nhắn (lượt mới; quản lý đang chạy thì nạp ngay vào lượt đó);
+                                                   model của lượt: auto = quản lý chọn theo yêu cầu
   bin/manager stop <task>                          dừng quản lý (và các worker nó đang chạy)
   bin/manager kill-worker <task> <pid>             huỷ một worker đang chạy
   bin/manager size <task> <nho|vua|lon> ["lý do"]  quản lý đổi cỡ task (model đổi từ lượt sau)
@@ -89,6 +93,8 @@ Chủ làm việc với bạn qua giao diện web: chủ chỉ thấy các câu 
 - Hết hạn mức: bin/ask tự chuyển tài khoản và tài khoản sau làm tiếp phần dở. Nếu bin/ask báo MỌI tài khoản của
   một công cụ đều hết hạn mức (mã thoát 75): chuyển việc sang công cụ khác phù hợp; không còn cách thì chạy
   bin/progress {task} cho "hết hạn mức, chờ tự làm tiếp" và kết thúc lượt — hệ thống sẽ tự gọi bạn làm tiếp khi có hạn mức.
+- Chủ có thể nhắn thêm khi bạn đang làm: tin đó tới giữa lượt, mở đầu bằng "[Tin nhắn mới của chủ, gửi trong lúc bạn đang làm".
+  Đọc ngay, trả lời ngắn nếu cần, điều chỉnh việc đang làm theo tin đó rồi tiếp tục.
 - Kết thúc mỗi lượt bằng 2-4 dòng tóm tắt: đã làm gì, đang ở bước nào, cần chủ làm gì (nếu có).
 - Một số lệnh có thể bị từ chối vì quyền chạy nền bị giới hạn. Khi đó ghi rõ trong câu trả lời lệnh nào cần chủ chạy tay."""
 
@@ -571,7 +577,11 @@ def inbox_read(tid):
 def inbox_view(tid):
     with inbox_lock(tid):
         rows = inbox_read(tid)
-    return {"count": len(rows), "items": rows, "paused": os.path.exists(os.path.join(mdir(tid), "inbox.paused"))}
+    # live: tin trong hàng chờ sẽ được nạp ngay vào lượt (lượt đang giữ stdin mở, hoặc lượt sắp bắt đầu)
+    starting = bool(get(tid, "pending")) and not os.path.exists(os.path.join(mdir(tid), "queued.txt")) \
+        and not tracker.manager_info(os.path.join(TASKS, tid))["running"]
+    return {"count": len(rows), "items": rows, "paused": os.path.exists(os.path.join(mdir(tid), "inbox.paused")),
+            "live": live_accepting(tid) or starting}
 
 
 def clear_inbox(tid):
@@ -603,23 +613,115 @@ def enqueue_inbox_locked(tid, message, size, model, worker, worker_model):
         os.fsync(f.fileno())
     count = len(inbox_read(tid))
     append_event(tid, "pentagon_owner", message)
-    append_event(tid, "pentagon_event", "Đã xếp hàng — quản lý sẽ nhận khi xong lượt hiện tại (%d tin đang chờ)%s" %
-                 (count, " · đã Dừng, cần xoá hàng chờ để tiếp tục" if os.path.exists(os.path.join(mdir(tid), "inbox.paused")) else ""))
+    if os.path.exists(os.path.join(mdir(tid), "inbox.paused")):
+        note = "Đã xếp hàng (%d tin đang chờ) · đã Dừng, cần chạy hoặc xoá hàng chờ để tiếp tục" % count
+    elif live_accepting(tid):
+        note = "Đã gửi — quản lý sẽ đọc ở bước kế tiếp."
+    elif get(tid, "pending") and not tracker.manager_info(os.path.join(TASKS, tid))["running"]:
+        note = "Đã gửi — quản lý sẽ đọc ngay khi bắt đầu lượt."
+    else:
+        note = "Đã xếp hàng — quản lý sẽ nhận khi xong lượt hiện tại (%d tin đang chờ)" % count
+    append_event(tid, "pentagon_event", note)
     return count
 
 
+def inbox_item_text(item):
+    """Nội dung một tin trong hàng chờ, kèm ghi chú khi chủ chỉ định worker."""
+    text = item.get("text", "")
+    worker = item.get("worker")
+    if worker:
+        text = "[Tin này chủ chỉ định giao việc cho %s%s] %s" % (
+            worker, (", model " + item.get("worker_model", "")) if item.get("worker_model") else "", text)
+    return text
+
+
 def merged_inbox_prompt(rows):
-    if len(rows) == 1 and rows[0].get("text"):
+    if len(rows) == 1 and rows[0].get("text") and not rows[0].get("worker"):
         return rows[0]["text"]
-    lines = []
-    for i, item in enumerate(rows, 1):
-        text = item.get("text", "")
-        worker = item.get("worker")
-        if worker:
-            text = "[Tin này chủ chỉ định giao việc cho %s%s] %s" % (
-                worker, (", model " + item.get("worker_model", "")) if item.get("worker_model") else "", text)
-        lines.append("%d. %s" % (i, text))
+    lines = ["%d. %s" % (i, inbox_item_text(item)) for i, item in enumerate(rows, 1)]
     return "Trong lúc bạn làm, chủ đã gửi thêm %d tin nhắn (theo thứ tự). Hãy đọc hết, tự sắp xếp thứ tự ưu tiên / gộp việc trùng, rồi xử lý:\n%s" % (len(rows), "\n".join(lines))
+
+
+def live_prompt(rows):
+    """Tin nạp vào giữa lượt đang chạy (stdin stream-json của claude)."""
+    again = any(r.get("requeued") for r in rows)
+    if len(rows) == 1:
+        body = inbox_item_text(rows[0])
+    else:
+        body = "\n".join("%d. %s" % (i, inbox_item_text(r)) for i, r in enumerate(rows, 1))
+    return ("[Tin nhắn mới của chủ, gửi trong lúc bạn đang làm%s. Đọc ngay và cân nhắc: nếu chủ yêu cầu đổi hướng/dừng "
+            "thì làm theo; nếu là bổ sung thì gộp vào việc đang làm. Không bỏ dở worker đang chạy trừ khi chủ yêu cầu. "
+            "Xử lý xong thì tiếp tục task.]\n\n%s"
+            % ((" — có thể bạn đã thấy tin này trước khi đổi tài khoản; đã xử lý rồi thì bỏ qua" if again else ""), body))
+
+
+LIVE = "live"  # manager/live: lượt đang chạy còn giữ stdin mở → tin mới được nạp ngay vào lượt
+
+
+def live_accepting(tid):
+    return os.path.exists(os.path.join(mdir(tid), LIVE)) and tracker.manager_info(os.path.join(TASKS, tid))["running"]
+
+
+def requeue_front_locked(tid, rows, count=False):
+    """Trả các tin đã nạp nhưng có thể chưa được xử lý (lượt hết hạn mức / lỗi) về ĐẦU hàng chờ. Gọi khi giữ inbox_lock.
+    Không ghi lại pentagon_owner (đã ghi lúc chủ gửi). count=True: tính một lần lỗi (để không lặp vô hạn)."""
+    if not rows:
+        return
+    path = os.path.join(mdir(tid), "inbox.jsonl")
+    rest = inbox_read(tid)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        for item in [dict(r, requeued=1, fails=int(r.get("fails") or 0) + (1 if count else 0)) for r in rows] + rest:
+            f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    os.replace(tmp, path)
+
+
+INFLIGHT = "inflight.jsonl"  # tin đã nạp vào lượt đang chạy nhưng chưa thấy result thành công (bền vững qua Dừng/crash)
+MAX_FAILS = 2
+
+
+def inflight_add_locked(tid, rows):
+    with open(os.path.join(mdir(tid), INFLIGHT), "a", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def inflight_take_locked(tid):
+    path = os.path.join(mdir(tid), INFLIGHT)
+    rows = []
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    rows.append(json.loads(line))
+                except ValueError:
+                    continue
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    return rows
+
+
+def inflight_ack_locked(tid, before):
+    """Bỏ khỏi inflight các tin nạp trước thời điểm `before` (đã chắc chắn được đưa vào lượt vừa xong)."""
+    rows = inflight_take_locked(tid)
+    rest = [r for r in rows if float(r.get("fed_at") or 0) > before]
+    if rest:
+        inflight_add_locked(tid, rest)
+
+
+def requeue_inflight_locked(tid, count=False):
+    """Tin đã nạp mà lượt kết thúc (lỗi / hết hạn mức / bị Dừng / chết đột ngột) trước khi xác nhận xử lý xong:
+    trả về đầu hàng chờ. Tin lỗi quá MAX_FAILS lần thì bỏ (tránh lặp vô hạn), có ghi event. Gọi khi giữ inbox_lock."""
+    rows = inflight_take_locked(tid)
+    keep = [r for r in rows if not count or int(r.get("fails") or 0) + 1 < MAX_FAILS]
+    dropped = len(rows) - len(keep)
+    requeue_front_locked(tid, keep, count=count)
+    if dropped:
+        append_event(tid, "pentagon_event", "Bỏ %d tin vì quản lý lỗi %d lần khi xử lý — gửi lại nếu cần." % (dropped, MAX_FAILS))
+    return len(keep)
 
 
 def apply_inbox_options(tid, rows):
@@ -997,8 +1099,166 @@ def scan_limit(stream_path, offset, err_path, err_offset):
     return limited, reset_at, begun
 
 
+class LiveTurn:
+    """Giữ stdin (stream-json) của claude mở trong một lần chạy để nạp tin chủ gửi giữa lượt.
+
+    - Một luồng nền mỗi ~1s lấy tin từ inbox.jsonl (dưới inbox_lock) và ghi vào stdin như tin user.
+    - Gặp event result: còn tin thì nạp tiếp; hết tin (hoặc result lỗi) thì đóng stdin và xoá cờ manager/live —
+      từ lúc đó send() xếp hàng như cũ và drain_inbox mở lượt mới khi tiến trình thoát. Đóng stdin và nạp tin
+      đều làm dưới inbox_lock nên tin tới đúng lúc chuyển giao không bị mất / không bị nạp hai lần.
+    - inbox.paused (chủ bấm Dừng): không nạp gì.
+    """
+
+    def __init__(self, tid, proc):
+        self.tid, self.p = tid, proc
+        self.open = True
+        self.ready = False  # đã thấy system/init: claude chạy thật (tránh nạp vào lần chạy hỏng ngay, vd "already in use")
+        # tin đã nạp mà chưa thấy result thành công nằm ở manager/inflight.jsonl (Dừng/crash vẫn lấy lại được)
+        self.last = time.time()  # lúc có event gần nhất từ claude
+        self.last_user = 0.0     # lúc có event user (kết quả công cụ) gần nhất
+        self.last_ok = False     # result gần nhất là success
+        self.lock = threading.Lock()
+        self.done = threading.Event()
+        self.thread = threading.Thread(target=self._loop, daemon=True)
+        with inbox_lock(tid):
+            put(tid, LIVE, "pid=%d" % proc.pid)
+
+    def _write(self, text):
+        line = json.dumps({"type": "user", "message": {"role": "user", "content": text}}, ensure_ascii=False) + "\n"
+        self.p.stdin.write(line.encode("utf-8"))
+        self.p.stdin.flush()
+
+    def send_first(self, text):
+        with self.lock:
+            try:
+                self._write(text)
+            except (OSError, ValueError):
+                self._close_locked()
+        self.thread.start()
+
+    def _close_locked(self):
+        """Gọi khi giữ self.lock (và inbox_lock nếu có tiến trình khác có thể ghi hàng chờ)."""
+        if not self.open:
+            return
+        self.open = False
+        put(self.tid, LIVE, None)
+        try:
+            self.p.stdin.close()
+        except (OSError, ValueError):
+            pass
+
+    def _feed_locked(self):
+        """Nạp hàng chờ vào stdin. Giữ inbox_lock + self.lock. Trả về số tin đã nạp."""
+        tid, d = self.tid, mdir(self.tid)
+        if not self.open or not self.ready or os.path.exists(os.path.join(d, "inbox.paused")):
+            return 0
+        rows = inbox_read(tid)
+        if not rows:
+            return 0
+        try:
+            self._write(live_prompt(rows))
+        except (OSError, ValueError):  # claude đã đóng stdin/thoát: tin vẫn nằm trong inbox cho lượt sau
+            self._close_locked()
+            return 0
+        try:
+            os.remove(os.path.join(d, "inbox.jsonl"))
+        except FileNotFoundError:
+            pass
+        now = time.time()
+        inflight_add_locked(tid, [dict(r, fed_at=now) for r in rows])
+        before = get(tid, "model")
+        try:
+            apply_inbox_options(tid, rows)  # model/cỡ riêng của tin: áp dụng từ lượt sau
+        except Exception:
+            pass
+        after = get(tid, "model")
+        extra = (" Model %s áp dụng từ lượt sau." % (after or "mặc định")) if after != before else ""
+        who = [r.get("worker") for r in rows if r.get("worker")]
+        if who:
+            extra += " Chủ chỉ định giao cho %s." % ", ".join(dict.fromkeys(who))
+        append_event(tid, "pentagon_event", "Quản lý đã nhận %s (giữa lượt).%s"
+                     % ("tin" if len(rows) == 1 else "%d tin" % len(rows), extra))
+        if kv(os.path.join(TASKS, tid, "status")).get("state") == "cho":
+            progress(tid, "tiep", "chủ đã gửi thêm tin")
+        return len(rows)
+
+    def _has_inbox(self):
+        d = mdir(self.tid)
+        try:
+            return any(n == "inbox.jsonl" or n.startswith("inbox.claimed.") for n in os.listdir(d))
+        except OSError:
+            return False
+
+    SILENT_CLOSE = 1800  # claude im lặng quá 30 phút (lâu hơn timeout tối đa của một lệnh Bash): đóng stdin cho chắc
+
+    def _loop(self):
+        while not self.done.wait(1.0):
+            if not self.open:
+                return
+            if time.time() - self.last > self.SILENT_CLOSE:
+                # Lưới an toàn: nếu claude lỗi mà không ra event result, stdin mở sẽ làm tiến trình chờ mãi.
+                # Đóng stdin chỉ dừng việc nạp tin; claude vẫn làm nốt rồi thoát, tin mới chờ lượt sau.
+                with inbox_lock(self.tid), self.lock:
+                    self._close_locked()
+                return
+            if not self.ready or not self._has_inbox():
+                continue
+            try:
+                with inbox_lock(self.tid), self.lock:
+                    self._feed_locked()
+            except Exception as e:  # lỗi nạp tin không được làm hỏng lượt đang chạy
+                throttled_event(self.tid, "live-feed-error", "Lỗi nạp tin giữa lượt: %s" % e)
+
+    def on_event(self, e):
+        self.last = time.time()
+        t = e.get("type")
+        if t == "system" and e.get("subtype") == "init":
+            self.ready = True
+        elif t == "user":
+            # kết quả công cụ: claude sắp gọi model tiếp → tin đã nạp trước lúc này được đưa vào lượt
+            self.last_user = time.time()
+        elif t == "result":
+            ok = not e.get("is_error") and e.get("subtype") == "success"
+            self.last_ok = ok
+            with inbox_lock(self.tid), self.lock:
+                if ok:
+                    # Chỉ xác nhận tin nạp TRƯỚC bước công cụ cuối: tin nạp sát lúc trả lời cuối có thể chưa được đọc
+                    # (claude sẽ xử lý nó thành lượt kế tiếp) → giữ lại tới result sau hoặc tới khi tiến trình thoát sạch.
+                    inflight_ack_locked(self.tid, self.last_user)
+                    if self._feed_locked():  # còn tin mới: nạp luôn, claude làm tiếp trong cùng tiến trình
+                        return
+                self._close_locked()
+
+    def finish(self):
+        """Tiến trình claude đã thoát: dừng luồng nạp, xoá cờ live (dưới inbox_lock)."""
+        self.done.set()
+        with inbox_lock(self.tid), self.lock:
+            self._close_locked()
+        if self.thread.is_alive():
+            self.thread.join(timeout=5)
+
+
+def pipe_to_file(src, fd, live):
+    """Chép stdout của claude sang stream.jsonl theo từng dòng (một lần write/dòng, O_APPEND) và báo event cho live."""
+    for raw in src:
+        view = memoryview(raw)
+        while view:
+            n = os.write(fd, view)
+            view = view[n:]
+        try:
+            e = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(e, dict):
+            try:
+                live.on_event(e)
+            except Exception as ex:
+                throttled_event(live.tid, "live-event-error", "Lỗi xử lý sự kiện lượt: %s" % ex)
+
+
 def run_turn(tid, inp):
-    """Tiến trình nền của một lượt: chạy claude, hết hạn mức thì chuyển tài khoản và làm tiếp."""
+    """Tiến trình nền của một lượt: chạy claude, hết hạn mức thì chuyển tài khoản và làm tiếp.
+    stdin dạng stream-json được giữ mở để tin chủ gửi giữa lượt được nạp ngay (xem LiveTurn)."""
     d = mdir(tid)
     stream, errp = os.path.join(d, "stream.jsonl"), os.path.join(d, "stderr.log")
     message = read(inp) or ""
@@ -1013,7 +1273,9 @@ def run_turn(tid, inp):
         put(tid, "account", acc["name"])
         sid = get(tid, "session")
         spec = get(tid, "model") or c["model"]
-        cmd = ["claude", "-p", "--output-format", "stream-json", "--verbose",
+        cmd = ["claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+               # stream-json input = chế độ SDK: không có ai trả lời hỏi quyền → từ chối luôn như chế độ text cũ
+               "--permission-prompts", "none",
                "--permission-mode", "acceptEdits", "--append-system-prompt", rules_for(tid),
                "--disallowedTools", "Monitor", "ScheduleWakeup", "CronCreate", "RemoteTrigger",
                "--allowedTools"] + BASE_TOOLS + c["allow"]
@@ -1030,13 +1292,22 @@ def run_turn(tid, inp):
             env["CLAUDE_CONFIG_DIR"] = acc["home"]
         offset = os.path.getsize(stream) if os.path.exists(stream) else 0
         eoff = os.path.getsize(errp) if os.path.exists(errp) else 0
-        with open(stream, "a", encoding="utf-8") as out, open(errp, "a", encoding="utf-8") as err:
-            p = subprocess.Popen(cmd, cwd=ROOT, stdin=subprocess.PIPE, stdout=out, stderr=err, env=env)
-            try:
-                p.communicate(message.encode("utf-8"))
-            except KeyboardInterrupt:
-                p.terminate()
-                raise
+        fd = os.open(stream, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        try:
+            with open(errp, "a", encoding="utf-8") as err:
+                p = subprocess.Popen(cmd, cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=err, env=env)
+                live = LiveTurn(tid, p)
+                try:
+                    live.send_first(message)
+                    pipe_to_file(p.stdout, fd, live)
+                    p.wait()
+                except KeyboardInterrupt:
+                    p.terminate()
+                    raise
+                finally:
+                    live.finish()
+        finally:
+            os.close(fd)
         limited, reset_at, begun = scan_limit(stream, offset, errp, eoff)
         try:
             with open(errp, encoding="utf-8", errors="replace") as ef:
@@ -1044,7 +1315,16 @@ def run_turn(tid, inp):
                 in_use = "already in use" in ef.read()
         except OSError:
             in_use = False
-        if in_use and not begun and not os.path.exists(os.path.join(d, "begun")):
+        retry_same = in_use and not begun and not os.path.exists(os.path.join(d, "begun"))
+        # Tin đã nạp nhưng lần chạy này kết thúc trước result thành công (hết hạn mức, lỗi, thoát bất thường): trả về
+        # đầu hàng chờ để lần chạy kế tiếp (tài khoản khác) nạp lại, hoặc drain_inbox / lượt tự làm tiếp gộp vào.
+        # Hết hạn mức / "already in use" không tính là lỗi của tin; lỗi khác thì tính để không lặp vô hạn.
+        with inbox_lock(tid):
+            if live.last_ok and p.returncode == 0 and not limited:
+                inflight_take_locked(tid)  # thoát sạch sau result thành công: claude đã xử lý hết mọi tin trong stdin
+            else:
+                requeue_inflight_locked(tid, count=not (limited or retry_same))
+        if retry_same:
             put(tid, "begun", "1")  # phiên đã có từ trước: chạy lại bằng --resume
             continue
         try:  # thống kê usage cho tài khoản này (web: Văn phòng làm việc)
@@ -1150,6 +1430,9 @@ def check_orphans():
         if time.time() - started < 15:  # vừa mới chạy, tiến trình có thể chưa kịp lên
             continue
         os.remove(pf)
+        with inbox_lock(tid):
+            put(tid, LIVE, None)
+            requeue_inflight_locked(tid, count=True)  # tin đã nạp vào lượt bị chết: lượt sau nạp lại
         status = kv(os.path.join(TASKS, tid, "status"))
         auto = int(get(tid, "auto_continue") or 0)
         if status.get("state") in ("xong", "loi") or auto >= 2:
@@ -1397,8 +1680,12 @@ def send(tid, message, reaper=False, size="auto", model="", worker="", worker_mo
         queued = os.path.exists(path)
         retrying = bool(get(tid, "retry_at"))
         if busy_now:
+            # Lượt đang giữ stdin mở (LiveTurn) → tin được nạp vào chính lượt đó trong ~1s; nếu không → chờ hết lượt.
+            # (đang chuẩn bị lượt, chưa chạy: lượt sắp chạy cũng nạp hàng chờ ngay sau khi khởi động)
+            running = tracker.manager_info(os.path.join(TASKS, tid))["running"]
+            live = (live_accepting(tid) or not running) and not paused
             count = enqueue_inbox_locked(tid, message, size, model, worker, worker_model)
-            return {"queued": True, "queued_count": count}
+            return {"queued": True, "queued_count": count, "live": live, "paused": paused}
         if paused or queued or retrying:
             # Dừng/hết hạn mức không nên giữ tin mới vô hạn: nhập chung và khởi chạy ngay.
             claimed = os.path.join(mdir(tid), "inbox.claimed.%d" % os.getpid())
@@ -1535,10 +1822,14 @@ def stop(tid):
     if not info["running"]:
         raise RuntimeError("quản lý không chạy")
     with inbox_lock(tid):
-        put(tid, "inbox.paused", "1")
+        put(tid, "inbox.paused", "1")  # từ đây luồng nạp tin giữa lượt không nạp gì nữa
     kill_tree(info["pid"])
     put(tid, "pid", None)
     with inbox_lock(tid):
+        put(tid, LIVE, None)  # tiến trình bị kill nên LiveTurn.finish không kịp xoá cờ
+        # tin chủ gửi giữa lượt mà quản lý chưa xử lý xong: giữ lại trong hàng chờ (đã Dừng) thay vì mất
+        if requeue_inflight_locked(tid):
+            append_event(tid, "pentagon_event", "Tin gửi giữa lượt chưa xử lý xong được giữ lại trong hàng chờ.")
         if not inbox_read(tid):
             try:
                 os.remove(os.path.join(mdir(tid), "inbox.paused"))
@@ -1795,7 +2086,9 @@ def cmd_manager(argv):
             msg = " ".join(rest) if rest else sys.stdin.read()
             result = send(tid, msg, size=size)
             if isinstance(result, dict):
-                if result.get("queued"):
+                if result.get("live"):
+                    print("Đã gửi — quản lý sẽ đọc ở bước kế tiếp")
+                elif result.get("queued"):
                     print("Đã xếp hàng (%d tin chờ)" % result.get("queued_count", 0))
                 else:
                     print("Đã gửi")

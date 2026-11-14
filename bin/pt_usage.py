@@ -39,21 +39,24 @@ def _save(name, d):
 
 def record_claude_events(name, events):
     """Ghi rate limit + token từ các sự kiện stream-json của một lần chạy Claude."""
-    rate, tokens, cost, calls = None, 0, 0.0, 0
+    # Một lần chạy (stdin stream-json) có thể ra nhiều event result; total_cost_usd và modelUsage là số CỘNG DỒN
+    # trong cả tiến trình → lấy số lớn nhất, không cộng. `usage` là số của riêng từng lượt → cộng.
+    rate, cost, calls, mu_tokens, turn_tokens = None, 0.0, 0, 0, 0
     for e in events:
         t = e.get("type")
         if t == "rate_limit_event":
             rate = e.get("rate_limit_info") or rate
         elif t == "result":
             calls += 1
-            cost += float(e.get("total_cost_usd") or 0)
-            for m in (e.get("modelUsage") or {}).values():
-                tokens += sum(int(m.get(k) or 0) for k in ("inputTokens", "outputTokens",
-                                                            "cacheReadInputTokens", "cacheCreationInputTokens"))
-            if not e.get("modelUsage"):
-                u = e.get("usage") or {}
-                tokens += sum(int(u.get(k) or 0) for k in ("input_tokens", "output_tokens",
-                                                           "cache_read_input_tokens", "cache_creation_input_tokens"))
+            cost = max(cost, float(e.get("total_cost_usd") or 0))
+            mu = sum(sum(int(m.get(k) or 0) for k in ("inputTokens", "outputTokens",
+                                                     "cacheReadInputTokens", "cacheCreationInputTokens"))
+                     for m in (e.get("modelUsage") or {}).values())
+            mu_tokens = max(mu_tokens, mu)
+            u = e.get("usage") or {}
+            turn_tokens += sum(int(u.get(k) or 0) for k in ("input_tokens", "output_tokens",
+                                                            "cache_read_input_tokens", "cache_creation_input_tokens"))
+    tokens = mu_tokens or turn_tokens
     if rate is None and not calls:
         return
     d = _load(name)
