@@ -1,0 +1,5 @@
+00:42:38 quan-ly [bước 1 Tiếp nhận] tạo task: cho phần nav trong pentagon chuyển sang dạng nav dọc đi. từ
+00:42:46 quan-ly [bước 1 Tiếp nhận] tiếp nhận
+00:43:04 quan-ly [HOÀN THÀNH] Nav dọc cố định bên trái (CSS trong web/index.html)
+00:44:29 quan-ly [bước 6 Tổng hợp] chủ muốn bố cục kiểu WordPress admin, sửa lỗi UI
+00:45:33 quan-ly [HOÀN THÀNH] Bố cục kiểu WordPress admin: menu dọc tối bên trái, header full ngang, có thu gọn

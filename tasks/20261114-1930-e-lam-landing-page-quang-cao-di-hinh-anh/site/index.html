@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pentagon — 1 người giao việc, 1 AI quản lý, nhiều AI làm</title>
+<meta name="description" content="Pentagon biến các gói thuê bao AI bạn đã trả tiền (Claude, ChatGPT, Google AI) thành một đội làm việc: 1 AI quản lý chia việc cho nhiều AI worker, tự chuyển tài khoản khi hết hạn mức. Không cần API key, chạy trên máy của bạn.">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121417" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pentagon — 1 người giao việc, 1 AI quản lý, nhiều AI làm">
+<meta property="og:description" content="Tận dụng gói Claude, ChatGPT, Google AI bạn đã có: 1 AI quản lý chia việc, nhiều AI worker làm, tự chuyển tài khoản khi hết hạn mức. Không cần API key.">
+<meta property="og:image" content="img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Pentagon — 1 người giao việc, 1 AI quản lý, nhiều AI làm">
+<meta name="twitter:description" content="Một đội AI làm việc cho bạn, chạy trên máy của bạn, dùng gói thuê bao sẵn có.">
+<meta name="twitter:image" content="img/og.png">
+<link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+<link rel="apple-touch-icon" href="img/mark.png">
+<style>
+:root{
+  --bg:#f6f7f9;--panel:#fff;--line:#e3e6ea;--text:#1d2228;--muted:#69727d;--soft:#f0f2f5;
+  --accent:#3b6fd8;--ok:#1f9d55;--warn:#c58a00;--bad:#d64545;--run:#0e8fa6;--mgr:#8a4fd1;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.07);
+  --shadow-lg:0 2px 4px rgba(16,24,40,.06),0 24px 48px rgba(16,24,40,.12);
+  --frame:#fff;--img-filter:none;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121417;--panel:#1a1d21;--line:#2b3036;--text:#e6e8eb;--muted:#9099a3;--soft:#22262b;
+    --accent:#6f9bff;--ok:#3ccf7f;--warn:#f0b429;--bad:#ff6b6b;--run:#3cc7de;--mgr:#b98aff;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+    --shadow-lg:0 2px 4px rgba(0,0,0,.3),0 24px 48px rgba(0,0,0,.45);
+    --frame:#22262b;--img-filter:brightness(.88) contrast(1.02);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121417;--panel:#1a1d21;--line:#2b3036;--text:#e6e8eb;--muted:#9099a3;--soft:#22262b;
+  --accent:#6f9bff;--ok:#3ccf7f;--warn:#f0b429;--bad:#ff6b6b;--run:#3cc7de;--mgr:#b98aff;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  --shadow-lg:0 2px 4px rgba(0,0,0,.3),0 24px 48px rgba(0,0,0,.45);
+  --frame:#22262b;--img-filter:brightness(.88) contrast(1.02);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:76px;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{transition:none!important;animation:none!important}
+  html.js-anim .rv,.rv{opacity:1!important;transform:none!important}
+  .btn-primary::after{display:none!important}
+}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.6;overflow-x:hidden}
+img{max-width:100%;height:auto;display:block}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code,kbd,pre{font-family:var(--mono)}
+code{font-size:.9em;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:.08em .38em;overflow-wrap:anywhere}
+h1,h2,h3{line-height:1.2;margin:0;letter-spacing:-.01em}
+p{margin:0}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+@media (max-width:600px){.wrap{padding:0 16px}}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- topbar ---------- */
+.top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:16px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:750;font-size:18px;color:var(--text)}
+.brand:hover{text-decoration:none}
+.brand img{width:32px;height:28px}
+.nav{display:flex;gap:4px;margin-left:auto}
+.nav a{color:var(--muted);font-size:14.5px;padding:6px 10px;border-radius:8px}
+.nav a:hover{color:var(--text);background:var(--soft);text-decoration:none}
+.top-actions{display:flex;align-items:center;gap:8px}
+.icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);display:grid;place-items:center;cursor:pointer}
+.icon-btn:hover{background:var(--soft)}
+.icon-btn svg{width:18px;height:18px}
+.icon-btn .sun{display:none}
+:root[data-theme-now="dark"] .icon-btn .sun{display:block}
+:root[data-theme-now="dark"] .icon-btn .moon{display:none}
+@media (max-width:900px){.nav{display:none}.top-actions{margin-left:auto}}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-weight:650;font-size:15.5px;line-height:1;padding:14px 22px;border-radius:12px;border:1px solid transparent;cursor:pointer;white-space:nowrap;transition:transform .15s ease,box-shadow .15s ease,background .15s}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 35%,transparent)}
+.btn-primary:hover{box-shadow:0 10px 26px color-mix(in srgb,var(--accent) 45%,transparent)}
+:root[data-theme-now="dark"] .btn-primary{color:#0d1424}
+.btn-ghost{background:var(--panel);color:var(--text);border-color:var(--line)}
+.btn-ghost:hover{background:var(--soft)}
+.btn-sm{padding:10px 14px;font-size:14px;border-radius:10px}
+.btn svg{width:16px;height:16px}
+@media (max-width:420px){.top .btn-sm{padding:10px 12px}}
+
+/* ---------- hero ---------- */
+.hero{position:relative;padding:72px 0 56px;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-20% -10% auto -10%;height:120%;z-index:-1;
+  background:radial-gradient(600px 360px at 18% 20%,color-mix(in srgb,var(--mgr) 16%,transparent),transparent 70%),
+             radial-gradient(640px 400px at 85% 40%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 70%)}
+.hero-grid{display:grid;grid-template-columns:1.02fr 1fr;gap:48px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:650;color:var(--mgr);background:color-mix(in srgb,var(--mgr) 10%,var(--panel));border:1px solid color-mix(in srgb,var(--mgr) 28%,var(--line));padding:6px 12px;border-radius:999px}
+.eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--mgr)}
+.hero h1{font-size:clamp(34px,5.4vw,58px);font-weight:800;margin:18px 0 18px;letter-spacing:-.025em}
+.hero h1 .mgr{color:var(--mgr)}
+.hero h1 .wk{color:var(--accent)}
+.lead{font-size:clamp(17px,1.9vw,19.5px);color:var(--muted);max-width:560px}
+.lead strong{color:var(--text)}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.checks{list-style:none;padding:0;margin:26px 0 0;display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--muted);font-size:14.5px}
+.checks li{display:flex;align-items:center;gap:7px}
+.checks svg{width:16px;height:16px;color:var(--ok);flex:none}
+.frame{background:var(--frame);border:1px solid var(--line);border-radius:22px;padding:10px;box-shadow:var(--shadow-lg)}
+.frame img{border-radius:14px;filter:var(--img-filter);width:100%}
+.hero .frame{transform:rotate(.6deg)}
+@media (max-width:900px){
+  .hero{padding:44px 0 36px}
+  .hero-grid{grid-template-columns:1fr;gap:32px}
+  .hero .frame{transform:none;max-width:560px;margin:0 auto;width:100%}
+}
+@media (max-width:420px){.cta-row .btn{flex:1 1 100%}}
+
+/* ---------- sections ---------- */
+section{padding:72px 0}
+@media (max-width:600px){section{padding:52px 0}}
+.sec-head{max-width:700px;margin:0 auto 40px;text-align:center}
+.kicker{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.sec-head h2{font-size:clamp(27px,3.6vw,40px);font-weight:800;margin:10px 0 12px;letter-spacing:-.02em}
+.sec-head p{color:var(--muted);font-size:17px}
+.alt{background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+
+/* ---------- benefits ---------- */
+.benefits{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.benefit{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow)}
+.benefit .ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;margin-bottom:14px;color:#fff}
+.benefit .ic svg{width:21px;height:21px}
+.benefit h3{font-size:17px;margin-bottom:6px}
+.benefit p{color:var(--muted);font-size:15px}
+.i-mgr{background:linear-gradient(135deg,#b98aff,#8a4fd1)}
+.i-acc{background:linear-gradient(135deg,#6f9bff,#3b6fd8)}
+.i-ok{background:linear-gradient(135deg,#3ccf7f,#1f9d55)}
+.i-run{background:linear-gradient(135deg,#3cc7de,#0e8fa6)}
+@media (max-width:960px){.benefits{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.benefits{grid-template-columns:1fr}}
+
+/* ---------- flow ---------- */
+.node{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);min-width:0}
+.node .tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.node h3{font-size:16.5px;margin:4px 0 6px}
+.node p{font-size:14px;color:var(--muted)}
+.node.you{border-top:3px solid var(--text)}
+.node.mgr{border-top:3px solid var(--mgr)}
+.node.mgr h3{color:var(--mgr)}
+.node.wk{border-top:3px solid var(--accent)}
+.node.done{border-top:3px solid var(--ok)}
+.arrow{display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--mono);font-size:12.5px;padding:0 8px;text-align:center;flex-direction:column;gap:2px}
+.arrow svg{width:28px;height:14px}
+.flow-wrap{display:grid;grid-template-columns:1fr 30px 1.15fr 30px 1.25fr 30px 1fr;align-items:center}
+.lanes{display:grid;gap:8px}
+.lane{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-family:var(--mono);font-size:12.5px;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+.lane b{color:var(--accent);font-weight:700}
+.lane .sep{color:var(--muted)}
+.flow-note{margin-top:18px;text-align:center;color:var(--muted);font-size:14.5px}
+@media (max-width:900px){
+  .flow-wrap{grid-template-columns:1fr}
+  .flow-wrap .arrow{transform:rotate(90deg);height:30px}
+}
+
+/* ---------- feature rows ---------- */
+.feature{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;padding:36px 0}
+.feature + .feature{border-top:1px dashed var(--line)}
+.feature.rev .f-media{order:2}
+.f-badge{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.04em;text-transform:uppercase}
+.f-badge .n{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,var(--panel));font-size:12.5px}
+.feature h3{font-size:clamp(23px,2.8vw,31px);font-weight:800;margin:10px 0 12px;letter-spacing:-.015em}
+.feature .desc{color:var(--muted);font-size:16.5px}
+.ticks{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:10px}
+.ticks li{display:grid;grid-template-columns:20px 1fr;gap:10px;font-size:15.5px}
+.ticks svg{width:18px;height:18px;color:var(--ok);margin-top:3px}
+.f-link{display:inline-flex;align-items:center;gap:6px;margin-top:20px;font-weight:650}
+.f-link svg{width:16px;height:16px}
+.caption{margin-top:10px;text-align:center;font-size:13px;color:var(--muted)}
+.size-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.pill{font-family:var(--mono);font-size:13.5px;border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:5px 12px}
+.pill b{color:var(--accent)}
+@media (max-width:860px){
+  .feature{grid-template-columns:1fr;gap:24px;padding:28px 0}
+  .feature.rev .f-media{order:0}
+  .f-media{max-width:560px;width:100%;margin:0 auto}
+}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:28px}
+.mini .benefit h3{font-size:18px}
+@media (max-width:700px){.mini{grid-template-columns:1fr}}
+
+/* ---------- CTA band ---------- */
+.band{position:relative;border-radius:24px;padding:40px;overflow:hidden;color:#fff;
+  background:linear-gradient(120deg,#6b3fb8 0%,#3b6fd8 60%,#0e8fa6 120%);box-shadow:var(--shadow-lg);
+  display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.band h2{font-size:clamp(23px,3vw,32px);font-weight:800;letter-spacing:-.015em}
+.band p{opacity:.9;margin-top:8px;max-width:560px}
+.band .btn-primary{background:#fff;color:#2a3a70;box-shadow:0 8px 22px rgba(0,0,0,.2)}
+:root[data-theme-now="dark"] .band .btn-primary{color:#2a3a70}
+.band .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
+.band .btn-ghost:hover{background:rgba(255,255,255,.12)}
+.band-actions{display:flex;gap:12px;flex-wrap:wrap}
+@media (max-width:600px){.band{padding:28px 22px}.band-actions{width:100%}.band-actions .btn{flex:1 1 100%}}
+
+/* ---------- steps ---------- */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;counter-reset:s}
+.step{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 22px 22px 22px;box-shadow:var(--shadow)}
+.step .num{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;background:linear-gradient(135deg,#b98aff,#8a4fd1);margin-bottom:12px}
+.step:last-child .num{background:linear-gradient(135deg,#3ccf7f,#1f9d55)}
+.step h3{font-size:17px;margin-bottom:6px}
+.step p{font-size:15px;color:var(--muted)}
+@media (max-width:900px){.steps{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.steps{grid-template-columns:1fr}}
+
+/* ---------- workers ---------- */
+.workers{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.worker{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow);border-top:3px solid var(--accent)}
+.worker .name{font-family:var(--mono);font-weight:700;font-size:18px;color:var(--accent)}
+.worker .role{font-size:13px;color:var(--muted);margin:2px 0 12px}
+.worker p{font-size:15px}
+.worker .acc{margin-top:14px;font-family:var(--mono);font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px}
+.worker .acc span{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+@media (max-width:800px){.workers{grid-template-columns:1fr}}
+
+/* ---------- quick start ---------- */
+.qs{display:grid;grid-template-columns:1.35fr 1fr;gap:24px;align-items:start}
+.qs>*,.flow-wrap>*,.hero-grid>*,.feature>*{min-width:0}
+.code{position:relative;background:#0f1216;color:#dfe4ea;border:1px solid #262b31;border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden}
+.code-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px 10px 16px;border-bottom:1px solid #262b31;background:#151a20}
+.code-head .dots{display:flex;gap:6px}
+.code-head .dots i{width:10px;height:10px;border-radius:50%;background:#3a4048;display:block}
+.code-head .t{font-size:12.5px;color:#8b95a1;font-family:var(--mono);margin-right:auto;margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.copy{font:inherit;font-size:13px;font-weight:650;color:#dfe4ea;background:#232a33;border:1px solid #333b45;border-radius:8px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;flex:none}
+.copy:hover{background:#2c3540}
+.copy.ok{color:#3ccf7f;border-color:#2c6b4a}
+.copy svg{width:14px;height:14px}
+.code pre{margin:0;padding:18px 18px 20px;font-size:13.5px;line-height:1.75;overflow-x:auto;white-space:pre}
+.code .c{color:#7d8794}
+.code .p{color:#b98aff;user-select:none}
+.code .s{color:#9fd3a8}
+.code .k{color:#6f9bff}
+.side{display:grid;gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+.card h3{font-size:16.5px;margin-bottom:8px}
+.card p,.card li{font-size:15px;color:var(--muted)}
+.card ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.card + .card{margin-top:0}
+.code.small pre{font-size:13px}
+@media (max-width:900px){.qs{grid-template-columns:1fr}}
+@media (max-width:600px){.code pre{font-size:12.5px;padding:14px}}
+
+/* ---------- where ---------- */
+.where{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.where table{width:100%;border-collapse:collapse;font-size:15px}
+.where th,.where td{text-align:left;padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:top}
+.where th{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--soft);font-weight:700}
+.where tr:last-child td{border-bottom:0}
+.where td:first-child{font-weight:650;width:34%}
+.where td:nth-child(2){width:72px;text-align:center}
+.yes,.no{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;color:#fff}
+.yes{background:var(--ok)}.no{background:var(--bad)}
+.yes svg,.no svg{width:14px;height:14px}
+:root[data-theme-now="dark"] .yes,:root[data-theme-now="dark"] .no{color:#121417}
+.where-note{margin-top:14px;color:var(--muted);font-size:14.5px;text-align:center}
+@media (max-width:600px){
+  .where th,.where td{padding:12px 12px;font-size:14px}
+  .where td:first-child{width:auto}
+  .where td:nth-child(2){width:44px}
+}
+
+/* ---------- faq ---------- */
+.faq{max-width:780px;margin:0 auto;display:grid;gap:12px}
+.faq details{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.faq summary{cursor:pointer;list-style:none;padding:18px 52px 18px 20px;font-weight:650;font-size:16.5px;position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"";position:absolute;right:22px;top:50%;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:translateY(-70%) rotate(45deg);transition:transform .2s}
+.faq details[open] summary::after{transform:translateY(-30%) rotate(-135deg)}
+.faq .ans{padding:0 20px 18px;color:var(--muted);font-size:15.5px}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line);padding:32px 0 40px;color:var(--muted);font-size:14.5px}
+footer .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+footer .brand{font-size:15px}
+footer .brand img{width:26px;height:23px}
+
+/* ---------- hiệu ứng chuyển động ---------- */
+.btn-primary{position:relative;overflow:hidden}
+.top{transition:box-shadow .25s ease}
+.top.scrolled{box-shadow:0 8px 24px rgba(16,24,40,.12)}
+.top .progress{position:absolute;left:0;top:0;width:100%;height:3px;background:linear-gradient(90deg,var(--mgr),var(--accent));transform:scaleX(0);transform-origin:0 50%;pointer-events:none;will-change:transform}
+.nav a{transition:color .2s,background .2s,box-shadow .2s}
+.nav a.active{color:var(--text);background:var(--soft);box-shadow:inset 0 -2px 0 var(--accent)}
+.frame{overflow:hidden}
+.hero .frame{--r:.6deg;transform:rotate(var(--r))}
+@media (max-width:900px){.hero .frame{--r:0deg}}
+/* hiện dần khi cuộn: chỉ ẩn khi JS đã bật html.js-anim */
+html.js-anim .rv{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+html.js-anim .rv.rv-l{transform:translateX(-32px)}
+html.js-anim .rv.rv-r{transform:translateX(32px)}
+html.js-anim .rv.in{opacity:1;transform:none}
+@media print{html.js-anim .rv{opacity:1!important;transform:none!important}}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes floaty{0%,100%{transform:translateY(0) rotate(var(--r))}50%{transform:translateY(-10px) rotate(var(--r))}}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(3%,4%,0) scale(1.08)}}
+@keyframes shine{0%,55%{transform:translateX(-160%) skewX(-20deg)}100%{transform:translateX(420%) skewX(-20deg)}}
+@keyframes flow{0%{opacity:0;transform:translateX(-7px)}30%{opacity:1}70%{opacity:1}100%{opacity:0;transform:translateX(7px)}}
+@media (prefers-reduced-motion: no-preference){
+  .hero::before{animation:drift 18s ease-in-out infinite alternate;will-change:transform}
+  .hero .eyebrow,.hero h1,.hero .lead,.hero .cta-row,.hero .checks{animation:rise .75s cubic-bezier(.2,.7,.2,1) both}
+  .hero .eyebrow{animation-delay:.05s}
+  .hero h1{animation-delay:.18s}
+  .hero .lead{animation-delay:.34s}
+  .hero .cta-row{animation-delay:.5s}
+  .hero .checks{animation-delay:.66s}
+  .hero .frame{animation:fadein .9s ease .25s both,floaty 8s ease-in-out 1.2s infinite}
+  .btn-primary::after{content:"";position:absolute;top:0;bottom:0;left:0;width:45%;pointer-events:none;background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);transform:translateX(-160%) skewX(-20deg);animation:shine 4.5s ease-in-out 1.5s infinite}
+  .arrow svg{animation:flow 1.6s linear infinite}
+  .frame img{transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+  .frame:hover img{transform:scale(1.04)}
+  .benefit,.worker,.step{transition:transform .25s ease,box-shadow .25s ease}
+}
+@media (prefers-reduced-motion: no-preference) and (hover:hover){
+  .benefit:hover,.worker:hover,.step:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg)}
+}
+</style>
+<script>
+/* Áp theme trước khi vẽ để tránh nháy */
+(function(){
+  var saved=null;
+  try{saved=localStorage.getItem("pentagon-theme")}catch(e){}
+  var root=document.documentElement;
+  if(saved==="light"||saved==="dark")root.setAttribute("data-theme",saved);
+  var dark=saved?saved==="dark":(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches);
+  root.setAttribute("data-theme-now",dark?"dark":"light");
+})();
+</script>
+<script>
+/* Chỉ bật hiệu ứng hiện dần khi có IntersectionObserver và người dùng không tắt chuyển động */
+(function(){try{
+  var rm=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if("IntersectionObserver" in window&&!rm)document.documentElement.classList.add("js-anim");
+}catch(e){}})();
+</script>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 20 20"><path d="M4.5 10.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 20 20"><path d="M5.5 5.5l9 9m0-9l-9 9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 20 20"><path d="M4 10h11m-4-4.5L15.5 10 11 14.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 20 20"><rect x="7" y="7" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 4.5V4a1.5 1.5 0 00-1.5-1.5h-7A1.5 1.5 0 003 4v7a1.5 1.5 0 001.5 1.5H5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="progress" id="progress" aria-hidden="true"></div>
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Pentagon — về đầu trang"><img src="img/mark.png" width="160" height="138" alt="Logo Pentagon">Pentagon</a>
+    <nav class="nav" aria-label="Điều hướng chính">
+      <a href="#loi-ich">Lợi ích</a>
+      <a href="#tinh-nang">Tính năng</a>
+      <a href="#quy-trinh">Quy trình</a>
+      <a href="#doi-worker">Đội worker</a>
+      <a href="#chay-o-dau">Chạy ở đâu</a>
+      <a href="#faq">Hỏi đáp</a>
+    </nav>
+    <div class="top-actions">
+      <button class="icon-btn" id="theme" type="button" aria-label="Chuyển chế độ sáng/tối" title="Chuyển sáng/tối">
+        <svg class="moon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 12.3A7 7 0 017.7 3.5a7 7 0 108.8 8.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <svg class="sun" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10 1.8v2.2M10 16v2.2M1.8 10H4M16 10h2.2M4.2 4.2l1.6 1.6M14.2 14.2l1.6 1.6M4.2 15.8l1.6-1.6M14.2 5.8l1.6-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="#bat-dau">Bắt đầu ngay</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ================= HERO ================= -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="dot"></span>Đội AI chạy trên máy của bạn</span>
+      <h1 id="hero-title">1 người giao việc, <span class="mgr">1 AI quản lý</span>, <span class="wk">nhiều AI làm</span>.</h1>
+      <p class="lead">Bạn đã trả tiền cho <strong>Claude Pro/Team, ChatGPT Plus/Team, Google AI Pro…</strong> Pentagon biến chúng thành một đội làm việc thật sự: bạn giao một câu, AI quản lý tự tối ưu yêu cầu, chia việc, giao cho đúng AI và kiểm tra kết quả. Chạy qua các CLI chính chủ — <strong>không cần API key</strong>.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#bat-dau">Bắt đầu ngay <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        <a class="btn btn-ghost" href="#quy-trinh">Xem quy trình</a>
+      </div>
+      <ul class="checks">
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Không cần API key</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Tự chuyển tài khoản khi hết hạn mức</li>
+        <li><svg aria-hidden="true"><use href="#i-check"/></svg>Theo dõi bằng terminal hoặc web</li>
+      </ul>
+    </div>
+    <div class="frame">
+      <img src="img/hero.svg" width="800" height="600" fetchpriority="high" alt="Minh hoạ: một AI quản lý màu tím ở giữa, nối tới nhiều AI worker màu xanh đang làm việc">
+    </div>
+  </div>
+</section>
+
+<!-- ================= BENEFITS ================= -->
+<section id="loi-ich" class="alt" aria-labelledby="loi-ich-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Vì sao nên dùng</span>
+      <h2 id="loi-ich-title">Bớt việc tay, dùng hết giá trị gói đã mua</h2>
+      <p>Thay vì mở từng cửa sổ chat, chép qua chép lại, bạn chỉ giao việc — phần điều phối để AI quản lý lo.</p>
+    </div>
+    <div class="benefits">
+      <div class="benefit">
+        <div class="ic i-mgr"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 15.5h14M5 12l3-3 2.5 2.5L15 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Đỡ tốn công</h3>
+        <p>Gõ <code>/giao</code> kèm mô tả task. AI quản lý viết lại yêu cầu, lập kế hoạch, giao việc và tổng hợp — bạn chỉ duyệt.</p>
+      </div>
+      <div class="benefit">
+        <div class="ic i-acc"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="5" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9h14" stroke="currentColor" stroke-width="2"/></svg></div>
+        <h3>Tận dụng gói đã trả tiền</h3>
+        <p>Dùng chính gói thuê bao Claude, ChatGPT, Google AI bạn đang có qua CLI chính chủ. Không cần API key.</p>
+      </div>
+      <div class="benefit">
+        <div class="ic i-run"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 8A6 6 0 004.6 6.5M4.5 12a6 6 0 0010.9 1.5M4.5 3v3.5H8M15.5 17v-3.5H12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Không lo hết hạn mức giữa chừng</h3>
+        <p>Tài khoản này hết hạn mức, tài khoản kế tiếp tự nhận việc và <strong>làm tiếp phần dở</strong> — không làm lại từ đầu.</p>
+      </div>
+      <div class="benefit">
+        <div class="ic i-ok"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3.5" width="14" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 10l2.3 2.3L13.5 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Theo dõi được mọi thứ</h3>
+        <p>Thấy task đang ở bước nào, việc con nào xong, worker nào đang chạy và chạy bao lâu — trên terminal hoặc web.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOW IT WORKS ================= -->
+<section id="cach-hoat-dong" aria-labelledby="flow-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Cách hoạt động</span>
+      <h2 id="flow-title">Bạn giao một câu. Cả đội cùng chạy.</h2>
+      <p>AI quản lý là Claude Code đọc <code>CLAUDE.md</code>. Nó gọi các worker bằng <code>bin/ask</code> và ghi mọi thứ vào <code>tasks/&lt;id&gt;/</code>.</p>
+    </div>
+    <div class="flow-wrap">
+      <div class="node you">
+        <div class="tag">Bạn</div>
+        <h3>Giao task</h3>
+        <p><code>/giao</code> + mô tả bằng tiếng Việt</p>
+      </div>
+      <div class="arrow" aria-hidden="true"><svg viewBox="0 0 28 14"><path d="M1 7h24m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="node mgr">
+        <div class="tag">AI quản lý</div>
+        <h3>Claude Code</h3>
+        <p>Tối ưu yêu cầu → <code>brief.md</code><br>Chia việc → <code>plan.md</code></p>
+      </div>
+      <div class="arrow" aria-hidden="true"><svg viewBox="0 0 28 14"><path d="M1 7h24m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="lanes" aria-label="Các worker, tự chuyển tài khoản khi hết hạn mức">
+        <div class="lane"><b>bin/ask claude</b><span class="sep">▶</span>claude-main<span class="sep">→</span>claude-2<span class="sep">→ …</span></div>
+        <div class="lane"><b>bin/ask codex</b><span class="sep">▶</span>codex-main<span class="sep">→</span>codex-2<span class="sep">→ …</span></div>
+        <div class="lane"><b>bin/ask gemini</b><span class="sep">▶</span>gemini-main<span class="sep">→ …</span></div>
+      </div>
+      <div class="arrow" aria-hidden="true"><svg viewBox="0 0 28 14"><path d="M1 7h24m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="node done">
+        <div class="tag">Kết quả</div>
+        <h3>Kiểm tra, tổng hợp</h3>
+        <p>→ <code>final.md</code></p>
+      </div>
+    </div>
+    <p class="flow-note">Mũi tên giữa các tài khoản: tự chuyển sang tài khoản kế tiếp khi tài khoản trước hết hạn mức.</p>
+  </div>
+</section>
+
+<!-- ================= FEATURES ================= -->
+<section id="tinh-nang" class="alt" aria-labelledby="tinh-nang-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Tính năng nổi bật</span>
+      <h2 id="tinh-nang-title">Mọi thứ cần để đội AI chạy trơn tru</h2>
+      <p>Được thiết kế cho người dùng gói thuê bao: tiết kiệm hạn mức, an toàn, và luôn biết chuyện gì đang diễn ra.</p>
+    </div>
+
+    <article class="feature">
+      <div class="f-media">
+        <div class="frame"><img src="img/feature-rotate.svg" width="800" height="600" loading="lazy" alt="Minh hoạ xoay vòng tài khoản: việc chuyển từ tài khoản đã hết hạn mức sang tài khoản kế tiếp để làm tiếp"></div>
+      </div>
+      <div>
+        <span class="f-badge"><span class="n">1</span>Xoay vòng tài khoản</span>
+        <h3>Hết hạn mức? Tài khoản kế tiếp làm tiếp ngay.</h3>
+        <p class="desc">Mỗi công cụ có thể có nhiều tài khoản. Gọi <code>bin/ask claude</code> (theo tên công cụ) là Pentagon tự xoay vòng giữa chúng.</p>
+        <ul class="ticks">
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Tài khoản đầu hết hạn mức thì tự chuyển sang tài khoản kế tiếp — và <strong>làm tiếp phần dở</strong>, không làm lại.</span></li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Thêm bao nhiêu tài khoản cũng được: một dòng trong <code>config/workers.conf</code> + <code>bin/login &lt;tên&gt;</code>.</span></li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Mỗi tài khoản lưu đăng nhập trong thư mục riêng nên không đè lên nhau.</span></li>
+        </ul>
+        <a class="f-link" href="#bat-dau">Bắt đầu ngay <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+      </div>
+    </article>
+
+    <article class="feature rev">
+      <div class="f-media">
+        <div class="frame"><img src="img/feature-size.svg" width="800" height="600" loading="lazy" alt="Minh hoạ chọn model theo cỡ việc: ba mức nhỏ, vừa, lớn"></div>
+      </div>
+      <div>
+        <span class="f-badge"><span class="n">2</span>Chọn model theo cỡ việc</span>
+        <h3>Việc nhỏ dùng model nhỏ. Việc khó dùng model mạnh.</h3>
+        <p class="desc">Mỗi việc con được giao kèm cỡ <code>-s</code>, ánh xạ sang model trong <code>config/models.conf</code>. Đỡ tốn hạn mức mà vẫn đủ sức cho việc khó.</p>
+        <div class="size-pills" aria-label="Ví dụ với Claude">
+          <span class="pill"><b>-s nho</b> → haiku</span>
+          <span class="pill"><b>-s vua</b> → sonnet</span>
+          <span class="pill"><b>-s lon</b> → opus</span>
+        </div>
+        <ul class="ticks">
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Việc ngắn, rõ ràng: model nhỏ, nhanh, tiết kiệm hạn mức.</span></li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Việc cần suy luận sâu: model mạnh nhất của công cụ.</span></li>
+        </ul>
+        <a class="f-link" href="#bat-dau">Bắt đầu ngay <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="f-media">
+        <div class="frame"><img src="img/feature-safe.svg" width="800" height="600" loading="lazy" alt="Minh hoạ an toàn mặc định: thư mục được bảo vệ bởi khiên và ổ khoá"></div>
+      </div>
+      <div>
+        <span class="f-badge"><span class="n">3</span>An toàn mặc định</span>
+        <h3>Worker chỉ được đọc — trừ khi bạn cho phép.</h3>
+        <p class="desc">Bạn quyết định AI được chạm vào đâu. Không có chuyện worker tự ý sửa file ngoài phạm vi.</p>
+        <ul class="ticks">
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Mặc định worker chỉ đọc; phải thêm <code>-w</code> mới sửa được file.</span></li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Quyền sửa chỉ áp dụng trong thư mục <code>-C</code> chỉ định.</span></li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Web app chỉ nghe trên <code>127.0.0.1</code>, chặn yêu cầu từ trang web lạ.</span></li>
+        </ul>
+        <a class="f-link" href="#bat-dau">Bắt đầu ngay <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+      </div>
+    </article>
+
+    <article class="feature rev" id="web-app">
+      <div class="f-media">
+        <div class="frame"><img src="img/feature-dashboard.svg" width="800" height="600" loading="lazy" alt="Mockup minh hoạ web dashboard của Pentagon: danh sách task với thanh 6 bước và trạng thái worker"></div>
+        <p class="caption">Hình minh hoạ, không phải ảnh chụp màn hình thật.</p>
+      </div>
+      <div>
+        <span class="f-badge"><span class="n">4</span>Theo dõi tiến độ &amp; web app</span>
+        <h3>Biết chính xác đội AI đang làm gì, mọi lúc.</h3>
+        <p class="desc"><code>bin/status -w</code> trên terminal hoặc <code>bin/dashboard --open</code> trên trình duyệt (<code>http://127.0.0.1:8765</code>): bước hiện tại trong 6 bước, việc con nào xong, worker nào đang chạy và bao lâu.</p>
+        <ul class="ticks">
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Giao task bằng nút <strong>“+ Giao task”</strong>: để quản lý tự quyết, chờ bạn duyệt kế hoạch, hoặc làm luôn.</span></li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Trò chuyện với AI quản lý của từng task, bấm <strong>“Đồng ý, tiến hành”</strong> hoặc nhắn thêm yêu cầu sửa.</span></li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Dừng quản lý, huỷ worker, huỷ task, đánh dấu xong. Tab trình duyệt hiện số task đang chờ bạn, vd “(1) Pentagon”.</span></li>
+          <li><svg aria-hidden="true"><use href="#i-check"/></svg><span>Quản lý chạy nền, mỗi task một phiên riêng — đóng trình duyệt không làm dừng quản lý.</span></li>
+        </ul>
+        <a class="f-link" href="#bat-dau">Bắt đầu ngay <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+      </div>
+    </article>
+
+    <div class="mini">
+      <div class="benefit">
+        <div class="ic i-acc"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="5" cy="10" r="2.2" fill="currentColor"/><circle cx="15" cy="5" r="2.2" fill="currentColor"/><circle cx="15" cy="15" r="2.2" fill="currentColor"/><path d="M7 9l6-3M7 11l6 3" stroke="currentColor" stroke-width="1.8"/></svg></div>
+        <h3>Một worker hoặc song song</h3>
+        <p>Mặc định giao lần lượt cho một worker phù hợp nhất. Chỉ chia nhiều worker cùng lúc khi bạn chọn “song song”.</p>
+      </div>
+      <div class="benefit">
+        <div class="ic i-mgr"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5A1.5 1.5 0 014.5 4h3.3l1.7 2h6A1.5 1.5 0 0117 7.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 14.5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg></div>
+        <h3>Mọi thứ là file</h3>
+        <p>Mỗi task một thư mục <code>tasks/&lt;id&gt;/</code>: <code>brief.md</code>, <code>plan.md</code>, <code>status</code>, <code>results/</code>, <code>log.txt</code>, <code>final.md</code> — dễ đọc lại, dễ đồng bộ bằng git.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA BAND ================= -->
+<section aria-label="Kêu gọi bắt đầu" style="padding-bottom:0">
+  <div class="wrap">
+    <div class="band">
+      <div>
+        <h2>Gói thuê bao của bạn đang chờ được dùng hết.</h2>
+        <p>Ba lệnh để có một đội AI làm việc cho bạn ngay trên máy.</p>
+      </div>
+      <div class="band-actions">
+        <a class="btn btn-primary" href="#bat-dau">Bắt đầu ngay <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= STEPS ================= -->
+<section id="quy-trinh" aria-labelledby="quy-trinh-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Quy trình 6 bước</span>
+      <h2 id="quy-trinh-title">AI quản lý làm việc có quy củ</h2>
+      <p>Task nào cũng đi qua đúng 6 bước — và bạn thấy được task đang ở bước nào.</p>
+    </div>
+    <ol class="steps" style="list-style:none;padding:0;margin:0">
+      <li class="step"><div class="num">1</div><h3>Tiếp nhận</h3><p>Tạo thư mục task, ghi yêu cầu gốc nguyên văn vào <code>brief.md</code>.</p></li>
+      <li class="step"><div class="num">2</div><h3>Tối ưu yêu cầu</h3><p>Viết lại rõ mục tiêu, đầu ra, ràng buộc, tiêu chí “xong”. Tự giả định hợp lý và ghi rõ, chỉ hỏi lại khi thật sự thiếu thông tin.</p></li>
+      <li class="step"><div class="num">3</div><h3>Lập kế hoạch</h3><p>Chia việc con trong <code>plan.md</code>: worker phụ trách, đầu vào, đầu ra, cỡ việc. Việc đơn giản thì quản lý tự làm luôn.</p></li>
+      <li class="step"><div class="num">4</div><h3>Giao việc</h3><p>Mỗi việc con gửi kèm đủ ngữ cảnh — vì worker không thấy cuộc trò chuyện.</p></li>
+      <li class="step"><div class="num">5</div><h3>Kiểm tra</h3><p>Đọc kết quả; việc quan trọng thì nhờ worker <strong>khác loại</strong> kiểm tra chéo. Sai thì giao lại kèm nhận xét (tối đa 2 lần) rồi tự sửa.</p></li>
+      <li class="step"><div class="num">6</div><h3>Tổng hợp</h3><p>Viết <code>final.md</code>: kết quả chính, ai làm phần nào, phần nào chưa chắc chắn.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================= WORKERS ================= -->
+<section id="doi-worker" class="alt" aria-labelledby="doi-worker-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Đội worker</span>
+      <h2 id="doi-worker-title">Đúng việc, đúng AI</h2>
+      <p>AI quản lý chọn worker theo thế mạnh của từng công cụ. Mỗi công cụ có thể có nhiều tài khoản.</p>
+    </div>
+    <div class="workers">
+      <div class="worker">
+        <div class="name">claude</div>
+        <div class="role">Suy nghĩ kỹ, viết tinh tế</div>
+        <p>Suy luận sâu, lập kế hoạch, viết/sửa code khó, review, viết nội dung tinh tế.</p>
+        <div class="acc"><span>claude-main</span><span>claude-2</span><span>…</span></div>
+      </div>
+      <div class="worker">
+        <div class="name">codex</div>
+        <div class="role">Làm việc trên code</div>
+        <p>Viết code, sửa lỗi, refactor, viết và chạy test, thao tác trên repo.</p>
+        <div class="acc"><span>codex-main</span><span>codex-2</span><span>…</span></div>
+      </div>
+      <div class="worker">
+        <div class="name">gemini</div>
+        <div class="role">Đọc nhiều, tra cứu rộng</div>
+        <p>Đọc tài liệu/codebase rất dài, tra cứu và tổng hợp, xử lý ảnh/video.</p>
+        <div class="acc"><span>gemini-main</span><span>…</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= QUICK START ================= -->
+<section id="bat-dau" aria-labelledby="bat-dau-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Bắt đầu nhanh</span>
+      <h2 id="bat-dau-title">Sẵn sàng trong vài lệnh</h2>
+      <p>Mở terminal trong thư mục Pentagon, kiểm tra môi trường, rồi giao task đầu tiên.</p>
+    </div>
+    <div class="qs">
+      <div>
+        <div class="code">
+          <div class="code-head">
+            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="t">terminal</span>
+            <button class="copy" type="button" data-copy="cmd-setup"><svg aria-hidden="true"><use href="#i-copy"/></svg><span>Sao chép</span></button>
+          </div>
+<pre id="cmd-setup"><span class="k">cd</span> Pentagon
+<span class="k">bin/setup</span>              <span class="c"># kiểm tra mọi thứ đã sẵn sàng chưa</span>
+                       <span class="c"># máy mới: bash bin/setup --all để cài CLI + đăng nhập</span>
+<span class="k">claude</span>                 <span class="c"># mở AI quản lý</span></pre>
+        </div>
+        <p style="margin:16px 0 12px;color:var(--muted)">Rồi trong Claude Code gõ:</p>
+        <div class="code small">
+          <div class="code-head">
+            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="t">Claude Code</span>
+            <button class="copy" type="button" data-copy="cmd-giao"><svg aria-hidden="true"><use href="#i-copy"/></svg><span>Sao chép</span></button>
+          </div>
+<pre id="cmd-giao"><span class="k">/giao</span> &lt;mô tả task&gt;</pre>
+        </div>
+        <p style="margin:16px 0 12px;color:var(--muted)">Hoặc gọi worker trực tiếp:</p>
+        <div class="code small">
+          <div class="code-head">
+            <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="t">ví dụ bin/ask</span>
+            <button class="copy" type="button" data-copy="cmd-ask"><svg aria-hidden="true"><use href="#i-copy"/></svg><span>Sao chép</span></button>
+          </div>
+<pre id="cmd-ask"><span class="k">bin/ask</span> codex -s nho <span class="s">"Viết hàm Python kiểm tra số nguyên tố, kèm test"</span>
+<span class="k">bin/ask</span> claude -t tasks/&lt;id&gt; <span class="s">"Review đoạn code trong results/codex-main-*.md"</span>
+<span class="k">bin/ask</span> codex -w -C ~/du-an-cua-toi <span class="s">"Sửa lỗi trong file app.py"</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card">
+          <h3>Yêu cầu</h3>
+          <ul>
+            <li>macOS hoặc Linux (Windows dùng WSL)</li>
+            <li>Node.js/npm, python3</li>
+            <li>Các gói thuê bao AI bạn đã có</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Theo dõi tiến độ</h3>
+          <p><code>bin/status -w</code> trên terminal, hoặc <code>bin/dashboard --open</code> để mở web app tại <code>http://127.0.0.1:8765</code>.</p>
+        </div>
+        <div class="card">
+          <h3>Lưu ý bảo mật</h3>
+          <p>Web app chỉ nghe trên <code>127.0.0.1</code>. Khi chạy nền, quản lý chỉ dùng một số lệnh an toàn (mở rộng trong <code>config/manager.conf</code>). Không mở cổng này ra mạng ngoài.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= WHERE ================= -->
+<section id="chay-o-dau" class="alt" aria-labelledby="chay-o-dau-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Nên chạy ở đâu</span>
+      <h2 id="chay-o-dau-title">Chạy trên máy của bạn</h2>
+      <p>Vì <code>bin/ask</code> gọi các CLI <code>claude</code>/<code>codex</code>/<code>gemini</code> đã đăng nhập trên máy.</p>
+    </div>
+    <div class="where">
+      <table>
+        <thead><tr><th scope="col">Nơi chạy</th><th scope="col"><span class="sr-only">Dùng được không</span>OK</th><th scope="col">Ghi chú</th></tr></thead>
+        <tbody>
+          <tr><td>VSCode (extension Claude Code)</td><td><span class="yes" title="Dùng được"><svg aria-hidden="true"><use href="#i-check"/></svg><span class="sr-only">Dùng được</span></span></td><td>Vừa giao task vừa xem/sửa file trong <code>tasks/</code></td></tr>
+          <tr><td>App Claude desktop → tab Code</td><td><span class="yes" title="Dùng được"><svg aria-hidden="true"><use href="#i-check"/></svg><span class="sr-only">Dùng được</span></span></td><td>Giao task nhanh, đọc kết quả</td></tr>
+          <tr><td>Terminal: <code>claude</code></td><td><span class="yes" title="Dùng được"><svg aria-hidden="true"><use href="#i-check"/></svg><span class="sr-only">Dùng được</span></span></td><td>Nhẹ nhất, hợp task dài</td></tr>
+          <tr><td>claude.ai/code (web)</td><td><span class="no" title="Không dùng được"><svg aria-hidden="true"><use href="#i-x"/></svg><span class="sr-only">Không dùng được</span></span></td><td>Chạy trên cloud, không có CLI và tài khoản của bạn</td></tr>
+          <tr><td>Chat trên claude.ai</td><td><span class="no" title="Không dùng được"><svg aria-hidden="true"><use href="#i-x"/></svg><span class="sr-only">Không dùng được</span></span></td><td>Không chạy được lệnh</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="where-note">Máy phải bật suốt lúc task chạy.</p>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq" aria-labelledby="faq-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Hỏi đáp</span>
+      <h2 id="faq-title">Câu hỏi thường gặp</h2>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>Có cần API key không?</summary>
+        <div class="ans">Không. Pentagon dùng gói thuê bao bạn đã có (Claude Pro/Team, ChatGPT Plus/Team, Google AI Pro…) qua các CLI chính chủ.</div>
+      </details>
+      <details>
+        <summary>Hết hạn mức thì sao?</summary>
+        <div class="ans">Tự chuyển sang tài khoản kế tiếp và làm tiếp phần dở. Hết mọi tài khoản của một công cụ thì chuyển việc sang công cụ khác phù hợp; không còn cách nào thì tạm dừng và làm tiếp khi có hạn mức.</div>
+      </details>
+      <details>
+        <summary>Dùng nhiều máy được không?</summary>
+        <div class="ans">Được, nhưng các máy dùng chung hạn mức. Đừng copy thư mục đăng nhập sang máy khác — hãy đăng nhập lại trên máy đó.</div>
+      </details>
+      <details>
+        <summary>Được dùng tài khoản nào?</summary>
+        <div class="ans">Chỉ dùng tài khoản của bạn hoặc ghế trong gói Team của bạn.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FINAL CTA ================= -->
+<section aria-label="Bắt đầu" style="padding-top:0">
+  <div class="wrap">
+    <div class="band">
+      <div>
+        <h2>Giao việc đầu tiên cho đội AI của bạn.</h2>
+        <p>Không cần API key. Không lo hết hạn mức giữa chừng. Mọi kết quả nằm trong thư mục của bạn.</p>
+      </div>
+      <div class="band-actions">
+        <a class="btn btn-primary" href="#bat-dau">Bắt đầu ngay <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        <a class="btn btn-ghost" href="#quy-trinh">Xem quy trình</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="img/mark.png" width="160" height="138" alt="" loading="lazy">Pentagon</a>
+    <span>Pentagon — đội AI làm việc cho bạn, chạy trên máy của bạn.</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  var mq=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):null;
+  function current(){
+    var t=root.getAttribute("data-theme");
+    if(t==="light"||t==="dark")return t;
+    return mq&&mq.matches?"dark":"light";
+  }
+  function sync(){root.setAttribute("data-theme-now",current())}
+  if(mq){
+    var onChange=function(){if(!root.getAttribute("data-theme"))sync()};
+    if(mq.addEventListener)mq.addEventListener("change",onChange);else if(mq.addListener)mq.addListener(onChange);
+  }
+  document.getElementById("theme").addEventListener("click",function(){
+    var next=current()==="dark"?"light":"dark";
+    root.setAttribute("data-theme",next);sync();
+    try{localStorage.setItem("pentagon-theme",next)}catch(e){}
+  });
+  sync();
+
+  function fallbackCopy(text){
+    var ta=document.createElement("textarea");
+    ta.value=text;ta.setAttribute("readonly","");
+    ta.style.position="fixed";ta.style.top="-1000px";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();
+    var ok=false;
+    try{ok=document.execCommand("copy")}catch(e){}
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function done(btn,ok){
+    var label=btn.querySelector("span");
+    label.textContent=ok?"Đã chép":"Không chép được";
+    btn.classList.toggle("ok",ok);
+    clearTimeout(btn._t);
+    btn._t=setTimeout(function(){label.textContent="Sao chép";btn.classList.remove("ok")},1800);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".copy"),function(btn){
+    btn.addEventListener("click",function(){
+      var el=document.getElementById(btn.getAttribute("data-copy"));
+      var text=el?el.textContent.replace(/\s+$/,""):"";
+      if(navigator.clipboard&&window.isSecureContext){
+        navigator.clipboard.writeText(text).then(function(){done(btn,true)},function(){done(btn,fallbackCopy(text))});
+      }else{
+        done(btn,fallbackCopy(text));
+      }
+    });
+  });
+})();
+</script>
+
+<script>
+/* Hiệu ứng cuộn: hiện dần, thanh tiến trình, đánh dấu mục nav */
+(function(){
+  var root=document.documentElement;
+  try{
+    var top=document.querySelector(".top"),bar=document.getElementById("progress");
+    var links=Array.prototype.slice.call(document.querySelectorAll(".nav a"));
+    var secs=Array.prototype.slice.call(document.querySelectorAll("main section[id]"));
+    var pending=[];
+    function reveal(el){
+      if(el._shown)return;el._shown=true;
+      el.classList.add("in");
+      var d=parseFloat(el.style.transitionDelay)||0;
+      setTimeout(function(){
+        el.classList.remove("rv","rv-l","rv-r","in");el.style.transitionDelay="";
+      },d*1000+900);
+    }
+    if(root.classList.contains("js-anim")){
+      var counts=new Map();
+      var add=function(el,dir,delay){
+        el.classList.add("rv");if(dir)el.classList.add(dir);
+        if(delay)el.style.transitionDelay=delay+"s";
+        pending.push(el);
+      };
+      var group=function(sel){
+        Array.prototype.forEach.call(document.querySelectorAll(sel),function(el){
+          var p=el.parentNode,m=counts.get(p);
+          if(!m){m={};counts.set(p,m)}
+          var n=m[sel]||0;m[sel]=n+1;
+          add(el,"",Math.min(n,6)*0.09);
+        });
+      };
+      [".sec-head",".benefit",".node",".lane",".step",".worker",".card",".where",".faq details",".band"].forEach(group);
+      Array.prototype.forEach.call(document.querySelectorAll(".feature"),function(f){
+        var media=f.querySelector(".f-media"),text=media&&media.nextElementSibling;
+        var rev=f.classList.contains("rev");
+        if(media)add(media,rev?"rv-r":"rv-l",0);
+        if(text)add(text,rev?"rv-l":"rv-r",0.12);
+      });
+      var io=new IntersectionObserver(function(es){
+        es.forEach(function(e){
+          if(e.isIntersecting||e.boundingClientRect.top<0){io.unobserve(e.target);reveal(e.target)}
+        });
+      },{threshold:0.12,rootMargin:"0px 0px -6% 0px"});
+      pending.forEach(function(el){io.observe(el)});
+    }
+    var ticking=false;
+    function update(){
+      ticking=false;
+      var y=window.pageYOffset||root.scrollTop,max=root.scrollHeight-window.innerHeight;
+      if(bar)bar.style.transform="scaleX("+(max>0?Math.min(1,Math.max(0,y/max)):0)+")";
+      top.classList.toggle("scrolled",y>8);
+      var cur="";
+      secs.forEach(function(s){if(s.getBoundingClientRect().top<=120)cur=s.id});
+      links.forEach(function(a){
+        var on=a.getAttribute("href")==="#"+cur;
+        a.classList.toggle("active",on);
+        if(on)a.setAttribute("aria-current","true");else a.removeAttribute("aria-current");
+      });
+      for(var i=pending.length-1;i>=0;i--){
+        var el=pending[i];
+        if(el._shown){pending.splice(i,1);continue}
+        if(el.getBoundingClientRect().bottom<0){reveal(el);pending.splice(i,1)}
+      }
+    }
+    function onScroll(){if(!ticking){ticking=true;requestAnimationFrame(update)}}
+    window.addEventListener("scroll",onScroll,{passive:true});
+    window.addEventListener("resize",onScroll);
+    update();
+  }catch(err){
+    root.classList.remove("js-anim");
+    Array.prototype.forEach.call(document.querySelectorAll(".rv"),function(e){e.classList.remove("rv","rv-l","rv-r")});
+  }
+})();
+</script>
+</body>
+</html>

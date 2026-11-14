@@ -1,0 +1,4 @@
+00:53:12 quan-ly [bước 1 Tiếp nhận] tạo task: tôi cần câu trả lời tại sao mất kết nối
+00:53:27 quan-ly [bước 1 Tiếp nhận] Tiếp nhận: đọc yêu cầu, tìm nguyên nhân mất kết nối
+00:53:55 quan-ly [bước 2 Tối ưu yêu cầu] Giao việc: việc đơn giản (chỉ đọc code), quản lý tự làm, không cần worker
+00:54:12 quan-ly [HOÀN THÀNH] Đã tìm ra nguyên nhân khả dĩ mất kết nối (dashboard dừng, restart làm mất phiên, đổi cổng); xem final.md

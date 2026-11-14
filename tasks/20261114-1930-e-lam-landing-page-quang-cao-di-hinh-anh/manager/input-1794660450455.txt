@@ -1,0 +1,1 @@
+Lượt trước của bạn kết thúc khi claude-main còn đang dựng trang (bạn chạy nó ở chế độ nền), nên worker bị dừng giữa chừng: không có kết quả, chỉ còn site/index.html dở dang. Kiểm tra hiện trạng thư mục site/, rồi giao lại cho claude-main làm TIẾP phần dở (không làm lại từ đầu). Chạy bin/ask TRỰC TIẾP và chờ xong, không chạy nền. Sau đó làm tiếp các bước kiểm tra và tổng hợp.

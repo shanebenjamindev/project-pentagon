@@ -1,0 +1,6 @@
+20:04:38 quan-ly [bước 1 Tiếp nhận] tạo task: 1 + 1 bằng mấy
+20:04:46 quan-ly [bước 1 Tiếp nhận] Kiểm tra worker đang dùng được (bin/workers)
+20:04:56 quan-ly [bước 2 Tối ưu yêu cầu] Tối ưu yêu cầu: 1 + 1 là phép cộng đơn giản, quản lý tự làm
+20:04:59 quan-ly [bước 3 Lập kế hoạch] Lập kế hoạch: việc đơn giản, quản lý tự làm, không chia worker
+20:05:02 quan-ly [bước 6 Tổng hợp] Tổng hợp: 1 + 1 = 2
+20:05:02 quan-ly [HOÀN THÀNH] 1 + 1 = 2 (quản lý tự làm, không cần worker)

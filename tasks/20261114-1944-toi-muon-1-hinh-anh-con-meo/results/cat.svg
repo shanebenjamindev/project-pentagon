@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="0" y="0" width="1024" height="1024" fill="#ffffff"/>
+  <!-- Tail -->
+  <path d="M690 700 C805 680 850 770 815 850 C790 908 716 906 704 860 C697 834 718 818 739 830 C756 840 755 858 746 865 C782 867 798 834 785 803 C770 768 729 764 686 785 Z" fill="#e8893d" stroke="#4b4b4b" stroke-width="16" stroke-linejoin="round"/>
+  <!-- Body -->
+  <path d="M320 690 C320 570 394 488 512 488 C630 488 704 570 704 690 L704 786 C704 835 665 868 613 868 L411 868 C359 868 320 835 320 786 Z" fill="#e8893d" stroke="#4b4b4b" stroke-width="18" stroke-linejoin="round"/>
+  <!-- Chest patch -->
+  <path d="M430 570 C450 540 480 526 512 526 C544 526 574 540 594 570 L618 790 C620 817 600 838 574 838 L450 838 C424 838 404 817 406 790 Z" fill="#f4d9b8"/>
+  <!-- Head and ears -->
+  <path d="M328 360 L348 205 Q352 181 375 197 L449 252 Q480 237 512 237 Q544 237 575 252 L649 197 Q672 181 676 205 L696 360 C706 392 704 434 689 469 C660 535 596 570 512 570 C428 570 364 535 335 469 C320 434 318 392 328 360 Z" fill="#e8893d" stroke="#4b4b4b" stroke-width="18" stroke-linejoin="round"/>
+  <!-- Inner ears -->
+  <path d="M370 232 L427 273 Q398 292 379 327 Z" fill="#f2b18b"/>
+  <path d="M654 232 L597 273 Q626 292 645 327 Z" fill="#f2b18b"/>
+  <!-- Eyes -->
+  <ellipse cx="425" cy="391" rx="27" ry="36" fill="#4b4b4b"/>
+  <ellipse cx="599" cy="391" rx="27" ry="36" fill="#4b4b4b"/>
+  <circle cx="434" cy="379" r="8" fill="#ffffff"/>
+  <circle cx="608" cy="379" r="8" fill="#ffffff"/>
+  <!-- Muzzle -->
+  <ellipse cx="512" cy="452" rx="78" ry="48" fill="#f4d9b8"/>
+  <path d="M496 438 Q512 426 528 438 Q526 456 512 462 Q498 456 496 438 Z" fill="#80524a"/>
+  <path d="M512 461 C508 478 490 486 474 478 M512 461 C516 478 534 486 550 478" fill="none" stroke="#4b4b4b" stroke-width="7" stroke-linecap="round"/>
+  <!-- Whiskers -->
+  <g fill="none" stroke="#4b4b4b" stroke-width="7" stroke-linecap="round">
+    <path d="M445 458 L350 440 M443 476 L340 481 M451 493 L365 520"/>
+    <path d="M579 458 L674 440 M581 476 L684 481 M573 493 L659 520"/>
+  </g>
+  <!-- Paws -->
+  <path d="M389 800 Q389 770 420 770 Q450 770 450 800 L450 850 L389 850 Z" fill="#e8893d" stroke="#4b4b4b" stroke-width="12"/>
+  <path d="M574 800 Q574 770 604 770 Q635 770 635 800 L635 850 L574 850 Z" fill="#e8893d" stroke="#4b4b4b" stroke-width="12"/>
+  <path d="M420 808 L420 838 M604 808 L604 838" stroke="#4b4b4b" stroke-width="6" stroke-linecap="round"/>
+</svg>
