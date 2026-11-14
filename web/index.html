@@ -15,46 +15,60 @@
   --accent:#6f9bff;--ok:#3ccf7f;--warn:#f0b429;--bad:#ff6b6b;--run:#3cc7de;--mgr:#b98aff;--me:#23324f;
 }}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+a{color:inherit}
 button{font:inherit;cursor:pointer}
-.btn{border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:7px;padding:5px 12px;font-size:13px}
+input[type=text],input[type=search]{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--panel);color:var(--text)}
+.btn{border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:7px;padding:5px 12px;font-size:13px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .btn:hover{border-color:var(--muted)}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .btn.danger{color:var(--bad)}.btn.danger:hover{border-color:var(--bad)}
 .btn.sm{padding:2px 9px;font-size:12px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
-header h1{font-size:17px;margin:0;letter-spacing:2px;display:flex;align-items:center;gap:8px;font-weight:700}
-header h1 img{height:28px;width:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
-#logoutBtn{white-space:nowrap;flex-shrink:0}
-.welcome{text-align:center;padding:60px 20px;color:var(--muted)}
-.welcome img{width:min(340px,80%);height:auto;filter:drop-shadow(0 6px 18px rgba(0,0,0,.25));margin-bottom:18px}
-.settings{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px}
-.settings select{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:6px;padding:2px 6px}
-.optgroup{margin-bottom:10px}.optgroup>b{display:block;font-size:12.5px;margin-bottom:4px}
+.brand{font-size:17px;margin:0;letter-spacing:2px;display:flex;align-items:center;gap:8px;font-weight:700;text-decoration:none}
+.brand img{height:28px;width:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.nav{display:flex;gap:2px;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:3px}
+.nav a{color:var(--muted);padding:4px 12px;border-radius:7px;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap}
+.nav a.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .sub{color:var(--muted);font-size:12.5px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;background:var(--soft)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none;display:inline-block}
 .dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.run{background:var(--run);animation:pulse 1.2s infinite}.dot.mgr{background:var(--mgr);animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.35}}
-main{display:grid;grid-template-columns:330px 1fr;min-height:calc(100vh - 54px)}
-aside{border-right:1px solid var(--line);background:var(--panel);overflow:auto;max-height:calc(100vh - 54px);position:sticky;top:54px}
-.filter{display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--line)}
-.filter button{flex:1;border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:6px;padding:4px;font-size:12px}
-.filter button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.task{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
-.task:hover{background:var(--soft)}
-.task.sel{background:var(--soft);box-shadow:inset 3px 0 0 var(--accent)}
-.task .t{font-weight:600;margin-bottom:4px}
+.page{padding:22px 26px;max-width:1440px;margin:0 auto}
+.page>h2{margin:0 0 2px;font-size:21px}
+.page h4{margin:26px 0 10px;font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.crumb{display:inline-flex;gap:6px;align-items:center;color:var(--muted);text-decoration:none;font-size:13px;margin-bottom:10px}
+.crumb:hover{color:var(--text)}
 .meta{color:var(--muted);font-size:12px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
-.bar{display:flex;gap:3px;margin:6px 0}
+.bar{display:flex;gap:3px;margin:4px 0;min-width:120px}
 .bar i{flex:1;height:5px;border-radius:3px;background:var(--line)}
 .bar i.d{background:var(--ok)}.bar i.c{background:var(--accent)}.bar i.c.cho{background:var(--warn)}.bar i.c.loi{background:var(--bad)}
-.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600;color:#fff;background:var(--accent)}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600;color:#fff;background:var(--accent);white-space:nowrap}
 .badge.xong{background:var(--ok)}.badge.cho{background:var(--warn)}.badge.loi{background:var(--bad)}
-section.detail{padding:20px 26px;min-width:0}
 .empty{color:var(--muted);padding:40px;text-align:center}
+/* Phòng Điều hành */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;cursor:pointer}
+.stat:hover{border-color:var(--muted)}
+.stat b{display:block;font-size:26px;line-height:1.2;font-variant-numeric:tabular-nums}
+.stat.wait b{color:var(--warn)}.stat.run b{color:var(--run)}.stat.done b{color:var(--ok)}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.toolbar input{flex:1;min-width:200px;max-width:420px}
+.seg{display:flex;gap:2px;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:3px;flex-wrap:wrap}
+.seg button{border:0;background:none;color:var(--muted);padding:3px 11px;border-radius:7px;font-size:12.5px;font-weight:600}
+.seg button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.tbl{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tr{display:grid;grid-template-columns:minmax(220px,2.2fr) minmax(170px,1.3fr) minmax(120px,1fr) 110px 200px;gap:12px;align-items:center;padding:11px 16px;border-top:1px solid var(--line)}
+.tr.hd{border-top:0;background:var(--soft);font-size:12px;color:var(--muted);font-weight:600;padding:8px 16px}
+.tr.row{cursor:pointer}.tr.row:hover{background:var(--soft)}
+.tr .t{font-weight:600}
+.tr .acts{display:flex;gap:6px;justify-content:flex-end}
+.tr.trash{grid-template-columns:minmax(220px,2fr) 160px 160px 230px}
+/* Trang task */
 .head{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
 .head .grow{flex:1;min-width:240px}
 .head h2{margin:0 0 4px;font-size:21px}
@@ -71,8 +85,8 @@ section.detail{padding:20px 26px;min-width:0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;min-width:0}
 .card h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px}
 .card h3 .sub{font-weight:400}
-.card h3 .right{margin-left:auto;display:flex;gap:6px}
-/* hội thoại với quản lý */
+.settings{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.settings select{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:6px;padding:2px 6px}
 .mstatus{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--soft);margin-bottom:10px;font-size:13px;flex-wrap:wrap}
 .mstatus.wait{background:color-mix(in srgb,var(--warn) 15%,var(--panel));border:1px solid color-mix(in srgb,var(--warn) 45%,transparent)}
 .mstatus .grow{flex:1}
@@ -82,11 +96,11 @@ section.detail{padding:20px 26px;min-width:0}
 .msg.manager{align-self:flex-start;background:var(--soft)}
 .msg.tool{align-self:flex-start;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);padding:2px 12px;word-break:break-all}
 .msg.end{align-self:center;font-size:11.5px;color:var(--muted)}
-.msg.event{align-self:center;font-size:12px;color:var(--warn)}
+.msg.event{align-self:center;font-size:12px;color:var(--warn);text-align:center}
 .msg.error{align-self:stretch;color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--panel));white-space:pre-wrap;font-size:12.5px}
 .composer{margin-top:10px;display:flex;flex-direction:column;gap:6px}
 textarea{width:100%;min-height:70px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);color:var(--text);font:inherit}
-textarea:focus{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);border-color:var(--accent)}
+textarea:focus,input:focus{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);border-color:var(--accent)}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .row .grow{flex:1}
 .runner{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
@@ -105,7 +119,7 @@ details:first-of-type{border-top:0}
 summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .md{overflow-x:auto;font-size:13.5px}
 .md>:first-child{margin-top:0}.md>:last-child{margin-bottom:0}
-.md h1,.md h2,.md h3,.md h4{margin:12px 0 6px;font-size:15px}.md h1{font-size:16px}
+.md h1,.md h2,.md h3,.md h4{margin:12px 0 6px;font-size:15px;text-transform:none;letter-spacing:0;color:var(--text)}.md h1{font-size:16px}
 .md p{margin:6px 0}.md ul,.md ol{margin:6px 0;padding-left:22px}
 .md table{border-collapse:collapse;margin:8px 0;font-size:13px;width:100%}
 .md th,.md td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
@@ -115,20 +129,30 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .md pre{background:var(--soft);padding:10px;border-radius:6px;overflow:auto}.md pre code{padding:0;background:none}
 .md blockquote{margin:6px 0;padding-left:10px;border-left:3px solid var(--line);color:var(--muted)}
 .muted{color:var(--muted)}
-/* hộp giao task */
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:8vh 16px;z-index:10}
-.modal.on{display:flex}
-.modal .box{max-height:86vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;width:min(640px,100%);box-shadow:0 20px 50px rgba(0,0,0,.3)}
-.modal h3{margin:0 0 4px}
-.modal textarea{min-height:150px;margin:10px 0}
+/* Trang giao task */
+.form{max-width:760px;margin:0 auto}
+.form textarea{min-height:180px;margin:12px 0}
 .opts{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:13px}
 .opts label{display:flex;gap:8px;align-items:baseline;cursor:pointer}
-.tabs{display:flex;gap:2px;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:3px}
-.tabs button{border:0;background:none;color:var(--muted);padding:4px 12px;border-radius:7px;font-size:13px;font-weight:600}
-.tabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
-.office{padding:22px 26px;max-width:1400px;margin:0 auto}
-.office h2{margin:0 0 2px;font-size:20px}
-.office h4{margin:26px 0 10px;font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.optgroup{margin-bottom:10px}.optgroup>b{display:block;font-size:12.5px;margin-bottom:4px}
+.welcome{text-align:center;margin:10px 0 18px}
+.welcome img{width:min(240px,60%);height:auto;filter:drop-shadow(0 6px 18px rgba(0,0,0,.25))}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:14px}
+.field>span{display:block;font-size:12.5px;font-weight:600;margin-bottom:4px}
+.field select{width:100%;font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:6px 8px}
+.field small{display:block;margin-top:4px}
+.dot.busy{background:var(--warn)}
+.picker{position:relative}
+.picker>button{width:100%;display:flex;align-items:center;gap:8px;text-align:left;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:6px 8px}
+.picker>button:after{content:"▾";margin-left:auto;color:var(--muted)}
+.picker .menu{position:absolute;z-index:8;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.25);padding:4px;max-height:300px;overflow:auto}
+.picker .opt{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px}
+.picker .opt:hover,.picker .opt.on{background:var(--soft)}
+.picker .opt.dis{opacity:.5;cursor:not-allowed}
+.picker .opt .sub{margin-left:auto;font-size:11.5px}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--muted);margin-top:4px}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+/* Văn phòng làm việc */
 .desks{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
 .desk{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .desk.busy{border-color:color-mix(in srgb,var(--run) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--run) 12%,transparent)}
@@ -138,81 +162,168 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .desk .nm{font-weight:700;font-size:15px}
 .desk .tool{margin-left:auto;font-size:11px;padding:1px 8px;border-radius:99px;background:var(--soft);border:1px solid var(--line);color:var(--muted)}
 .desk .stt{font-size:13px;font-weight:600}
-.desk .job{background:var(--soft);border-radius:8px;padding:8px 10px;font-size:12.5px;cursor:pointer}
+.desk .job{background:var(--soft);border-radius:8px;padding:8px 10px;font-size:12.5px;cursor:pointer;text-decoration:none;display:block}
 .desk .job:hover{outline:1px solid var(--accent)}
 .desk .job b{display:block;font-size:13px}
 .usage{display:flex;flex-direction:column;gap:5px;font-size:12px}
 .ubar{display:grid;grid-template-columns:62px 1fr 42px;gap:6px;align-items:center}
-.ubar .tr{height:7px;border-radius:4px;background:var(--line);overflow:hidden}
-.ubar .tr i{display:block;height:100%;background:var(--ok);border-radius:4px}
-.ubar .tr i.mid{background:var(--warn)}.ubar .tr i.hi{background:var(--bad)}
+.ubar .trk{height:7px;border-radius:4px;background:var(--line);overflow:hidden}
+.ubar .trk i{display:block;height:100%;background:var(--ok);border-radius:4px}
+.ubar .trk i.mid{background:var(--warn)}.ubar .trk i.hi{background:var(--bad)}
 .ubar b{text-align:right;font-variant-numeric:tabular-nums}
 .desk .foot{margin-top:auto;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+/* Quản lý nhân viên */
+.dept{margin-top:22px}
+.dept-h{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.dept-h h3{margin:0;font-size:16px}
+.emps{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.emp{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.emp.off{opacity:.6;border-style:dashed}
+.emp .top{display:flex;align-items:center;gap:8px}
+.emp .nm{font-weight:700;font-size:15px}
+.emp .prio{margin-left:auto;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:1px 8px}
+.emp .acts{display:flex;flex-wrap:wrap;gap:6px;border-top:1px dashed var(--line);padding-top:8px}
+.loginbox{background:var(--soft);border-radius:8px;padding:10px;font-size:12.5px;display:flex;flex-direction:column;gap:8px}
+.loginbox pre{margin:0;max-height:120px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:11.5px;color:var(--muted)}
+.hire{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end}
+.hire label{font-size:12.5px;font-weight:600;display:flex;flex-direction:column;gap:4px}
+.hire input,.hire select{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:6px 8px}
+/* hộp sửa task */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:10}
+.modal.on{display:flex}
+.modal .box{max-height:88vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;width:min(760px,100%);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal h3{margin:0 0 10px}
+.modal label{display:block;font-size:12.5px;color:var(--muted);margin:10px 0 4px}
+.modal input[type=text]{width:100%}
+.modal textarea{min-height:300px;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
 .toast.on{opacity:.95}
 @media (max-width:1250px){.grid{grid-template-columns:1fr}}
+@media (max-width:980px){
+  .tr,.tr.trash{grid-template-columns:1fr;gap:6px}
+  .tr.hd{display:none}
+  .tr .acts{justify-content:flex-start}
+}
 @media (max-width:900px){
-  .office{padding:16px}
-  header .tabs{order:5;width:100%}
-  main{grid-template-columns:1fr}
-  aside{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}
-  section.detail{padding:16px}
+  .page{padding:16px}
   header{position:static}
+  header .nav{order:5;width:100%}
 }
 </style>
 </head>
 <body>
 <header>
-  <h1><img src="/static/mark.png" alt="">PENTAGON</h1>
-  <nav class="tabs" id="tabs"><button data-v="dh" class="on">Phòng Điều hành</button><button data-v="vp">Văn phòng làm việc</button></nav>
-  <button class="btn pri" id="newBtn">+ Giao task</button>
-  <button class="btn sm" id="logoutBtn" hidden>Đăng xuất</button>
+  <a class="brand" href="/dieu-hanh" data-link><img src="/static/mark.png" alt="">PENTAGON</a>
+  <nav class="nav" id="nav">
+    <a href="/dieu-hanh" data-link data-nav="dh">Phòng Điều hành</a>
+    <a href="/van-phong" data-link data-nav="vp">Văn phòng làm việc</a>
+    <a href="/nhan-vien" data-link data-nav="nv">Nhân viên</a>
+  </nav>
+  <a class="btn pri" href="/giao" data-link>+ Giao task</a>
   <span class="sub" id="summary">đang tải…</span>
   <div class="chips" id="workers"></div>
+  <button class="btn sm" id="logoutBtn" hidden>Đăng xuất</button>
 </header>
-<section class="office" id="office" hidden></section>
-<main id="dh">
-  <aside>
-    <div class="filter" id="filter">
-      <button data-f="active" class="on">Đang làm</button><button data-f="all">Tất cả</button><button data-f="done">Xong</button>
-    </div>
-    <div id="list"></div>
-  </aside>
-  <section class="detail" id="detail"><div class="welcome"><img src="/static/logo.png" alt="Pentagon"><div>Chọn một task bên trái, hoặc bấm “+ Giao task”.</div></div></section>
-</main>
 
-<div class="modal" id="modal"><div class="box">
-  <h3>Giao task mới</h3>
-  <div class="sub">AI quản lý sẽ tối ưu yêu cầu, chia việc cho các worker, kiểm tra và tổng hợp — như lệnh /giao.</div>
-  <textarea id="newText" placeholder="Mô tả task bằng tiếng Việt… (⌘/Ctrl + Enter để giao)"></textarea>
-  <div class="opts">
-   <div class="optgroup sub">Cỡ task (nhỏ/vừa/lớn) do AI quản lý tự phân loại để chọn model: task nhỏ dùng model nhỏ <span id="sizeMap"></span>.</div>
-   <div class="optgroup"><b>Cách giao việc</b>
-    <label><input type="radio" name="split" value="mot" checked> <span><b>Một worker làm</b> <span class="sub">— giao cho một AI phù hợp nhất, làm lần lượt, không chạy song song</span></span></label>
-    <label><input type="radio" name="split" value="song-song"> <span><b>Song song</b> <span class="sub">— chia việc cho nhiều worker cùng làm một lúc</span></span></label>
-   </div>
-   <div class="optgroup"><b>Duyệt kế hoạch</b>
-    <label><input type="radio" name="mode" value="tu-quyet" checked> <span><b>Để quản lý tự quyết</b> <span class="sub">— task lớn/mơ hồ thì hỏi bạn trước, nhỏ thì làm luôn</span></span></label>
-    <label><input type="radio" name="mode" value="duyet"> <span><b>Chờ tôi duyệt kế hoạch</b> <span class="sub">— lập kế hoạch xong thì dừng chờ bạn đồng ý</span></span></label>
-    <label><input type="radio" name="mode" value="lam-luon"> <span><b>Làm luôn</b> <span class="sub">— chỉ hỏi khi thật sự thiếu thông tin</span></span></label>
-   </div>
+<!-- Trang 1: Phòng Điều hành — tổng quan và danh sách task -->
+<section class="page" data-page="dh" hidden>
+  <h2>Phòng Điều hành</h2>
+  <div class="sub">Tổng quan mọi task: tạo, xem, sửa, xoá. Bấm vào một task để mở trang chi tiết.</div>
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <input type="search" id="q" placeholder="Tìm theo tiêu đề hoặc mã task…">
+    <div class="seg" id="filter">
+      <button data-f="active" class="on">Đang làm</button><button data-f="wait">Chờ bạn</button><button data-f="done">Xong</button><button data-f="all">Tất cả</button><button data-f="trash">Thùng rác</button>
+    </div>
   </div>
-  <div class="row"><span class="grow sub">Quản lý chạy nền trên máy này; đóng trang không làm dừng task.</span>
-    <button class="btn" id="newCancel">Huỷ</button><button class="btn pri" id="newGo">Giao task</button></div>
+  <div class="tbl" id="tbl"></div>
+</section>
+
+<!-- Trang 2: chi tiết một task -->
+<section class="page" data-page="task" hidden>
+  <a class="crumb" href="/dieu-hanh" data-link>← Phòng Điều hành</a>
+  <div id="detail"></div>
+</section>
+
+<!-- Trang 3: Văn phòng làm việc -->
+<section class="page" data-page="vp" hidden><div id="office"></div></section>
+
+<!-- Trang 5: Quản lý nhân viên (tài khoản AI), xếp theo phòng ban -->
+<section class="page" data-page="nv" hidden>
+  <div class="row"><div class="grow"><h2 style="margin:0 0 2px;font-size:21px">Quản lý nhân viên</h2>
+    <div class="sub">Mỗi tài khoản AI là một nhân viên, xếp theo phòng ban. Thứ tự trong phòng = thứ tự ưu tiên khi giao việc;
+    nhân viên hết hạn mức thì việc tự chuyển sang người kế tiếp cùng phòng.</div></div>
+    <button class="btn pri" id="hireBtn">+ Tuyển nhân viên</button></div>
+  <div class="card" id="hireCard" hidden style="margin-top:14px">
+    <h3>Tuyển nhân viên mới <span class="sub">thêm một tài khoản AI của bạn (hoặc một ghế trong gói Team)</span></h3>
+    <div class="hire">
+      <label>Phòng ban<select id="hTool"><option value="claude">Phòng Claude</option><option value="codex">Phòng Codex</option><option value="gemini">Phòng Gemini</option></select></label>
+      <label>Tên nhân viên<input type="text" id="hName" placeholder="vd claude-3"></label>
+      <label>Vai trò / ghi chú<input type="text" id="hDesc" placeholder="vd Tài khoản Claude thứ 3"></label>
+      <label>Model (để trống = mặc định)<input type="text" id="hModel" placeholder="vd gpt-6-luna"></label>
+    </div>
+    <div class="row" style="margin-top:12px"><label class="sub"><input type="checkbox" id="hLogin" checked> Đăng nhập ngay sau khi thêm</label>
+      <span class="grow"></span><button class="btn" id="hCancel">Huỷ</button><button class="btn pri" id="hGo">Tuyển</button></div>
+  </div>
+  <div id="nvList"></div>
+</section>
+
+<!-- Trang 4: giao task mới -->
+<section class="page" data-page="giao" hidden>
+  <div class="form">
+    <a class="crumb" href="/dieu-hanh" data-link>← Phòng Điều hành</a>
+    <div class="welcome"><img src="/static/logo.png" alt="Pentagon"></div>
+    <div class="card">
+      <h3>Giao task mới</h3>
+      <div class="sub">AI quản lý sẽ tối ưu yêu cầu, chia việc cho các worker, kiểm tra và tổng hợp — như lệnh /giao.</div>
+      <textarea id="newText" placeholder="Mô tả task bằng tiếng Việt… (⌘/Ctrl + Enter để giao)"></textarea>
+      <div class="fields">
+        <label class="field"><span>Giao cho AI</span>
+          <div class="picker" id="whoPicker"><button type="button" id="whoBtn"></button><div class="menu" id="whoMenu" hidden></div></div>
+          <small class="sub" id="whoHint">Quản lý chọn worker phù hợp, ưu tiên AI đang rảnh.</small></label>
+        <label class="field"><span>Cách giao việc</span>
+          <select id="newSplit"><option value="auto" selected>Để quản lý tự chọn</option><option value="mot">Một worker làm (lần lượt)</option><option value="song-song">Song song nhiều worker</option></select></label>
+        <label class="field"><span>Duyệt kế hoạch</span>
+          <select id="newMode"><option value="tu-quyet" selected>Để quản lý tự chọn</option><option value="duyet">Chờ tôi duyệt kế hoạch</option><option value="lam-luon">Làm luôn, không cần hỏi</option></select></label>
+      </div>
+      <div class="legend"><span><i class="dot ok"></i>rảnh</span><span><i class="dot busy"></i>đang vướng task — chọn thì task chờ (pending)</span><span><i class="dot bad"></i>chưa đăng nhập / chưa cài</span></div>
+      <div class="sub" style="margin:10px 0 14px">Cỡ task (nhỏ/vừa/lớn) do AI quản lý tự phân loại để chọn model: task nhỏ dùng model nhỏ <span id="sizeMap"></span>.</div>
+      <div class="row"><span class="grow sub">Quản lý chạy nền trên máy này; đóng trang không làm dừng task.</span>
+        <a class="btn" href="/dieu-hanh" data-link>Huỷ</a><button class="btn pri" id="newGo">Giao task</button></div>
+    </div>
+  </div>
+</section>
+
+<div class="modal" id="editModal"><div class="box">
+  <h3>Sửa task</h3>
+  <div class="sub" id="editId"></div>
+  <label for="editTitle">Tiêu đề</label>
+  <input type="text" id="editTitle">
+  <label for="editBrief">Yêu cầu (brief.md) — quản lý sẽ đọc lại ở lượt sau</label>
+  <textarea id="editBrief"></textarea>
+  <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn" id="editCancel">Huỷ</button><button class="btn pri" id="editSave">Lưu</button></div>
+</div></div>
+<div class="modal" id="empModal"><div class="box" style="width:min(520px,100%)">
+  <h3>Sửa nhân viên <span class="sub" id="empName"></span></h3>
+  <label for="empDesc">Vai trò / ghi chú</label><input type="text" id="empDesc">
+  <label for="empModel">Model (để trống = mặc định của CLI)</label><input type="text" id="empModel">
+  <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn" id="empCancel">Huỷ</button><button class="btn pri" id="empSave">Lưu</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
 
 <script>
 const STEPS=["Tiếp nhận","Tối ưu yêu cầu","Lập kế hoạch","Giao việc","Kiểm tra","Tổng hợp"];
-let view=location.hash==="#van-phong"?"vp":"dh", filter="active", sel=location.hash==="#van-phong"?"":decodeURIComponent(location.hash.slice(1))||"", lastList="", parts={}, openSet=new Set(), fileCache={}, cur=null, busyPost=false;
-let skew=0, SIZES={nho:"",vua:"",lon:""}, redirecting=false;
 const SIZE_TXT={nho:"Nhỏ",vua:"Vừa",lon:"Lớn"};
+let R={page:"dh"}, filter="active", q="", lastTasks=null, parts={}, openSet=new Set(), fileCache={}, cur=null, busyPost=false;
+let skew=0, SIZES={nho:"",vua:"",lon:""}, redirecting=false, ticking=false;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const now=()=>Date.now()/1000+skew;
 function dur(s){s=Math.max(0,Math.floor(s));if(s<60)return s+"s";if(s<3600)return Math.floor(s/60)+"m"+String(s%60).padStart(2,"0")+"s";return Math.floor(s/3600)+"h"+String(Math.floor(s%3600/60)).padStart(2,"0")+"m"}
 function ago(t){if(!t)return"?";const d=now()-t;if(d<60)return"vừa xong";if(d<3600)return Math.floor(d/60)+" phút trước";if(d<86400)return Math.floor(d/3600)+" giờ trước";return new Date(t*1000).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
+function hhmm(t){return new Date(t*1000).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}
 function toast(m){if(redirecting)return;const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),3200)}
+const taskUrl=id=>"/task/"+encodeURIComponent(id);
 
 // Markdown tối giản: tiêu đề, bảng, danh sách, code, trích dẫn, in đậm
 function inline(s){return esc(s).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>")}
@@ -250,44 +361,98 @@ async function post(path,body){
 }
 async function act(path,body,okMsg){
   if(busyPost)return;busyPost=true;
-  try{const d=await post(path,body);if(okMsg)toast(okMsg);parts={};await tick();return d}
+  try{const d=await post(path,body);if(okMsg)toast(okMsg);parts.list=null;parts.trash=null;await tick();return d}
   catch(e){toast("Không được: "+e.message)}finally{busyPost=false}
 }
+function setPart(id,html){if(parts[id]===html)return false;parts[id]=html;const el=document.getElementById(id);if(el)el.innerHTML=html;return true}
+
+// ---------------- điều hướng giữa các trang
+function parseRoute(){
+  const p=location.pathname;
+  if(p.startsWith("/task/"))return{page:"task",id:decodeURIComponent(p.slice(6))};
+  if(p==="/van-phong")return{page:"vp"};
+  if(p==="/nhan-vien"||p==="/tai-khoan")return{page:"nv"};
+  if(p==="/giao")return{page:"giao"};
+  if(p==="/thung-rac"){filter="trash";return{page:"dh"}}
+  return{page:"dh"};
+}
+function go(path){if(path!==location.pathname)history.pushState(null,"",path);route()}
+function route(){
+  const prev=R;R=parseRoute();
+  document.querySelectorAll(".page").forEach(s=>s.hidden=s.dataset.page!==R.page);
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("on",a.dataset.nav===(R.page==="task"||R.page==="giao"?"dh":R.page)));
+  if(R.page==="nv")parts.nvList=null;
+  document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x.dataset.f===filter));
+  if(R.page!=="task"||prev.id!==R.id){parts={};openSet.clear();cur=null;$("#detail").innerHTML=""}
+  if(R.page==="giao")setTimeout(()=>$("#newText").focus(),0);
+  window.scrollTo(0,0);tick();
+}
+document.addEventListener("click",e=>{
+  const a=e.target.closest("a[data-link]");
+  if(!a||e.metaKey||e.ctrlKey||e.shiftKey||e.button!==0)return;
+  e.preventDefault();go(a.getAttribute("href"));
+});
+window.addEventListener("popstate",route);
 
 function bar(t){let h='<div class="bar">';for(let k=1;k<=6;k++){const d=t.state==="xong"||k<t.step,c=!d&&k===t.step;h+=`<i class="${d?"d":""} ${c?"c "+t.state:""}"></i>`}return h+"</div>"}
 function badge(t){const txt=t.state==="dang-lam"?`Bước ${t.step}/6 · ${t.step_label}`:t.state==="xong"?"Hoàn thành":`${t.state_label} · bước ${t.step}`;return `<span class="badge ${t.state}">${esc(txt)}</span>`}
+const isActive=t=>t.state!=="xong"&&t.state!=="loi"||t.running.length||t.manager.running;
+const isWait=t=>t.state==="cho"&&!t.manager.running;
 
-function renderList(d){
+// ---------------- header (mọi trang)
+function renderHeader(d){
   const busy=new Set(d.busy);
-  $("#workers").innerHTML=d.workers.map(w=>{
-    const cls=busy.has(w.name)?"run":w.login==="ok"?"ok":"bad";
+  busySet=busy;workerList=d.workers;if(R.page==="giao")renderPicker();
+  setPart("workers",d.workers.map(w=>{
+    const cls=w.login!=="ok"?"bad":busy.has(w.name)?"busy":"ok";
     const tip=busy.has(w.name)?"đang làm việc":w.login==="ok"?"rảnh, đã đăng nhập":w.login==="logout"?"chưa đăng nhập":"chưa cài CLI";
-    return `<span class="chip" title="${esc(tip+(w.model?" · model "+w.model:"")+" · "+w.desc)}"><span class="dot ${cls}"></span>${esc(w.name)}</span>`}).join("")||'<span class="sub">đang kiểm tra worker…</span>';
-  const act=d.tasks.filter(t=>t.state!=="xong"||t.running.length||t.manager.running);
-  const nrun=d.tasks.reduce((a,t)=>a+t.running.length,0), nwait=d.tasks.filter(t=>t.state==="cho"&&!t.manager.running).length;
-  $("#summary").textContent=`${d.tasks.length} task · ${act.length} đang làm · ${nrun} worker đang chạy`+(nwait?` · ${nwait} chờ bạn`:"");
-  document.title=(nwait?`(${nwait}) `:"")+"Pentagon";
-  let ts=filter==="all"?d.tasks:filter==="done"?d.tasks.filter(t=>!act.includes(t)):act;
-  if(!sel&&d.tasks.length){sel=(act[0]||d.tasks[0]).id}
-  $("#list").innerHTML=ts.map(t=>`<div class="task ${t.id===sel?"sel":""}" data-id="${esc(t.id)}">
-    <div class="t">${esc(t.title)}</div>${bar(t)}
-    <div class="meta">${badge(t)}${t.manager.running?`<span style="color:var(--mgr)">● quản lý đang làm</span>`:""}${t.manager.pending?`<span style="color:var(--mgr)">● đang chuẩn bị</span>`:""}
-      ${t.manager.retry_at>1?`<span style="color:var(--warn)">⏸ hết hạn mức</span>`:""}${t.manager.size?`<span>cỡ ${SIZE_TXT[t.manager.size]||t.manager.size}</span>`:""}
-      ${t.running.length?`<span style="color:var(--run)">▶ ${t.running.length} worker</span>`:""}
-      ${t.plan_total?`<span>${t.plan_done}/${t.plan_total} việc con</span>`:""}<span>${t.results_count} kết quả</span>
-      ${t.fails?`<span style="color:var(--bad)">${t.fails} lỗi</span>`:""}<span data-ago="${t.updated}">${ago(t.updated)}</span></div></div>`).join("")
-    ||`<div class="empty">${filter==="active"?"Không có task nào đang làm.":"Chưa có task."}</div>`;
-  updTimers();
+    return `<span class="chip" title="${esc(tip+(w.model?" · model "+w.model:"")+" · "+w.desc)}"><span class="dot ${cls}"></span>${esc(w.name)}</span>`}).join("")||'<span class="sub">đang kiểm tra worker…</span>');
+  const nact=d.tasks.filter(isActive).length, nrun=d.tasks.reduce((a,t)=>a+t.running.length,0), nwait=d.tasks.filter(isWait).length;
+  $("#summary").textContent=`${d.tasks.length} task · ${nact} đang làm · ${nrun} worker đang chạy`+(nwait?` · ${nwait} chờ bạn`:"");
+  document.title=(nwait?`(${nwait}) `:"")+({dh:"Phòng Điều hành",vp:"Văn phòng làm việc",giao:"Giao task",task:"Task",nv:"Quản lý nhân viên"}[R.page])+" · Pentagon";
 }
 
-// Khung chi tiết dựng 1 lần cho mỗi task; mỗi lần làm mới chỉ thay phần nào đổi, để không mất chữ đang gõ
+// ---------------- Trang 1: Phòng Điều hành
+function renderDH(d){
+  const nact=d.tasks.filter(isActive).length, nwait=d.tasks.filter(isWait).length;
+  const nrun=d.tasks.reduce((a,t)=>a+t.running.length,0), ndone=d.tasks.filter(t=>t.state==="xong").length;
+  setPart("stats",`<div class="stat" data-f="active"><span class="sub">Đang làm</span><b>${nact}</b></div>
+    <div class="stat wait" data-f="wait"><span class="sub">Chờ bạn trả lời</span><b>${nwait}</b></div>
+    <div class="stat run" data-go="/van-phong"><span class="sub">Worker đang chạy</span><b>${nrun}</b></div>
+    <div class="stat done" data-f="done"><span class="sub">Hoàn thành</span><b>${ndone}</b></div>
+    <div class="stat" data-f="all"><span class="sub">Tổng số task</span><b>${d.tasks.length}</b></div>`);
+  if(filter==="trash")return renderTrash();
+  const qq=q.trim().toLowerCase();
+  let ts=d.tasks.filter(t=>filter==="all"||(filter==="active"&&isActive(t))||(filter==="wait"&&isWait(t))||(filter==="done"&&!isActive(t)));
+  if(qq)ts=ts.filter(t=>(t.title+" "+t.id).toLowerCase().includes(qq));
+  setPart("tbl",`<div class="tr hd"><span>Task</span><span>Tiến độ</span><span>Quản lý · worker</span><span>Cập nhật</span><span style="text-align:right">Thao tác</span></div>`+
+    (ts.map(t=>`<div class="tr row" data-id="${esc(t.id)}">
+      <div><div class="t">${esc(t.title)}</div><div class="meta"><span>${esc(t.id)}</span>${t.manager.size?`<span>cỡ ${SIZE_TXT[t.manager.size]||esc(t.manager.size)}</span>`:""}${t.manager.split==="song-song"?"<span>song song</span>":""}${t.manager.assignee?`<span>→ ${esc(t.manager.assignee)}</span>`:""}</div></div>
+      <div>${badge(t)}${bar(t)}<div class="meta">${t.plan_total?`<span>${t.plan_done}/${t.plan_total} việc con</span>`:""}<span>${t.results_count} kết quả</span>${t.fails?`<span style="color:var(--bad)">${t.fails} lỗi</span>`:""}</div></div>
+      <div class="meta">${t.manager.running?`<span style="color:var(--mgr)">● quản lý đang làm</span>`:t.manager.queued?`<span style="color:var(--warn)">● pending — chờ ${esc(t.manager.assignee)} rảnh</span>`:t.manager.pending?`<span style="color:var(--mgr)">● đang chuẩn bị</span>`:t.manager.retry_at>1?`<span style="color:var(--warn)">⏸ hết hạn mức</span>`:isWait(t)?`<span style="color:var(--warn)">chờ bạn</span>`:"<span>nghỉ</span>"}
+        ${t.running.length?`<span style="color:var(--run)">▶ ${t.running.length} worker</span>`:""}</div>
+      <div class="sub" data-ago="${t.updated}">${ago(t.updated)}</div>
+      <div class="acts"><a class="btn sm" href="${taskUrl(t.id)}" data-link>Mở</a><button class="btn sm" data-edit="${esc(t.id)}">Sửa</button><button class="btn sm danger" data-del="${esc(t.id)}">Xoá</button></div>
+    </div>`).join("")||`<div class="empty">${qq?"Không có task nào khớp.":filter==="active"?"Không có task nào đang làm. Bấm “+ Giao task” để bắt đầu.":filter==="wait"?"Không có task nào chờ bạn.":"Chưa có task."}</div>`));
+}
+async function renderTrash(){
+  const d=await (await apiFetch("/api/trash")).json();
+  setPart("tbl",`<div class="tr trash hd"><span>Task đã xoá</span><span>Tạo lúc</span><span>Xoá lúc</span><span style="text-align:right">Thao tác</span></div>`+
+    (d.items.map(i=>`<div class="tr trash"><div><div class="t">${esc(i.title)}</div><div class="meta">${esc(i.trash_id)}</div></div>
+      <div class="sub">${esc(i.created)}</div><div class="sub">${ago(i.deleted_at)}</div>
+      <div class="acts"><button class="btn sm" data-restore="${esc(i.trash_id)}">Khôi phục</button><button class="btn sm danger" data-purge="${esc(i.trash_id)}">Xoá vĩnh viễn</button></div></div>`).join("")
+    ||'<div class="empty">Thùng rác trống.</div>'));
+}
+
+// ---------------- Trang 2: chi tiết task (dựng khung 1 lần, chỉ thay phần đổi để không mất chữ đang gõ)
 function skeleton(){
   $("#detail").innerHTML=`<div id="p-head"></div><div class="stepper" id="p-steps"></div><div id="p-note"></div>
   <div class="grid"><div>
     <div class="card"><h3>Trao đổi với AI quản lý</h3>
       <div class="settings">
         <span id="p-size"></span>
-        <label>Giao việc <select id="splitSel"><option value="mot">Một worker làm</option><option value="song-song">Song song</option></select></label>
+        <label>Giao việc <select id="splitSel"><option value="auto">Quản lý tự chọn</option><option value="mot">Một worker làm</option><option value="song-song">Song song</option></select></label>
+        <label>AI làm <select id="whoSel"></select></label>
         <span id="p-acct"></span>
       </div><div id="p-mstatus"></div><div class="chat" id="p-chat"></div>
       <div class="composer"><textarea id="msg" placeholder="Nhắn cho quản lý: trả lời câu hỏi, duyệt kế hoạch, yêu cầu sửa… (⌘/Ctrl + Enter để gửi)"></textarea>
@@ -300,42 +465,46 @@ function skeleton(){
   $("#sendBtn").onclick=sendMsg;
   $("#okBtn").onclick=()=>{$("#msg").value="Đồng ý, tiến hành.";sendMsg()};
   $("#splitSel").onchange=e=>act("/api/set-split",{id:cur.id,split:e.target.value},"Đã đổi cách giao việc — áp dụng từ lượt sau");
+  $("#whoSel").onchange=e=>act("/api/set-assignee",{id:cur.id,assignee:e.target.value},"Đã đổi AI làm việc — áp dụng từ lượt sau");
   $("#msg").onkeydown=e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();sendMsg()}};
 }
-function setPart(id,html){if(parts[id]===html)return false;parts[id]=html;const el=document.getElementById(id);if(el)el.innerHTML=html;return true}
-
 function renderDetail(t){
   if(!document.getElementById("p-head")||parts._id!==t.id){skeleton();parts={_id:t.id}}
   cur=t;
-  const m=t.manager, waiting=t.state==="cho"&&!m.running;
+  const m=t.manager, waiting=isWait(t), open=t.state!=="xong"&&t.state!=="loi";
   setPart("p-head",`<div class="head"><div class="grow"><h2>${esc(t.title)}</h2>
     <div class="meta">${badge(t)}<span>${esc(t.id)}</span><span>tạo ${esc(t.created)}</span><span>tasks/${esc(t.id)}/</span></div></div>
-    <div class="row">${t.state!=="xong"?`<button class="btn sm" data-act="done">Đánh dấu xong</button>`:""}
-      ${t.state!=="xong"&&t.state!=="loi"?`<button class="btn sm danger" data-act="cancel">Huỷ task</button>`:""}</div></div>`);
+    <div class="row"><button class="btn sm" data-edit="${esc(t.id)}">Sửa</button>
+      ${open?`<button class="btn sm" data-act="done">Đánh dấu xong</button><button class="btn sm danger" data-act="cancel">Huỷ task</button>`:`<button class="btn sm" data-act="reopen">Mở lại</button>`}
+      <button class="btn sm danger" data-del="${esc(t.id)}">Xoá</button></div></div>`);
   setPart("p-steps",STEPS.map((s,k)=>{const n=k+1,d=t.state==="xong"||n<t.step,c=!d&&n===t.step;return `<div class="st ${d?"d":""} ${c?"c "+t.state:""}"><b>${d?"✓":n}</b><div>${s}</div></div>`}).join(""));
   setPart("p-note",t.note?`<div class="note">${esc(t.note)}</div>`:"");
-
   const sp=$("#splitSel");
-  if(document.activeElement!==sp)sp.value=m.split||"mot";
+  if(document.activeElement!==sp)sp.value=m.split||"auto";
+  const ws=$("#whoSel");
+  if(document.activeElement!==ws){
+    const icon={ok:"🟢",busy:"🟡",bad:"🔴"};
+    const html=`<option value="">Quản lý tự chọn</option>`+workerList.map(w=>`<option value="${esc(w.name)}">${icon[wState(w)]} ${esc(w.name)} — ${W_TXT[wState(w)]}</option>`).join("");
+    if(ws.dataset.h!==html){ws.innerHTML=html;ws.dataset.h=html}
+    ws.value=m.assignee||"";
+  }
   setPart("p-size",m.size?`Cỡ: <b>${SIZE_TXT[m.size]||esc(m.size)}</b> <span title="AI quản lý tự phân loại; nó có thể đổi cỡ khi làm">· quản lý phân loại</span>`:(m.pending?"Cỡ: đang phân loại…":"Cỡ: chưa phân loại"));
   setPart("p-acct",`Model: <b>${esc(m.model||"mặc định")}</b>`+(m.account?` · Tài khoản: <b>${esc(m.account)}</b>`:""));
   let ms;
-  if(m.pending) ms=`<div class="mstatus"><span class="dot mgr"></span><span class="grow">${esc(m.pending)}</span></div>`;
-  else if(m.retry_at>1&&!m.running) ms=`<div class="mstatus wait"><span class="grow"><b>Hết hạn mức ở mọi tài khoản Claude.</b> Phần đã làm được giữ nguyên; quản lý sẽ tự làm tiếp lúc ${new Date(m.retry_at*1000).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})} (để bin/dashboard chạy).</span><button class="btn sm" data-act="retry">Thử ngay</button></div>`;
+  if(m.pending) ms=`<div class="mstatus ${m.queued?"wait":""}"><span class="dot ${m.queued?"busy":"mgr"}"></span><span class="grow">${m.queued?"<b>Pending.</b> ":""}${esc(m.pending)}</span>${m.queued?`<button class="btn sm danger" data-act="cancel">Huỷ chờ</button>`:""}</div>`;
+  else if(m.retry_at>1&&!m.running) ms=`<div class="mstatus wait"><span class="grow"><b>Hết hạn mức ở mọi tài khoản Claude.</b> Phần đã làm được giữ nguyên; quản lý sẽ tự làm tiếp lúc ${hhmm(m.retry_at)} (để bin/dashboard chạy).</span><button class="btn sm" data-act="retry">Thử ngay</button></div>`;
   else if(m.running) ms=`<div class="mstatus"><span class="dot mgr"></span><span class="grow"><b>Quản lý đang làm</b> · <span data-started="${m.started}"></span></span><button class="btn sm danger" data-act="stop">Dừng quản lý</button></div>`;
   else if(waiting) ms=`<div class="mstatus wait"><span class="grow"><b>Quản lý đang chờ bạn.</b> ${esc(t.note)}</span></div>`;
   else if(!m.session) ms=`<div class="mstatus"><span class="grow sub">Task này chưa có phiên quản lý trên web (có thể tạo từ Claude Code). Gửi tin nhắn để quản lý web đọc lại task và làm tiếp.</span></div>`;
   else ms=`<div class="mstatus"><span class="grow sub">Quản lý đang nghỉ. Gửi tin nhắn để giao thêm việc hoặc yêu cầu sửa.</span></div>`;
   if(t.manager_stderr) ms+=`<div class="msg error">Lỗi khi chạy quản lý:\n${esc(t.manager_stderr)}</div>`;
   setPart("p-mstatus",ms);
-
   const box=$("#p-chat"), atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<40;
   if(setPart("p-chat",(t.chat||[]).map(c=>c.role==="manager"?`<div class="msg manager"><div class="md">${md(c.text)}</div></div>`
       :`<div class="msg ${c.role}">${esc(c.text)}</div>`).join("")||'<div class="sub">Chưa có trao đổi nào.</div>')&&atBottom) box.scrollTop=box.scrollHeight;
   $("#msg").disabled=m.running||!!m.pending;$("#sendBtn").disabled=m.running||!!m.pending;
   $("#okBtn").style.display=waiting?"":"none";
   $("#p-hint").textContent=m.running?"Chờ quản lý xong lượt này để nhắn tiếp (hoặc Dừng).":"";
-
   setPart("p-run",t.running.length?`<div class="card"><h3><span class="dot run"></span>Worker đang chạy</h3>${t.running.map(r=>`<div class="runner">
       <span class="el" data-started="${r.started}"></span>
       <div class="grow"><div class="w">${esc(r.worker)} <span class="sub">(${esc(r.tool)}, quyền ${esc(r.perm)}${r.model?", model "+esc(r.model):""})</span></div><div>${esc(r.summary)}</div></div>
@@ -350,22 +519,19 @@ function renderDetail(t){
   setPart("p-log",t.log.slice().reverse().map(i=>`<div class="k-${i.kind}"><span class="tm">${esc(i.time)}</span><span class="who">${esc(i.who==="quan-ly"?"quản lý":i.who)}</span><span class="tx">${esc(i.text)}</span></div>`).join("")||'<span class="muted">Chưa có.</span>');
   updTimers();loadOpenFiles(t.id);
 }
-
 async function loadOpenFiles(id){
   for(const el of document.querySelectorAll("details[open] [data-file]")){
     const f=el.dataset.file,key=id+"/"+f;if(fileCache[key]!=null)continue;
     try{const r=await (await apiFetch(`/api/file?id=${encodeURIComponent(id)}&path=${encodeURIComponent(f)}`)).json();fileCache[key]=r.text||"";el.innerHTML=md(fileCache[key])}catch(e){}
   }
 }
-
 async function sendMsg(){
   const v=$("#msg").value.trim();if(!v||!cur)return;
   const d=await act("/api/send",{id:cur.id,text:v},"Đã gửi cho quản lý");
   if(d)$("#msg").value="";
 }
 
-// ---------------- Văn phòng làm việc
-function hhmm(t){return new Date(t*1000).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}
+// ---------------- Trang 3: Văn phòng làm việc
 function renderOffice(o){
   const mg=o.managers.map(m=>{
     const st=m.running?`<span style="color:var(--mgr)">● Đang điều phối · <span data-started="${m.started}"></span></span>`
@@ -373,7 +539,7 @@ function renderOffice(o){
       :`<span style="color:var(--warn)">⏸ Hết hạn mức — tự làm tiếp lúc ${hhmm(m.retry_at)}</span>`;
     return `<div class="desk mgr ${m.running?"busy":""}"><div class="top"><span class="dot ${m.running||m.pending?"mgr":""}"></span><span class="nm">AI quản lý</span><span class="tool">điều hành</span></div>
       <div class="stt">${st}</div>
-      <div class="job" data-open="${esc(m.task)}"><b>${esc(m.title)}</b>Bước ${m.step}/6 · ${esc(m.step_label)}</div>
+      <a class="job" href="${taskUrl(m.task)}" data-link><b>${esc(m.title)}</b>Bước ${m.step}/6 · ${esc(m.step_label)}</a>
       <div class="foot">Model ${esc(m.model||"mặc định")}${m.account?" · tài khoản "+esc(m.account):""}</div></div>`}).join("");
   const desks=o.desks.slice().sort((a,b)=>(b.working.length-a.working.length)||a.name.localeCompare(b.name)).map(d=>{
     const busy=d.working.length>0, off=d.login!=="ok";
@@ -384,84 +550,207 @@ function renderOffice(o){
     else{st=`<span style="color:var(--ok)">○ Rảnh</span>`;dot="ok"}
     const u=d.usage||{}, today=new Date().toLocaleDateString("sv-SE"), td=(u.days||{})[today]||{};
     const fmtTok=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?Math.round(n/1e3)+"k":String(n||0);
+    const when=w=>new Date(w.resets_at*1000).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
     const bars=(u.windows||[]).map(w=>{const p=w.used==null?null:Math.min(100,w.used);
-      return `<div class="ubar" title="${w.resets_at?"làm mới lúc "+new Date(w.resets_at*1000).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"}):""}"><span>${esc(w.label)}</span>
-        <span class="tr"><i class="${p>=90?"hi":p>=70?"mid":""}" style="width:${p??0}%"></i></span><b>${p==null?"?":Math.round(p)+"%"}</b></div>`}).join("");
+      return `<div class="ubar" title="${w.resets_at?"làm mới lúc "+when(w):""}"><span>${esc(w.label)}</span>
+        <span class="trk"><i class="${p>=90?"hi":p>=70?"mid":""}" style="width:${p??0}%"></i></span><b>${p==null?"?":Math.round(p)+"%"}</b></div>`}).join("");
     const usage=`<div class="usage">${bars||`<span class="sub">${d.tool==="gemini"?"Gemini chưa có số liệu hạn mức.":"Chưa có số liệu hạn mức — sẽ có sau lần chạy kế tiếp."}</span>`}
-      ${(u.windows||[]).some(w=>w.resets_at)?`<span class="sub">Làm mới: ${(u.windows||[]).filter(w=>w.resets_at).map(w=>esc(w.label)+" lúc "+new Date(w.resets_at*1000).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"})).join(" · ")}</span>`:""}
+      ${(u.windows||[]).some(w=>w.resets_at)?`<span class="sub">Làm mới: ${(u.windows||[]).filter(w=>w.resets_at).map(w=>esc(w.label)+" lúc "+when(w)).join(" · ")}</span>`:""}
       <span class="sub">Hôm nay: ${td.calls||0} lần gọi · ${fmtTok(td.tokens)} token${u.plan?" · gói "+esc(u.plan):""}${u.rate_at?" · số liệu "+ago(u.rate_at):""}</span></div>`;
-    const jobs=d.working.map(w=>`<div class="job" data-open="${esc(w.task)}"><b>${esc(w.title)}</b>${esc(w.summary.slice(0,140))}
-      <div class="sub"><span data-started="${w.started}"></span> · quyền ${esc(w.perm)}${w.model?" · "+esc(w.model):""}</div></div>`).join("");
+    const jobs=d.working.map(w=>`<a class="job" href="${taskUrl(w.task)}" data-link><b>${esc(w.title)}</b>${esc(w.summary.slice(0,140))}
+      <div class="sub"><span data-started="${w.started}"></span> · quyền ${esc(w.perm)}${w.model?" · "+esc(w.model):""}</div></a>`).join("");
     return `<div class="desk ${busy?"busy":""} ${off?"off":""}"><div class="top"><span class="dot ${dot}"></span><span class="nm">${esc(d.name)}</span><span class="tool">${esc(d.tool)}</span></div>
       <div class="stt">${st}${u.limited?' <span style="color:var(--bad)">· đang chạm hạn mức</span>':""}</div>${jobs}${usage}
       <div class="sub">${esc(d.desc||"")}${d.model?" · model "+esc(d.model):""}</div>
       <div class="foot">Pentagon hôm nay: ${d.done_today} việc xong${d.secs_today?" · "+dur(d.secs_today):""}${d.fails_today?` · <span style="color:var(--bad)">${d.fails_today} lần lỗi</span>`:""}${d.last?" · gần nhất "+esc(d.last.slice(11,16)):""}</div></div>`}).join("");
   const nb=o.desks.filter(d=>d.working.length).length;
-  setPart("office",`<h2>Văn phòng làm việc</h2><div class="sub">Mỗi AI là một nhân viên ngồi một bàn. ${nb} đang làm · ${o.desks.length-nb} rảnh hoặc nghỉ. Bấm vào một việc để mở task trong Phòng Điều hành.</div>
+  setPart("office",`<h2>Văn phòng làm việc</h2><div class="sub">Mỗi AI là một nhân viên ngồi một bàn. ${nb} đang làm · ${o.desks.length-nb} rảnh hoặc nghỉ. Bấm vào một việc để mở task.</div>
     <h4>Ban điều hành</h4>${mg?`<div class="desks">${mg}</div>`:'<div class="sub">Không có AI quản lý nào đang chạy.</div>'}
     <h4>Nhân viên</h4><div class="desks">${desks||'<div class="sub">Đang kiểm tra danh sách worker…</div>'}</div>`);
   updTimers();
 }
-function switchView(v){
-  view=v;document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
-  $("#office").hidden=v!=="vp";$("#dh").hidden=v!=="dh";
-  if(v==="vp")history.replaceState(null,"","#van-phong");else history.replaceState(null,"",sel?"#"+encodeURIComponent(sel):"#");
-  lastList="";parts.office=null;tick();
-}
-$("#tabs").onclick=e=>{const b=e.target.closest("button");if(b)switchView(b.dataset.v)};
-$("#office").onclick=e=>{const j=e.target.closest("[data-open]");if(!j)return;sel=j.dataset.open;openSet.clear();parts={};switchView("dh")};
 
+// ---------------- Trang 5: Quản lý nhân viên
+const DEPTS={claude:["Phòng Claude","suy luận sâu, lập kế hoạch, code khó, review, viết nội dung"],
+  codex:["Phòng Codex","viết code, sửa lỗi, refactor, chạy test"],gemini:["Phòng Gemini","đọc tài liệu/codebase dài, tra cứu, ảnh/video"]};
+let empEditing=null;
+function usageBars(u){
+  const when=w=>new Date(w.resets_at*1000).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});
+  return (u.windows||[]).map(w=>{const p=w.used==null?null:Math.min(100,w.used);
+    return `<div class="ubar" title="${w.resets_at?"làm mới lúc "+when(w):""}"><span>${esc(w.label)}</span><span class="trk"><i class="${p>=90?"hi":p>=70?"mid":""}" style="width:${p??0}%"></i></span><b>${p==null?"?":Math.round(p)+"%"}</b></div>`}).join("");
+}
+function renderNV(d){
+  const ae=document.activeElement;
+  if(ae&&ae.closest&&ae.closest("#nvList")&&ae.tagName==="INPUT")return; // đang gõ mã đăng nhập: không vẽ lại
+  const byDept={};d.accounts.forEach(a=>(byDept[a.tool]=byDept[a.tool]||[]).push(a));
+  const html=Object.keys(DEPTS).map(tool=>{
+    const list=byDept[tool]||[], on=list.filter(a=>a.enabled);
+    const cards=list.map(a=>{
+      const st=!a.enabled?"off":a.login!=="ok"?"bad":a.busy?"busy":"ok";
+      const stTxt={off:"Tạm nghỉ (đang tắt)",bad:a.login==="missing"?"Chưa cài CLI":a.login==="?"?"Đang kiểm tra…":"Chưa đăng nhập",busy:`Đang làm ${a.busy} việc`,ok:"Rảnh"}[st];
+      const u=a.usage||{}, ls=a.login_session||{};
+      const login=ls.active?`<div class="loginbox">
+          ${ls.done?(ls.rc===0?`<b style="color:var(--ok)">✓ Đăng nhập xong.</b>`:`<b style="color:var(--bad)">Đăng nhập chưa thành công (mã ${ls.rc}).</b>`)
+            :`<b>Đang đăng nhập…</b><span class="sub">Trình duyệt trên máy này đã mở trang đăng nhập — chọn đúng tài khoản rồi đồng ý.${ls.url?` Không thấy thì <a href="${esc(ls.url)}" target="_blank" rel="noopener">mở trang đăng nhập</a>.`:""}</span>
+            <div class="row"><input type="text" class="grow" data-code-for="${esc(a.name)}" placeholder="Nếu trang hiện mã, dán mã vào đây"><button class="btn sm pri" data-login-code="${esc(a.name)}">Gửi mã</button><button class="btn sm" data-login-cancel="${esc(a.name)}">Huỷ</button></div>`}
+          <pre>${esc((ls.text||"").replace(/https:\/\/\S+/g,"[link đăng nhập]").trim().split("\n").slice(-6).join("\n"))}</pre></div>`:"";
+      return `<div class="emp ${a.enabled?"":"off"}"><div class="top"><i class="dot ${st}"></i><span class="nm">${esc(a.name)}</span>${a.enabled?`<span class="prio">ưu tiên ${a.priority}</span>`:'<span class="prio">tạm nghỉ</span>'}</div>
+        <div class="stt" style="font-weight:600">${stTxt}${u.limited?' <span style="color:var(--bad)">· đang chạm hạn mức</span>':""}</div>
+        <div class="sub">${esc(a.desc||"")} · model ${esc(a.model||"mặc định")} · ${a.default?"tài khoản mặc định của máy":esc(a.home)}</div>
+        ${a.enabled?`<div class="usage">${usageBars(u)||'<span class="sub">Chưa có số liệu hạn mức.</span>'}<span class="sub">Hôm nay: ${a.done_today} việc xong${a.fails_today?` · <span style="color:var(--bad)">${a.fails_today} lần lỗi</span>`:""}</span></div>`:""}
+        ${login}
+        <div class="acts">
+          ${a.enabled&&tool!=="gemini"?`<button class="btn sm ${a.login==="ok"?"":"pri"}" data-login="${esc(a.name)}">${a.login==="ok"?"Đăng nhập lại":"Đăng nhập"}</button>`:""}
+          ${a.enabled&&a.login==="ok"&&tool!=="gemini"?`<button class="btn sm" data-logout="${esc(a.name)}">Đăng xuất</button>`:""}
+          <button class="btn sm" data-emp-edit="${esc(a.name)}">Sửa</button>
+          ${a.enabled?`<button class="btn sm" data-move="${esc(a.name)}" data-dir="up" title="Ưu tiên cao hơn">↑</button><button class="btn sm" data-move="${esc(a.name)}" data-dir="down" title="Ưu tiên thấp hơn">↓</button>`:""}
+          <button class="btn sm" data-enable="${esc(a.name)}" data-on="${a.enabled?0:1}">${a.enabled?"Cho tạm nghỉ":"Đi làm lại"}</button>
+          <button class="btn sm danger" data-fire="${esc(a.name)}" data-default="${a.default?1:0}">Cho nghỉ việc</button>
+        </div></div>`}).join("");
+    return `<div class="dept"><div class="dept-h"><h3>${DEPTS[tool][0]}</h3><span class="sub">${DEPTS[tool][1]} · ${on.length} nhân viên đang làm${list.length>on.length?`, ${list.length-on.length} tạm nghỉ`:""}</span></div>
+      ${cards?`<div class="emps">${cards}</div>`:`<div class="sub">Chưa có nhân viên. Bấm “+ Tuyển nhân viên” và chọn ${DEPTS[tool][0]}.</div>`}</div>`}).join("");
+  setPart("nvList",html);
+}
+$("#hireBtn").onclick=()=>{$("#hireCard").hidden=false;$("#hName").focus()};
+$("#hCancel").onclick=()=>{$("#hireCard").hidden=true};
+$("#hTool").onchange=()=>{const t=$("#hTool").value;$("#hModel").placeholder=t==="codex"?"vd gpt-6-luna":t==="claude"?"vd sonnet (để trống = mặc định)":"để trống";
+  if(!$("#hName").value)$("#hName").placeholder="vd "+t+"-"+((lastAccounts||[]).filter(a=>a.tool===t).length+1)};
+let lastAccounts=null;
+$("#hGo").onclick=async()=>{
+  const name=$("#hName").value.trim(), tool=$("#hTool").value;
+  if(!name){$("#hName").focus();return}
+  const d=await act("/api/accounts/add",{name,tool,desc:$("#hDesc").value,model:$("#hModel").value},`Đã tuyển ${name} vào ${DEPTS[tool][0]}`);
+  if(!d)return;
+  $("#hireCard").hidden=true;["hName","hDesc","hModel"].forEach(i=>$("#"+i).value="");
+  if($("#hLogin").checked&&tool!=="gemini")act("/api/accounts/login",{name:d.name},"Đã mở trang đăng nhập trên trình duyệt");
+  else if(tool==="gemini")toast(`Gemini cần đăng nhập trong terminal: bin/login ${d.name}`);
+};
+$("#empCancel").onclick=()=>$("#empModal").classList.remove("on");
+$("#empSave").onclick=async()=>{const d=await act("/api/accounts/update",{name:empEditing,desc:$("#empDesc").value,model:$("#empModel").value},"Đã lưu");if(d)$("#empModal").classList.remove("on")};
+document.addEventListener("click",e=>{
+  const g=k=>e.target.closest("[data-"+k+"]");let b;
+  if(b=g("login"))return act("/api/accounts/login",{name:b.dataset.login},"Đã mở trang đăng nhập trên trình duyệt");
+  if(b=g("login-code")){const inp=document.querySelector(`[data-code-for="${b.dataset.loginCode}"]`);
+    return act("/api/accounts/login-code",{name:b.dataset.loginCode,code:inp?inp.value:""},"Đã gửi mã").then(()=>{if(inp)inp.blur()})}
+  if(b=g("login-cancel"))return act("/api/accounts/login-cancel",{name:b.dataset.loginCancel},"Đã huỷ đăng nhập");
+  if(b=g("logout")){if(confirm(`Đăng xuất ${b.dataset.logout}? Nhân viên này sẽ không làm được việc cho tới khi đăng nhập lại.`))act("/api/accounts/logout",{name:b.dataset.logout},"Đã đăng xuất");return}
+  if(b=g("move"))return act("/api/accounts/move",{name:b.dataset.move,dir:b.dataset.dir},"Đã đổi thứ tự ưu tiên");
+  if(b=g("enable"))return act("/api/accounts/enable",{name:b.dataset.enable,enabled:b.dataset.on==="1"},b.dataset.on==="1"?"Nhân viên đã đi làm lại":"Nhân viên tạm nghỉ — không được giao việc");
+  if(b=g("emp-edit")){const a=(lastAccounts||[]).find(x=>x.name===b.dataset.empEdit)||{};empEditing=a.name;$("#empName").textContent=a.name;$("#empDesc").value=a.desc||"";$("#empModel").value=a.model||"";$("#empModal").classList.add("on");return}
+  if(b=g("fire")){const n=b.dataset.fire;
+    if(!confirm(`Cho ${n} nghỉ việc? Nhân viên bị bỏ khỏi danh sách (workers.conf).`))return;
+    const forget=b.dataset.default!=="1"&&confirm(`Xoá luôn thông tin đăng nhập đã lưu của ${n} trên máy này?\n(OK = xoá, Cancel = giữ lại để sau tuyển lại không phải đăng nhập)`);
+    act("/api/accounts/remove",{name:n,forget},`Đã cho ${n} nghỉ việc`)}
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")$("#empModal").classList.remove("on")});
+
+// ---------------- làm mới định kỳ: chỉ tải dữ liệu của trang đang mở
 async function tick(){
-  if(redirecting)return;
+  if(redirecting||ticking)return;ticking=true;
   try{
-    const tasksResponse=await apiFetch("/api/tasks");const d=await tasksResponse.json();
+    const d=await (await apiFetch("/api/tasks")).json();
     $("#logoutBtn").hidden=!d.auth;
-    skew=d.now-Date.now()/1000;
+    skew=d.now-Date.now()/1000;lastTasks=d;
     if(d.sizes){SIZES=d.sizes;$("#sizeMap").textContent=`(nhỏ → ${SIZES.nho}, vừa → ${SIZES.vua}, lớn → ${SIZES.lon}; worker cũng theo cỡ từng việc con)`}
-    const s=JSON.stringify([d.tasks,d.workers,d.busy,d.sizes,filter,sel]);if(s!==lastList){lastList=s;renderList(d)}
-    if(view==="vp"){renderOffice(await (await apiFetch("/api/office")).json());return}
-    if(sel){const r=await apiFetch("/api/task?id="+encodeURIComponent(sel));
+    renderHeader(d);
+    if(R.page==="dh")await renderDH(d);
+    else if(R.page==="vp")renderOffice(await (await apiFetch("/api/office")).json());
+    else if(R.page==="nv"){const a=await (await apiFetch("/api/accounts")).json();lastAccounts=a.accounts;renderNV(a)}
+    else if(R.page==="task"){const r=await apiFetch("/api/task?id="+encodeURIComponent(R.id));
       if(r.ok)renderDetail(await r.json());
-      else{$("#detail").innerHTML='<div class="empty">Không tìm thấy task này.</div>';parts={}}}
-  }catch(e){if(!redirecting){$("#summary").textContent="mất kết nối tới bin/dashboard — đang thử lại…";lastList=""}}
+      else{parts={};cur=null;$("#detail").innerHTML='<div class="empty">Không tìm thấy task này (có thể đã bị xoá). <a href="/dieu-hanh" data-link>Về Phòng Điều hành</a></div>'}}
+  }catch(e){if(!redirecting)$("#summary").textContent="mất kết nối tới bin/dashboard — đang thử lại…"}
+  finally{ticking=false}
 }
 
-$("#logoutBtn").onclick=async()=>{try{await post("/api/logout",{});location.href="/login"}catch(e){toast("Đăng xuất không thành công: "+e.message)}};
-
-$("#filter").onclick=e=>{const b=e.target.closest("button");if(!b)return;filter=b.dataset.f;document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x===b));lastList="";tick()};
-$("#list").onclick=e=>{const el=e.target.closest(".task");if(!el||el.dataset.id===sel)return;sel=el.dataset.id;location.hash=encodeURIComponent(sel);openSet.clear();lastList="";parts={};tick()};
-$("#detail").addEventListener("click",e=>{
-  const b=e.target.closest("[data-act]");if(!b||!cur)return;const a=b.dataset.act;
+// ---------------- thao tác: sửa, xoá, khôi phục, các nút trong trang task
+const editModal=$("#editModal");
+let editing=null;
+async function openEdit(id){
+  try{const t=await (await apiFetch("/api/task?id="+encodeURIComponent(id))).json();
+    editing=id;$("#editId").textContent=id;$("#editTitle").value=t.title;$("#editBrief").value=t.brief||"";
+    editModal.classList.add("on");$("#editTitle").focus()}catch(e){toast("Không mở được task: "+e.message)}
+}
+$("#editCancel").onclick=()=>editModal.classList.remove("on");
+editModal.onclick=e=>{if(e.target===editModal)editModal.classList.remove("on")};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")editModal.classList.remove("on")});
+$("#editSave").onclick=async()=>{
+  const title=$("#editTitle").value.trim();if(!title){$("#editTitle").focus();return}
+  // sửa brief trước rồi mới đặt tiêu đề, để tiêu đề mới không bị nội dung brief ghi đè
+  const d=await act("/api/task/update",{id:editing,brief:$("#editBrief").value,title},"Đã lưu thay đổi");
+  if(d){editModal.classList.remove("on");parts={_id:null}}
+};
+async function delTask(id){
+  const t=(lastTasks&&lastTasks.tasks.find(x=>x.id===id))||{title:id,running:[],manager:{}};
+  const busy=t.running.length||t.manager.running;
+  if(!confirm(`Xoá task “${t.title}”?${busy?"\n\nTask đang chạy: quản lý và các worker sẽ bị dừng.":""}\n\nTask được chuyển vào Thùng rác, khôi phục lại được.`))return;
+  const d=await act("/api/task/delete",{id},"Đã chuyển vào Thùng rác");
+  if(d&&R.page==="task")go("/dieu-hanh");
+}
+document.addEventListener("click",e=>{
+  const s=e.target.closest(".stat");
+  if(s){if(s.dataset.go)return go(s.dataset.go);filter=s.dataset.f;parts.tbl=null;route();return}
+  const ed=e.target.closest("[data-edit]");if(ed){e.stopPropagation();return openEdit(ed.dataset.edit)}
+  const dl=e.target.closest("[data-del]");if(dl){e.stopPropagation();return delTask(dl.dataset.del)}
+  const rs=e.target.closest("[data-restore]");if(rs)return act("/api/task/restore",{trash_id:rs.dataset.restore},"Đã khôi phục task");
+  const pg=e.target.closest("[data-purge]");
+  if(pg){if(confirm("Xoá VĨNH VIỄN task này cùng mọi file kết quả? Không khôi phục được."))act("/api/task/purge",{trash_id:pg.dataset.purge},"Đã xoá vĩnh viễn");return}
+  const row=e.target.closest(".tr.row");
+  if(row&&!e.target.closest("a,button"))return go(taskUrl(row.dataset.id));
+  const b=e.target.closest("#detail [data-act]");if(!b||!cur)return;const a=b.dataset.act;
   if(a==="stop"&&confirm("Dừng quản lý? Các worker nó đang chạy cũng sẽ dừng."))act("/api/stop",{id:cur.id},"Đã dừng quản lý");
   if(a==="kill"&&confirm("Huỷ worker này?"))act("/api/kill-worker",{id:cur.id,pid:b.dataset.pid},"Đã huỷ worker");
-  if(a==="cancel"&&confirm("Huỷ cả task? Quản lý và mọi worker đang chạy sẽ dừng."))act("/api/cancel",{id:cur.id},"Đã huỷ task");
+  if(a==="cancel"&&confirm("Huỷ task? Quản lý và mọi worker đang chạy sẽ dừng. (Task vẫn còn, có thể Mở lại.)"))act("/api/cancel",{id:cur.id},"Đã huỷ task");
   if(a==="retry")act("/api/retry-now",{id:cur.id},"Đang cho quản lý làm tiếp");
   if(a==="done")act("/api/done",{id:cur.id},"Đã đánh dấu xong");
+  if(a==="reopen")act("/api/task/reopen",{id:cur.id},"Đã mở lại task");
 });
+$("#filter").onclick=e=>{const b=e.target.closest("button");if(!b)return;filter=b.dataset.f;parts.tbl=null;
+  if(filter==="trash"&&location.pathname!=="/thung-rac")history.pushState(null,"","/thung-rac");
+  else if(filter!=="trash"&&location.pathname==="/thung-rac")history.pushState(null,"","/dieu-hanh");
+  route()};
+$("#q").oninput=e=>{q=e.target.value;parts.tbl=null;if(lastTasks)renderDH(lastTasks)};
 document.addEventListener("toggle",e=>{const d=e.target;if(!d.dataset||!d.dataset.key)return;const k=d.dataset.key;
-  if(d.open){openSet.add(k);openSet.delete("!"+k);loadOpenFiles(sel)}else{openSet.delete(k);openSet.add("!"+k)}},true);
+  if(d.open){openSet.add(k);openSet.delete("!"+k);if(cur)loadOpenFiles(cur.id)}else{openSet.delete(k);openSet.add("!"+k)}},true);
+$("#logoutBtn").onclick=async()=>{try{await post("/api/logout",{});location.href="/login"}catch(e){toast("Đăng xuất không thành công: "+e.message)}};
 
-// giao task mới
-const modal=$("#modal");
-$("#newBtn").onclick=()=>{modal.classList.add("on");$("#newText").focus()};
-$("#newCancel").onclick=()=>modal.classList.remove("on");
-modal.onclick=e=>{if(e.target===modal)modal.classList.remove("on")};
-document.addEventListener("keydown",e=>{if(e.key==="Escape")modal.classList.remove("on")});
+// ---------------- Trang 4: giao task
+let who="", busySet=new Set(), workerList=[];
+function wState(w){return w.login!=="ok"?"bad":busySet.has(w.name)?"busy":"ok"}
+const W_TXT={ok:"rảnh",busy:"đang vướng task",bad:"chưa sẵn sàng"};
+function renderPicker(){
+  const w=workerList.find(x=>x.name===who);
+  $("#whoBtn").innerHTML=w?`<i class="dot ${wState(w)}"></i><b>${esc(w.name)}</b><span class="sub">${esc(w.tool)} · ${W_TXT[wState(w)]}</span>`
+    :`<i class="dot" style="background:var(--accent)"></i><b>Để quản lý tự chọn</b>`;
+  $("#whoMenu").innerHTML=`<div class="opt ${who?"":"on"}" data-who=""><i class="dot" style="background:var(--accent)"></i>Để quản lý tự chọn<span class="sub">ưu tiên AI rảnh</span></div>`+
+    workerList.map(w=>{const st=wState(w);return `<div class="opt ${w.name===who?"on":""} ${st==="bad"?"dis":""}" data-who="${esc(w.name)}"><i class="dot ${st}"></i>${esc(w.name)} <span class="sub">${esc(w.tool)} · ${W_TXT[st]}</span></div>`}).join("");
+  $("#whoHint").textContent=!w?"Quản lý chọn worker phù hợp, ưu tiên AI đang rảnh."
+    :wState(w)==="busy"?`${w.name} đang vướng task khác: task này sẽ chờ (pending) và tự bắt đầu khi ${w.name} rảnh.`
+    :`Mọi việc con giao cho ${w.name}${w.desc?" — "+w.desc:""}.`;
+}
+$("#whoBtn").onclick=e=>{e.preventDefault();$("#whoMenu").hidden=!$("#whoMenu").hidden};
+$("#whoMenu").onclick=e=>{const o=e.target.closest(".opt");if(!o||o.classList.contains("dis"))return;who=o.dataset.who;$("#whoMenu").hidden=true;renderPicker()};
+document.addEventListener("click",e=>{if(!e.target.closest("#whoPicker"))$("#whoMenu").hidden=true});
+
 $("#newText").onkeydown=e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();$("#newGo").click()}};
 $("#newGo").onclick=async()=>{
   const text=$("#newText").value.trim();if(!text){$("#newText").focus();return}
-  const mode=document.querySelector('input[name=mode]:checked').value;
-  const size="auto", split=document.querySelector('input[name=split]:checked').value;
+  const mode=$("#newMode").value, split=$("#newSplit").value, assignee=who;
   $("#newGo").disabled=true;
-  try{const d=await post("/api/giao",{text,mode,size,split});$("#newText").value="";modal.classList.remove("on");
-    sel=d.id;location.hash=encodeURIComponent(sel);filter="active";lastList="";parts={};toast("Đã giao task — quản lý đang làm");await tick()}
+  try{const d=await post("/api/giao",{text,mode,size:"auto",split,assignee});$("#newText").value="";
+    toast(assignee&&busySet.has(assignee)?`Đã giao — ${assignee} đang bận nên task chờ (pending)`:"Đã giao task — quản lý đang làm");go(taskUrl(d.id))}
   catch(e){toast("Không giao được: "+e.message)}finally{$("#newGo").disabled=false}
 };
 
 function updTimers(){document.querySelectorAll("[data-started]").forEach(el=>el.textContent=dur(now()-(+el.dataset.started)));
   document.querySelectorAll("[data-ago]").forEach(el=>el.textContent=ago(+el.dataset.ago))}
 setInterval(updTimers,1000);
-if(view==="vp")switchView("vp");else tick();
+
+// địa chỉ kiểu cũ (#van-phong, #<id>) → trang mới
+if(location.hash==="#van-phong")history.replaceState(null,"","/van-phong");
+else if(location.hash.length>1&&location.pathname==="/")history.replaceState(null,"",taskUrl(decodeURIComponent(location.hash.slice(1))));
+else if(location.pathname==="/")history.replaceState(null,"","/dieu-hanh");
+route();
 setInterval(tick,3000);
 </script>
 </body>

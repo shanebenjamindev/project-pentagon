@@ -105,6 +105,12 @@ def clear_sessions():
 
 def refresh_workers_forever():
     while True:
+        refresh_workers_once()
+        time.sleep(120)
+
+
+def refresh_workers_once():
+    if True:
         try:
             out = subprocess.run([os.path.join(ROOT, "bin", "workers"), "--tsv"], capture_output=True,
                                  text=True, timeout=90).stdout
@@ -117,7 +123,24 @@ def refresh_workers_forever():
             WORKERS["items"], WORKERS["checked"] = items, int(time.time())
         except Exception as e:  # không để luồng nền chết
             sys.stderr.write("[dashboard] không đọc được bin/workers: %s\n" % e)
-        time.sleep(120)
+
+
+def accounts_view():
+    """Trang Tài khoản: mọi tài khoản trong workers.conf + đăng nhập, rảnh/bận, usage, phiên đăng nhập web."""
+    import pt_accounts
+    import pt_usage
+    login = {w["name"]: w["login"] for w in WORKERS["items"]}
+    desks = {d["name"]: d for d in office()["desks"]}
+    out = []
+    for a in pt_accounts.accounts():
+        d = desks.get(a["name"], {})
+        home = "" if a["default"] else os.path.expanduser(a["home"])
+        a.update(login=login.get(a["name"], "?" if a["enabled"] else "off"),
+                 busy=len(d.get("working", [])), done_today=d.get("done_today", 0), fails_today=d.get("fails_today", 0),
+                 usage=d.get("usage") or pt_usage.usage_for(a["name"], a["tool"], home),
+                 login_session=pt_accounts.login_status(a["name"]))
+        out.append(a)
+    return {"accounts": out, "checked": WORKERS["checked"]}
 
 
 def retry_forever():
@@ -125,9 +148,10 @@ def retry_forever():
     while True:
         try:
             pt_manager.check_retries()
+            pt_manager.check_queue()
         except Exception as e:
             sys.stderr.write("[dashboard] lỗi khi tự làm tiếp: %s\n" % e)
-        time.sleep(30)
+        time.sleep(10)
 
 
 def office():
@@ -242,9 +266,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, read(LOGIN_PAGE) or "thiếu web/login.html", "text/html; charset=utf-8")
             if encoded and u.path.startswith("/api/") and not self.logged_in(encoded):
                 return self.json({"error": "chưa đăng nhập"}, 401)
-            if encoded and u.path == "/" and not self.logged_in(encoded):
+            is_page = u.path in ("/", "/dieu-hanh", "/van-phong", "/giao", "/thung-rac", "/tai-khoan", "/nhan-vien") or u.path.startswith("/task/")
+            if encoded and is_page and not self.logged_in(encoded):
                 return self.redirect("/login")
-            if u.path == "/":
+            if is_page:
                 return self.send(200, read(PAGE) or "thiếu web/index.html", "text/html; charset=utf-8")
             if u.path.startswith("/static/") and u.path[8:] in STATIC:
                 with open(os.path.join(ROOT, "web", u.path[8:]), "rb") as f:
@@ -255,6 +280,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"now": int(time.time()), "tasks": tasks, "busy": busy, "auth": bool(encoded),
                                   "sizes": pt_manager.manager_models(),
                                   "workers": WORKERS["items"], "workers_checked": WORKERS["checked"]})
+            if u.path == "/api/accounts":
+                return self.json(accounts_view())
+            if u.path == "/api/trash":
+                return self.json({"items": pt_manager.trash_list()})
             if u.path == "/api/office":
                 return self.json(office())
             if u.path == "/api/task":
@@ -351,12 +380,53 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/giao":
                 mode = body.get("mode") if body.get("mode") in ("duyet", "lam-luon") else "tu-quyet"
                 size = body.get("size") if body.get("size") in ("nho", "vua", "lon") else "auto"
-                split = "song-song" if body.get("split") == "song-song" else "mot"
-                tid = pt_manager.launch_new(str(body.get("text", "")), mode, size, split, background=True)
+                split = body.get("split") if body.get("split") in ("mot", "song-song") else "auto"
+                tid = pt_manager.launch_new(str(body.get("text", "")), mode, size, split, background=True,
+                                            assignee=str(body.get("assignee") or ""))
                 return self.json({"ok": True, "id": tid})
+            if path.startswith("/api/accounts/"):
+                import pt_accounts
+                name = str(body.get("name", ""))
+                op = path[len("/api/accounts/"):]
+                if op == "add":
+                    name = pt_accounts.add(name, str(body.get("tool", "")), body.get("desc", ""), body.get("model", ""))
+                elif op == "update":
+                    pt_accounts.update(name, desc=body.get("desc"), model=body.get("model"))
+                elif op == "enable":
+                    pt_accounts.set_enabled(name, bool(body.get("enabled")))
+                elif op == "move":
+                    pt_accounts.move(name, "up" if body.get("dir") == "up" else "down")
+                elif op == "remove":
+                    pt_accounts.remove(name, forget_login=bool(body.get("forget")))
+                elif op == "login":
+                    pt_accounts.login_start(name)
+                elif op == "login-code":
+                    pt_accounts.login_send(name, body.get("code", ""))
+                elif op == "login-cancel":
+                    pt_accounts.login_cancel(name)
+                elif op == "logout":
+                    pt_accounts.logout(name)
+                else:
+                    return self.json({"error": "không có"}, 404)
+                threading.Thread(target=refresh_workers_once, daemon=True).start()
+                return self.json({"ok": True, "name": name})
+            if path == "/api/task/restore":
+                return self.json({"ok": True, "id": pt_manager.restore_task(str(body.get("trash_id", "")))})
+            if path == "/api/task/purge":
+                pt_manager.purge_task(str(body.get("trash_id", "")))
+                return self.json({"ok": True})
             if tid not in task_ids():
                 return self.json({"error": "không có task"}, 404)
-            if path == "/api/send":
+            if path == "/api/task/update":
+                title = body.get("title")
+                brief = body.get("brief")
+                pt_manager.update_task(tid, title=str(title) if title is not None else None,
+                                       brief=str(brief) if brief is not None else None)
+            elif path == "/api/task/delete":
+                return self.json({"ok": True, "trash_id": pt_manager.delete_task(tid)})
+            elif path == "/api/task/reopen":
+                pt_manager.reopen(tid)
+            elif path == "/api/send":
                 pt_manager.send(tid, str(body.get("text", "")), reaper=True)
             elif path == "/api/stop":
                 pt_manager.stop(tid)
@@ -365,10 +435,17 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/cancel":
                 pt_manager.cancel_task(tid)
             elif path == "/api/set-split":
-                split = "song-song" if body.get("split") == "song-song" else "mot"
+                split = body.get("split") if body.get("split") in ("mot", "song-song") else "auto"
                 pt_manager.put(tid, "split", split)
                 pt_manager.append_event(tid, "pentagon_event", "Chủ đổi kiểu giao việc: %s (áp dụng từ lượt sau)."
-                                        % ("song song nhiều worker" if split == "song-song" else "một worker làm"))
+                                        % pt_manager.SPLIT_TXT[split])
+            elif path == "/api/set-assignee":
+                who = str(body.get("assignee") or "")
+                if who and who not in pt_manager.worker_names():
+                    return self.json({"error": "không có AI tên %s" % who}, 400)
+                pt_manager.put(tid, "assignee", who or None)
+                pt_manager.append_event(tid, "pentagon_event", "Chủ đổi AI làm việc: %s (áp dụng từ lượt sau)."
+                                        % (who or "để quản lý tự chọn"))
             elif path == "/api/retry-now":
                 pt_manager.put(tid, "retry_at", "1")
                 pt_manager.check_retries()

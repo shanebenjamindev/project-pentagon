@@ -84,7 +84,24 @@ looks_limited() {
 TMP="$(mktemp -d)"
 MARK=""   # file đánh dấu "đang chạy" trong <task>/running/, để bin/status và bin/dashboard hiển thị
 trap 'rm -rf "$TMP"; [ -n "$MARK" ] && rm -f "$MARK"' EXIT
-trap 'exit 130' INT TERM HUP
+kill_tree() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done; kill -TERM "$1" 2>/dev/null; }
+on_signal() {   # bị dừng giữa chừng (vd quản lý kết thúc lượt): dừng CLI của worker, ghi nhật ký, giữ phần đã làm
+  [ -n "$RUN_PID" ] && { kill_tree "$RUN_PID"; sleep 1; }
+  if [ -n "$TASK" ] && [ -n "$CUR_NAME" ]; then
+    local part=""
+    [ -s "$OUT.raw" ] && part="$(python3 "$ORCH_ROOT/bin/pt_usage.py" claude-out "$CUR_NAME" "$OUT.raw" 2>/dev/null | tail -c 6000)"
+    [ -z "$part" ] && [ -s "$OUT" ] && part="$(tail -c 6000 "$OUT")"
+    if [ -n "$part" ]; then
+      local pf="$TASK/results/dang-do-$CUR_NAME-$(date +%H%M%S).txt"
+      { echo "<!-- phần làm dở của $CUR_NAME trước khi bị dừng -->"; echo "$part"; } >"$pf"
+      echo "$(date '+%H:%M:%S') $CUR_NAME giữ phần làm dở -> results/$(basename "$pf")" >>"$TASK/log.txt"
+    fi
+    echo "$(date '+%H:%M:%S') $CUR_NAME FAIL: bị dừng giữa chừng" >>"$TASK/log.txt"
+  fi
+  exit 130
+}
+CUR_NAME=""; RUN_PID=""
+trap on_signal INT TERM HUP
 OUT="$TMP/out"; ERR="$TMP/err"
 SUMMARY="$(printf '%s' "$PROMPT" | tr '\n\r\t' '   ' | sed 's/  */ /g' | cut -c1-200)"
 PERM_TXT="$([ "$WRITE" = 1 ] && echo sửa || echo đọc)"
@@ -151,9 +168,12 @@ while IFS='|' read -r name tool home_raw desc conf_model; do
   case "$home" in *" "*) say "[ask] bỏ qua $name: thư mục tài khoản không được có dấu cách"; continue ;; esac
   pick_model "$tool" "$conf_model"
   say "[ask] $name ($tool, model $(model_txt)) đang làm..."
+  CUR_NAME="$name"
   mark_running "$name" "$tool"
   start=$(date +%s)
-  run_one "$tool" "$home" "$conf_model"; rc=$?
+  # chạy nền rồi wait: bash xử lý tín hiệu dừng ngay, không phải đợi worker chạy xong
+  run_one "$tool" "$home" "$conf_model" & RUN_PID=$!
+  wait "$RUN_PID"; rc=$?; RUN_PID=""
   secs=$(( $(date +%s) - start ))
 
   if [ "$rc" -eq 0 ] && [ -s "$OUT" ] && ! looks_limited "$OUT"; then

@@ -20,9 +20,9 @@ workers.conf và quản lý làm tiếp đúng phiên đó. Hết sạch tài kh
 hạn mức làm mới (cần bin/dashboard đang chạy).
 
 Dòng lệnh (bin/manager):
-  bin/manager new [--duyet|--lam-luon] [--co auto|nho|vua|lon] [--song-song] "yêu cầu"
-                                                   tạo task và cho quản lý bắt đầu (mặc định: tự phân loại cỡ,
-                                                   giao cho một worker, không song song)
+  bin/manager new [--duyet|--lam-luon] [--co auto|nho|vua|lon] [--mot|--song-song] [--ai <worker>] "yêu cầu"
+                                                   tạo task và cho quản lý bắt đầu (mặc định: quản lý tự phân loại cỡ,
+                                                   tự chọn cách giao và AI làm; --ai chỉ định AI, AI bận thì task chờ)
   bin/manager send <task> "tin nhắn"               gửi tin nhắn (lượt mới) cho quản lý của task
   bin/manager stop <task>                          dừng quản lý (và các worker nó đang chạy)
   bin/manager kill-worker <task> <pid>             huỷ một worker đang chạy
@@ -64,6 +64,7 @@ Chủ làm việc với bạn qua giao diện web: chủ chỉ thấy các câu 
   Nếu tiêu đề (dòng # đầu tiên của brief.md) dài hoặc chưa rõ, sửa lại cho ngắn gọn.
 - Luôn ghi tiến độ bằng bin/progress {task} <bước> "..." như CLAUDE.md quy định.
 - {split}
+- {assignee}
 - CỠ TASK: {size} — do bạn (quản lý) phân loại. Làm một lúc mà thấy cỡ sai (task lớn/nhỏ hơn dự đoán) thì chạy
   bin/manager size {task} <nho|vua|lon> "lý do" — model của bạn đổi theo từ lượt sau.
   Mỗi việc con, chọn cỡ theo độ khó của CHÍNH việc đó và truyền cho bin/ask:
@@ -71,7 +72,9 @@ Chủ làm việc với bạn qua giao diện web: chủ chỉ thấy các câu 
   Ghi cỡ đã chọn vào cột Worker trong plan.md, vd "codex (-s nho)".
 - Khi cần chủ duyệt hoặc trả lời: chạy bin/progress {task} cho "<câu hỏi ngắn>", rồi KẾT THÚC lượt bằng câu hỏi rõ ràng.
   Chủ sẽ trả lời ở lượt sau. Không dùng công cụ hỏi tương tác, không ngồi chờ.
-- Không kết thúc lượt khi còn worker đang chạy (lượt kết thúc là các lệnh đang chạy bị dừng): chờ mọi worker xong rồi mới kết thúc.
+- Chạy bin/ask TRỰC TIẾP (không chạy nền, không dùng run_in_background, không dùng Monitor để chờ), đặt timeout của lệnh
+  Bash là 600000 ms; việc lâu hơn thì giao qua agent worker. Không kết thúc lượt khi còn worker đang chạy: lượt kết thúc
+  là mọi lệnh đang chạy bị dừng và phần việc đó bị mất.
 - Hết hạn mức: bin/ask tự chuyển tài khoản và tài khoản sau làm tiếp phần dở. Nếu bin/ask báo MỌI tài khoản của
   một công cụ đều hết hạn mức (mã thoát 75): chuyển việc sang công cụ khác phù hợp; không còn cách thì chạy
   bin/progress {task} cho "hết hạn mức, chờ tự làm tiếp" và kết thúc lượt — hệ thống sẽ tự gọi bạn làm tiếp khi có hạn mức.
@@ -79,6 +82,8 @@ Chủ làm việc với bạn qua giao diện web: chủ chỉ thấy các câu 
 - Một số lệnh có thể bị từ chối vì quyền chạy nền bị giới hạn. Khi đó ghi rõ trong câu trả lời lệnh nào cần chủ chạy tay."""
 
 SPLIT_RULES = {
+    "auto": "KIỂU GIAO VIỆC: BẠN TỰ CHỌN (chủ để quản lý quyết). Ưu tiên giao cho MỘT worker phù hợp nhất, làm lần lượt. "
+            "Chỉ chạy song song nhiều worker khi task có các phần độc lập, đủ lớn và làm song song lợi rõ ràng.",
     "mot": "KIỂU GIAO VIỆC: MỘT WORKER (chủ chọn). Giao việc cho MỘT worker phù hợp nhất (gọi theo tên công cụ, "
            "vd bin/ask codex, để tự xoay tài khoản). Nếu có nhiều bước thì giao LẦN LƯỢT từng bước. KHÔNG chạy song "
            "song, không gọi nhiều agent worker cùng lúc. Bạn tự kiểm tra kết quả; chỉ nhờ worker khác kiểm tra chéo "
@@ -191,9 +196,63 @@ def set_size(tid, size):
 
 def rules_for(tid):
     size = get(tid, "size") or "vua"
-    split = get(tid, "split") or "mot"
-    return WEB_RULES.format(task=os.path.join(TASKS, tid), split=SPLIT_RULES.get(split, SPLIT_RULES["mot"]),
+    split = get(tid, "split") or "auto"
+    who = get(tid, "assignee")
+    assignee = ("AI LÀM VIỆC: chủ chỉ định %s. Giao mọi việc con cho đúng worker này: bin/ask %s ... "
+                "(nếu nó hết hạn mức, bin/ask tự chuyển sang tài khoản khác cùng công cụ)." % (who, who)) if who else \
+               "AI LÀM VIỆC: bạn tự chọn worker phù hợp (xem bin/workers), ưu tiên worker đang rảnh."
+    return WEB_RULES.format(task=os.path.join(TASKS, tid), split=SPLIT_RULES.get(split, SPLIT_RULES["auto"]),
+                            assignee=assignee,
                             size="%s (task nhỏ thì cả quản lý lẫn worker dùng model nhỏ)" % SIZES.get(size, size))
+
+
+SPLIT_TXT = {"auto": "quản lý tự chọn cách giao", "mot": "một worker", "song-song": "song song"}
+
+
+def worker_names():
+    return [r[0] for r in conf_rows(WORKERS)]
+
+
+def worker_busy(name):
+    """Worker đang làm việc ở task nào không (bin/ask đang chạy với tên đó)."""
+    for t in tracker.task_ids():
+        for r in tracker.running_workers(os.path.join(TASKS, t)):
+            if r.get("worker") == name:
+                return t
+    return ""
+
+
+def start_or_queue(tid, prompt, reaper=False):
+    """Bắt đầu lượt đầu; nếu chủ chỉ định một AI đang bận thì để task pending, tự chạy khi AI đó rảnh."""
+    who = get(tid, "assignee")
+    busy = worker_busy(who) if who else ""
+    if busy:
+        with open(os.path.join(mdir(tid), "queued.txt"), "w", encoding="utf-8") as f:
+            f.write(prompt)
+        put(tid, "pending", "Đang chờ %s rảnh (đang làm task khác) — sẽ tự bắt đầu." % who)
+        append_event(tid, "pentagon_event", "%s đang bận ở task khác → task này chờ (pending), tự bắt đầu khi %s rảnh."
+                     % (who, who))
+        return 0
+    return start_turn(tid, prompt, reaper=reaper)
+
+
+def check_queue():
+    """Gọi định kỳ từ bin/dashboard: task pending vì AI được chỉ định đang bận → chạy khi AI đó rảnh."""
+    for tid in tracker.task_ids():
+        qf = os.path.join(mdir(tid), "queued.txt")
+        if not os.path.exists(qf):
+            continue
+        who = get(tid, "assignee")
+        if who and worker_busy(who):
+            continue
+        prompt = read(qf) or ""
+        os.remove(qf)
+        put(tid, "pending", None)
+        append_event(tid, "pentagon_event", "%s đã rảnh → bắt đầu task." % (who or "AI"))
+        try:
+            start_turn(tid, prompt, reaper=True)
+        except RuntimeError as e:
+            append_event(tid, "pentagon_event", "Không bắt đầu được: %s" % e)
 
 
 # ---------------------------------------------------------------- phân loại cỡ task
@@ -285,6 +344,21 @@ def copy_session(sid, src_home, dst_home):
         return False
 
 
+def session_started(tid, home=None):
+    """Phiên đã thật sự bắt đầu chưa (lượt sau phải --resume). Task tạo bằng bản cũ không có file begun:
+    nhận ra qua lịch sử phiên trong thư mục tài khoản, hoặc sự kiện init trong stream.jsonl."""
+    if os.path.exists(os.path.join(mdir(tid), "begun")):
+        return True
+    sid = get(tid, "session")
+    if not sid:
+        return False
+    homes = [home] if home is not None else [a["home"] for a in claude_accounts()]
+    if any(os.path.isfile(os.path.join(project_dir(h), sid + ".jsonl")) for h in homes):
+        put(tid, "begun", "1")
+        return True
+    return False
+
+
 def scan_limit(stream_path, offset, err_path, err_offset):
     """Xem phần stream mới của lượt vừa chạy: (hết hạn mức?, giờ làm mới hạn mức, đã bắt đầu phiên?)"""
     limited, reset_at, begun = False, 0, False
@@ -343,12 +417,13 @@ def run_turn(tid, inp):
         spec = get(tid, "model") or c["model"]
         cmd = ["claude", "-p", "--output-format", "stream-json", "--verbose",
                "--permission-mode", "acceptEdits", "--append-system-prompt", rules_for(tid),
+               "--disallowedTools", "Monitor", "ScheduleWakeup", "CronCreate", "RemoteTrigger",
                "--allowedTools"] + BASE_TOOLS + c["allow"]
         if spec:
             cmd += ["--model", spec.split("@")[0]]
             if "@" in spec:
                 cmd += ["--effort", spec.split("@", 1)[1]]
-        cmd += (["--resume", sid] if os.path.exists(os.path.join(d, "begun")) else ["--session-id", sid])
+        cmd += (["--resume", sid] if session_started(tid, acc["home"]) else ["--session-id", sid])
         env = dict(os.environ)
         if acc["home"]:
             env["CLAUDE_CONFIG_DIR"] = acc["home"]
@@ -362,6 +437,15 @@ def run_turn(tid, inp):
                 p.terminate()
                 raise
         limited, reset_at, begun = scan_limit(stream, offset, errp, eoff)
+        try:
+            with open(errp, encoding="utf-8", errors="replace") as ef:
+                ef.seek(eoff)
+                in_use = "already in use" in ef.read()
+        except OSError:
+            in_use = False
+        if in_use and not begun and not os.path.exists(os.path.join(d, "begun")):
+            put(tid, "begun", "1")  # phiên đã có từ trước: chạy lại bằng --resume
+            continue
         try:  # thống kê usage cho tài khoản này (web: Văn phòng làm việc)
             import pt_usage
             pt_usage.record_claude_events(acc["name"], pt_usage.read_events(stream, offset))
@@ -394,6 +478,25 @@ def run_turn(tid, inp):
         log_line(tid, "[ĐỔI TÀI KHOẢN] %s hết hạn mức → %s làm tiếp" % (acc["name"], new["name"]))
         idx = nxt
 
+    # Lưới an toàn: lượt kết thúc khi worker còn chạy -> worker bị dừng giữa chừng. Cho quản lý lượt nữa để làm tiếp.
+    killed = killed_workers(tid, turn_start)
+    st0 = kv(os.path.join(TASKS, tid, "status"))
+    auto = int(get(tid, "auto_continue") or 0)
+    if killed and not get(tid, "retry_at") and st0.get("state") not in ("xong", "loi") and auto < 2:
+        put(tid, "auto_continue", auto + 1)
+        append_event(tid, "pentagon_event", "Lượt kết thúc khi %s còn đang làm nên bị dừng giữa chừng. Phần dở đã được giữ; "
+                                            "quản lý tự làm tiếp." % ", ".join(killed))
+        try:
+            os.remove(os.path.join(d, "pid"))
+        except OSError:
+            pass
+        start_turn(tid, ("Lượt trước của bạn kết thúc khi worker %s vẫn đang chạy, nên worker bị dừng giữa chừng "
+                         "(xem log.txt và results/dang-do-*). Giao lại phần việc đó — chạy bin/ask TRỰC TIẾP, không chạy nền, "
+                         "dặn worker làm tiếp từ phần dở — rồi tiếp tục task." % ", ".join(killed)))
+        return 0
+    if not killed:
+        put(tid, "auto_continue", None)
+
     # Worker hết hạn mức ở mọi tài khoản trong lượt này và task chưa xong: hẹn tự làm tiếp sau 30 phút
     lim = os.path.join(TASKS, tid, "limited")
     st = kv(os.path.join(TASKS, tid, "status"))
@@ -408,6 +511,24 @@ def run_turn(tid, inp):
     except OSError:
         pass
     return 0
+
+
+def killed_workers(tid, since):
+    """Worker bắt đầu trong lượt này mà không có dòng ok/FAIL nào sau đó (bị dừng không kịp ghi), hoặc ghi 'bị dừng giữa chừng'."""
+    lines = (read(os.path.join(TASKS, tid, "log.txt")) or "").splitlines()
+    t0 = time.strftime("%H:%M:%S", time.localtime(since))
+    open_, killed = {}, []
+    for i in tracker.parse_log("\n".join(lines)):
+        if not i["time"] or i["time"] < t0 or i["who"] == "quan-ly":
+            continue
+        if i["kind"] == "start":
+            open_[i["who"]] = True
+        elif i["kind"] in ("ok", "fail"):
+            if "bị dừng giữa chừng" in i["text"] and i["who"] not in killed:
+                killed.append(i["who"])
+            open_.pop(i["who"], None)
+    alive = {r.get("worker") for r in tracker.running_workers(os.path.join(TASKS, tid))}
+    return killed + [w for w in open_ if w not in alive and w not in killed]
 
 
 def check_retries():
@@ -449,7 +570,7 @@ def giao_prompt(request, mode):
     return tpl.replace("$ARGUMENTS", request.strip()) + extra
 
 
-def new_task(request, mode="tu-quyet", size="auto", split="mot"):
+def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee=""):
     """Tạo task từ yêu cầu của chủ. Trả về (id task, prompt lượt đầu). Chưa chạy quản lý."""
     request = request.strip()
     if not request:
@@ -465,33 +586,40 @@ def new_task(request, mode="tu-quyet", size="auto", split="mot"):
     brief = brief.replace("## Yêu cầu gốc (nguyên văn)\n", "## Yêu cầu gốc (nguyên văn)\n\n" + request + "\n", 1)
     with open(bp, "w", encoding="utf-8") as f:
         f.write(brief)
-    put(tid, "split", split if split in SPLIT_RULES else "mot")
+    put(tid, "split", split if split in SPLIT_RULES else "auto")
+    if assignee:
+        if assignee not in worker_names():
+            raise RuntimeError("không có AI tên %s" % assignee)
+        put(tid, "assignee", assignee)
     if norm_size(size) in SIZES:
         set_size(tid, size)
     return tid, giao_prompt(request, mode)
 
 
-def launch_new(request, mode="tu-quyet", size="auto", split="mot", background=True):
-    """Tạo task và cho quản lý bắt đầu. size=auto: AI phân loại cỡ trước (ở luồng nền nếu background)."""
-    tid, prompt = new_task(request, mode, size, split)
+def launch_new(request, mode="tu-quyet", size="auto", split="auto", background=True, assignee=""):
+    """Tạo task và cho quản lý bắt đầu. size=auto: AI phân loại cỡ trước (ở luồng nền nếu background).
+    assignee: AI chủ chỉ định; nếu AI đó đang bận, task pending đến khi nó rảnh."""
+    if assignee and assignee not in worker_names():
+        raise RuntimeError("không có AI tên %s" % assignee)
+    tid, prompt = new_task(request, mode, size, split, assignee)
     append_event(tid, "pentagon_owner", request.strip())
+    extra = (" · giao cho %s" % assignee) if assignee else ""
     if norm_size(size) in SIZES:
-        append_event(tid, "pentagon_event", "Chủ chọn cỡ %s → quản lý dùng %s · %s."
+        append_event(tid, "pentagon_event", "Chủ chọn cỡ %s → quản lý dùng %s · %s%s."
                      % (SIZES[norm_size(size)], get(tid, "model") or "model mặc định",
-                        "một worker" if get(tid, "split") == "mot" else "song song"))
-        start_turn(tid, prompt, reaper=background)
+                        SPLIT_TXT.get(get(tid, "split"), ""), extra))
+        start_or_queue(tid, prompt, reaper=background)
         return tid
 
     def work():
         try:
             s = classify_size(request)
             set_size(tid, s)
-            append_event(tid, "pentagon_event", "Quản lý phân loại: task %s → dùng model %s · %s."
-                         % (SIZES[s], get(tid, "model") or "model mặc định",
-                            "một worker" if get(tid, "split") == "mot" else "song song"))
+            append_event(tid, "pentagon_event", "Quản lý phân loại: task %s → dùng model %s · %s%s."
+                         % (SIZES[s], get(tid, "model") or "model mặc định", SPLIT_TXT.get(get(tid, "split"), ""), extra))
         finally:
             put(tid, "pending", None)
-        start_turn(tid, prompt, reaper=background)
+        start_or_queue(tid, prompt, reaper=background)
 
     put(tid, "pending", "Quản lý đang phân loại cỡ task để chọn model…")
     if background:
@@ -514,9 +642,9 @@ def send(tid, message, reaper=False):
         raise RuntimeError("tin nhắn đang trống")
     if get(tid, "pending"):
         raise RuntimeError("đang chuẩn bị quản lý, đợi vài giây")
-    prompt = message if os.path.exists(os.path.join(mdir(tid), "begun")) else resume_prompt(tid, message)
+    prompt = message if session_started(tid) else resume_prompt(tid, message)
     if not get(tid, "split"):
-        put(tid, "split", "mot")
+        put(tid, "split", "auto")
     pid = start_turn(tid, prompt, owner_text=message, reaper=reaper)
     st = kv(os.path.join(TASKS, tid, "status"))
     if st.get("state") == "cho":  # chủ đã trả lời: chuyển task về "đang làm"
@@ -577,11 +705,122 @@ def kill_worker(tid, pid):
 
 def cancel_task(tid):
     put(tid, "retry_at", None)
+    if os.path.exists(os.path.join(mdir(tid), "queued.txt")):
+        os.remove(os.path.join(mdir(tid), "queued.txt"))
+        put(tid, "pending", None)
     if tracker.manager_info(os.path.join(TASKS, tid))["running"]:
         stop(tid)
     for r in tracker.running_workers(os.path.join(TASKS, tid)):
         kill_tree(int(r["pid"]))
     progress(tid, "loi", "chủ huỷ task")
+
+
+# ---------------------------------------------------------------- sửa / xoá / khôi phục task (CRUD trên web)
+
+TRASH = os.path.join(TASKS, ".trash")
+
+
+def _busy(tid):
+    tdir = os.path.join(TASKS, tid)
+    return tracker.manager_info(tdir)["running"] or bool(tracker.running_workers(tdir)) or bool(get(tid, "pending"))
+
+
+def update_task(tid, title=None, brief=None):
+    """Sửa tiêu đề (dòng # đầu của brief.md) và/hoặc toàn bộ nội dung brief.md."""
+    bp = os.path.join(TASKS, tid, "brief.md")
+    text = read(bp) or ""
+    changed = []
+    if brief is not None and brief != text:
+        text = brief if brief.endswith("\n") else brief + "\n"
+        changed.append("yêu cầu (brief.md)")
+    if title is not None:
+        title = re.sub(r"\s+", " ", title).strip()
+        if not title:
+            raise RuntimeError("tiêu đề đang trống")
+        if re.search(r"^#\s+.*$", text, re.M):
+            new = re.sub(r"^#\s+.*$", lambda m: "# " + title, text, count=1, flags=re.M)
+        else:
+            new = "# %s\n\n%s" % (title, text)
+        if new != text:
+            text = new
+            changed.append("tiêu đề")
+    if not changed:
+        return False
+    with open(bp, "w", encoding="utf-8") as f:
+        f.write(text)
+    log_line(tid, "[CHỦ SỬA] %s" % ", ".join(changed))
+    if os.path.isdir(mdir(tid)):
+        append_event(tid, "pentagon_event", "Chủ đã sửa %s. Quản lý sẽ đọc lại ở lượt sau." % ", ".join(changed))
+    return True
+
+
+def reopen(tid):
+    st = kv(os.path.join(TASKS, tid, "status"))
+    if st.get("state") not in ("xong", "loi"):
+        raise RuntimeError("task đang mở sẵn")
+    progress(tid, "tiep", "chủ mở lại task")
+
+
+def delete_task(tid):
+    """Chuyển task vào tasks/.trash/ (khôi phục được). Đang chạy thì dừng quản lý và worker trước."""
+    if _busy(tid):
+        cancel_task(tid)
+    put(tid, "retry_at", None)
+    os.makedirs(TRASH, exist_ok=True)
+    dst = os.path.join(TRASH, tid)
+    if os.path.exists(dst):
+        dst += "-%d" % int(time.time())
+    shutil.move(os.path.join(TASKS, tid), dst)
+    with open(os.path.join(dst, ".deleted_at"), "w") as f:
+        f.write(str(int(time.time())))
+    return os.path.basename(dst)
+
+
+def trash_list():
+    out = []
+    if not os.path.isdir(TRASH):
+        return out
+    for n in sorted(os.listdir(TRASH), reverse=True):
+        d = os.path.join(TRASH, n)
+        if not os.path.isdir(d):
+            continue
+        m = re.search(r"^#\s+(.+)$", read(os.path.join(d, "brief.md")) or "", re.M)
+        try:
+            at = int((read(os.path.join(d, ".deleted_at")) or "0").strip())
+        except ValueError:
+            at = int(os.path.getmtime(d))
+        out.append({"trash_id": n, "title": m.group(1).strip() if m else n, "deleted_at": at,
+                    "created": tracker.created_of(n)})
+    return out
+
+
+def _trash_path(trash_id):
+    if not trash_id or "/" in trash_id or trash_id.startswith("."):
+        raise RuntimeError("không có trong thùng rác")
+    p = os.path.join(TRASH, trash_id)
+    if not os.path.isdir(p):
+        raise RuntimeError("không có trong thùng rác")
+    return p
+
+
+def restore_task(trash_id):
+    src = _trash_path(trash_id)
+    tid = re.sub(r"-\d{10}$", "", trash_id) if re.search(r"^\d{8}-\d{4}-", trash_id) else trash_id
+    if os.path.exists(os.path.join(TASKS, tid)):
+        tid = trash_id
+    if os.path.exists(os.path.join(TASKS, tid)):
+        raise RuntimeError("đã có task trùng tên %s" % tid)
+    shutil.move(src, os.path.join(TASKS, tid))
+    try:
+        os.remove(os.path.join(TASKS, tid, ".deleted_at"))
+    except OSError:
+        pass
+    return tid
+
+
+def purge_task(trash_id):
+    """Xoá vĩnh viễn một task trong thùng rác."""
+    shutil.rmtree(_trash_path(trash_id))
 
 
 # ---------------------------------------------------------------- đọc hội thoại
@@ -673,20 +912,24 @@ def cmd_manager(argv):
         if argv[0] == "_run" and len(argv) == 3:  # tiến trình nền nội bộ
             return run_turn(argv[1], argv[2])
         if argv[0] == "new":
-            mode, size, split, rest = "tu-quyet", "auto", "mot", argv[1:]
+            mode, size, split, who, rest = "tu-quyet", "auto", "auto", "", argv[1:]
             while rest and rest[0].startswith("--"):
                 a = rest.pop(0)
                 if a in ("--duyet", "--lam-luon"):
                     mode = a[2:]
                 elif a == "--song-song":
                     split = "song-song"
+                elif a == "--mot":
+                    split = "mot"
+                elif a == "--ai" and rest:
+                    who = rest.pop(0)
                 elif a == "--co" and rest:
                     size = rest.pop(0)
                 else:
                     print(usage, file=sys.stderr)
                     return 1
             req = " ".join(rest) if rest else sys.stdin.read()
-            tid = launch_new(req, mode, size, split, background=False)
+            tid = launch_new(req, mode, size, split, background=False, assignee=who)
             print("Đã tạo task %s (cỡ %s, model quản lý %s). Theo dõi: bin/status %s"
                   % (tid, SIZES.get(get(tid, "size"), "?"), get(tid, "model") or "mặc định", tid))
         elif argv[0] == "send" and len(argv) >= 2:

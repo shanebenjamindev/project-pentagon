@@ -14,6 +14,8 @@ node_modules/
 
 # Worker đang chạy (file tạm, bin/ask tự xoá khi xong)
 tasks/*/running/
+# Task đã xoá trên web (khôi phục được từ trang Thùng rác)
+tasks/.trash/
 tasks/*/manager/pid
 
 # Muốn giữ lịch sử task riêng trên từng máy (không đồng bộ) thì bỏ dấu # dòng dưới

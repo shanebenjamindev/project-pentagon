@@ -27,7 +27,9 @@ bin/ask <worker|claude|codex|gemini> [-s nho|vua|lon] [-w] [-C thư_mục] [-t t
 - Gọi theo **tên worker** (vd `claude-2`) khi muốn chỉ định đúng tài khoản.
 - `-w` cho phép worker sửa file trong thư mục `-C`. Mặc định worker chỉ được đọc.
 - `-t` lưu kết quả vào `<task>/results/`. Luôn truyền `-t` khi đang làm một task.
+- Nếu chủ chỉ định AI làm việc thì giao đúng AI đó. Nếu chủ để "quản lý tự chọn" thì ưu tiên worker đang rảnh.
 - **Mặc định KHÔNG chạy song song**: giao cho một worker phù hợp nhất, nhiều bước thì làm lần lượt.
+- Chạy `bin/ask` trực tiếp, chờ nó xong, không chạy nền rồi bỏ đi. Kết thúc lượt khi worker còn chạy thì worker bị dừng.
   Chỉ chia cho nhiều worker cùng lúc (nhiều agent `worker` trong một lượt) khi chủ chọn "song song".
 - Việc nào cũng có thể mất vài phút: chạy nền, đừng chờ vô ích.
 

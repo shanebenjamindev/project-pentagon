@@ -28,17 +28,51 @@ Trong Claude Code gõ: `/giao <mô tả task>`. Hoặc mở thư mục này tron
 ```bash
 bin/dashboard --open   # http://127.0.0.1:8765 — để cửa sổ terminal này chạy suốt
 ```
-Web có hai khu (tab trên cùng):
+Mỗi trang có địa chỉ riêng:
 
-**Phòng Điều hành**, nơi bạn làm mọi thứ mà không cần mở Claude Code:
-- **Giao task** (nút “+ Giao task”):
-  - Chọn **cách giao việc**: *một worker làm* (mặc định, làm lần lượt, không song song) hoặc *song song*.
-  - Chọn **duyệt kế hoạch**: để quản lý tự quyết, chờ bạn duyệt, hoặc làm luôn.
+| Trang | Địa chỉ | Dùng để |
+|---|---|---|
+| Phòng Điều hành | `/dieu-hanh` | Tổng quan và danh sách task |
+| Chi tiết task | `/task/<id>` | Theo dõi và thao tác trên một task |
+| Giao task | `/giao` | Giao task mới |
+| Văn phòng làm việc | `/van-phong` | Xem các AI đang làm gì |
+| Quản lý nhân viên | `/nhan-vien` | Thêm, sửa, đăng nhập tài khoản AI, xếp theo phòng ban |
+| Thùng rác | `/thung-rac` | Task đã xoá |
+
+**Phòng Điều hành**: số task đang làm / chờ bạn / worker đang chạy / hoàn thành, ô tìm kiếm, bộ lọc,
+và bảng task với các nút **Mở / Sửa / Xoá**.
+- **CRUD task**:
+  - Tạo: trang Giao task.
+  - Xem: trang chi tiết.
+  - Sửa: tiêu đề và yêu cầu (`brief.md`); quản lý đọc lại ở lượt sau.
+  - Đánh dấu xong, huỷ, mở lại.
+  - Xoá: task vào Thùng rác và khôi phục được. Ở Thùng rác có thể xoá vĩnh viễn.
+- **Giao task** (`/giao`): mọi dropdown mặc định là **“Để quản lý tự chọn”**.
+  - **Giao cho AI**: có chấm màu trước mỗi tên.
+    - 🟢 rảnh
+    - 🟡 đang vướng task: chọn AI này thì task **pending** và tự bắt đầu khi AI đó rảnh
+    - 🔴 chưa đăng nhập hoặc chưa cài
+  - **Cách giao việc**: quản lý tự chọn, một worker làm lần lượt, hoặc song song.
+  - **Duyệt kế hoạch**: quản lý tự chọn, chờ bạn duyệt, hoặc làm luôn.
 - **Trò chuyện với AI quản lý** của từng task: thấy từng bước nó làm, trả lời câu hỏi, bấm “Đồng ý, tiến hành” khi nó chờ duyệt,
   nhắn thêm yêu cầu sửa. Task tạo từ Claude Code cũng nhắn tiếp được (quản lý web sẽ đọc lại task rồi làm tiếp).
-- **Dừng** quản lý, **huỷ** một worker đang chạy, **huỷ task**, đánh dấu xong.
+- **Dừng** quản lý, **huỷ** một worker đang chạy. Đổi AI làm việc hoặc cách giao việc giữa chừng, áp dụng từ lượt sau.
+- Nếu lượt của quản lý kết thúc khi worker còn chạy, worker bị dừng. Khi đó phần dở được lưu vào `results/dang-do-*.txt`,
+  và quản lý tự được gọi lại để giao lại phần đó (tối đa 2 lần).
 - Theo dõi: bước hiện tại trong 6 bước, việc con nào xong, worker nào đang chạy và chạy bao lâu, kết quả từng worker,
   nhật ký, yêu cầu và kết quả cuối. Tab trình duyệt hiện số task đang chờ bạn, ví dụ “(1) Pentagon”.
+
+**Quản lý nhân viên** (`/nhan-vien`): mỗi tài khoản AI là một **nhân viên**, xếp theo **phòng ban**:
+Phòng Claude, Phòng Codex, Phòng Gemini.
+- **Tuyển nhân viên**: thêm một tài khoản mới (tên, phòng ban, vai trò, model), rồi **đăng nhập ngay trên web**.
+  - Trình duyệt trên máy tự mở trang đăng nhập; trang web hiện link dự phòng và ô dán mã nếu cần.
+  - Gemini vẫn phải đăng nhập trong terminal: `bin/login <tên>`.
+- Mỗi nhân viên có:
+  - trạng thái (🟢 rảnh, 🟡 đang làm, 🔴 chưa đăng nhập) và usage;
+  - nút **Đăng nhập lại / Đăng xuất / Sửa / ↑↓**, để đổi thứ tự ưu tiên trong phòng;
+  - nút **Cho tạm nghỉ**, để nhân viên không nhận việc;
+  - nút **Cho nghỉ việc**, để bỏ khỏi danh sách và có thể xoá luôn thông tin đăng nhập đã lưu.
+- Mọi thay đổi được ghi vào `config/workers.conf`. Nhân viên tạm nghỉ được ghi thành dòng `#tắt: …`.
 
 **Văn phòng làm việc**: mỗi AI là một nhân viên ngồi một bàn.
 - **Ban điều hành**: các AI quản lý đang chạy, mỗi cái thuộc task nào, đang ở bước nào, dùng model và tài khoản nào.
@@ -135,6 +169,8 @@ Lưu ý:
 
 ## Thêm tài khoản (bao nhiêu cũng được)
 
+Cách dễ nhất: trang **Quản lý nhân viên** trên web → “+ Tuyển nhân viên”. Hoặc làm tay:
+
 1. Mở `config/workers.conf`, thêm một dòng (hoặc bỏ dấu `#` ở dòng mẫu):
    ```
    claude-2 | claude | ~/.pentagon/accounts/claude-2 | Tài khoản Claude thứ 2 |
@@ -176,6 +212,7 @@ Mặc định worker **chỉ được đọc**. Phải thêm `-w` thì worker m�
 | `bin/manager`, `bin/pt_manager.py`, `config/manager.conf` | Chạy AI quản lý nền cho từng task (web app dùng cái này), tự đổi tài khoản khi hết hạn mức |
 | `config/models.conf` | Bảng model theo cỡ việc (nhỏ/vừa/lớn) cho quản lý và từng công cụ |
 | `bin/pt_usage.py` | Thống kê usage từng tài khoản (lưu ở `~/.pentagon/usage/`) |
+| `bin/pt_accounts.py` | Quản lý nhân viên: thêm/sửa/bật tắt/xếp thứ tự/xoá tài khoản, đăng nhập trên web |
 | `web/` | Trang web app, trang đăng nhập, logo |
 | `tasks/<id>/` | `brief.md`, `plan.md`, `status`, `results/`, `running/`, `log.txt`, `final.md`, `manager/` (phiên quản lý web), `prompts/` |
 | `~/.pentagon/` | Thư mục tài khoản phụ và thư mục làm việc mặc định của worker (ngoài dự án) |

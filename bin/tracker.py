@@ -153,7 +153,8 @@ def manager_info(tdir):
     return {"session": sid, "running": alive, "pid": int(st["pid"]) if alive else 0,
             "started": started if alive else 0, "begun": os.path.exists(os.path.join(mdir, "begun")),
             "pending": f("pending"), "size": f("size"), "model": f("model"), "split": f("split"),
-            "account": f("account"), "retry_at": int(retry) if retry.isdigit() else 0}
+            "account": f("account"), "retry_at": int(retry) if retry.isdigit() else 0,
+            "assignee": f("assignee"), "queued": os.path.exists(os.path.join(mdir, "queued.txt"))}
 
 
 def newest_mtime(tdir):
