@@ -33,7 +33,7 @@ PAGE = os.path.join(ROOT, "web", "index.html")
 LOGIN_PAGE = os.path.join(ROOT, "web", "login.html")
 AUTH_FILE = os.path.join(ROOT, "config", "auth.conf")
 STATIC = {"logo.png", "mark.png", "favicon.png", "favicon-32.png", "apple-touch-icon.png", "favicon.ico",
-          "theme-sieu-anh-hung.css", "theme-quan-su.css", "theme-apple.css"}
+          "theme-sieu-anh-hung.css", "theme-apple.css"}
 WORKERS = {"items": [], "checked": 0}
 PORT = [8765]
 POST_LIMIT = 200000                     # request POST thường / chưa đăng nhập

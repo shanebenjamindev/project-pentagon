@@ -50,7 +50,12 @@ header .sub,header #summary{font-family:var(--f-mono);font-size:11.5px;letter-sp
 .btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 55%,transparent)}
 .btn.danger:hover{box-shadow:0 0 12px color-mix(in srgb,var(--bad) 45%,transparent);background:color-mix(in srgb,var(--bad) 8%,transparent)}
 .btn.sm{padding:4px 10px;font-size:11px}
-header .btn.pri{font-family:var(--f-head);font-size:15px;letter-spacing:.16em;padding:7px 14px 4px}
+/* Vai trò chữ (áp nhất quán):
+   - tiêu đề, điều hướng (menu, tab, bước) và NHÃN (nhãn ô chọn, chữ phụ cạnh tiêu đề thẻ): --f-head, viết hoa
+   - hành động (.btn, kể cả nút Giao task): chữ thường hệ thống, đậm 600, viết hoa nhỏ
+   - số liệu / dữ liệu máy (tóm tắt header, chip, badge, giờ & tên trong nhật ký): --f-mono
+   - thân bài, ô nhập, tin nhắn: chữ hệ thống; chữ phụ .sub: chữ hệ thống màu mờ */
+header .btn.pri{font-size:12px;letter-spacing:.12em}
 .seg{background:transparent;border:1px solid var(--line2);padding:0;gap:0}
 .seg button{border-right:1px solid var(--line);font-family:var(--f-head);font-size:14px;letter-spacing:.14em;text-transform:uppercase;padding:6px 12px 3px;color:var(--muted)}
 .seg button:last-child{border-right:0}
@@ -69,7 +74,11 @@ header .btn.pri{font-family:var(--f-head);font-size:15px;letter-spacing:.16em;pa
 .card,.stat,.tbl,.desk,.emp,.tcard,.htmlprev,.imgs a,.modal .box,.kcard{border:1px solid var(--line2)!important;background:var(--panel);box-shadow:var(--glow)!important;backdrop-filter:blur(10px)}
 .card{padding:0;margin-bottom:var(--gap-lg)}
 .card>h3{margin:0;padding:9px 16px 6px;border-bottom:1px solid var(--line2);background:linear-gradient(90deg,var(--fill),transparent);font-family:var(--f-head);font-size:16px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;color:var(--accent);text-shadow:var(--tglow)}
-.card>h3 .sub{font-family:var(--f-mono);font-size:11px;letter-spacing:.02em;text-transform:none;text-shadow:none}
+.card>h3 .sub{font-family:var(--f-head);font-size:13px;font-weight:400;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-shadow:none}
+/* nhãn trong thẻ (dòng Cỡ/Giao việc/AI làm/Model và nhãn các ô chọn của lượt): cùng font, cỡ, màu */
+.settings,.turnopts label>span{font-family:var(--f-head);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.settings b{color:var(--text);font-weight:700}
+.settings select,.turnopts select{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;letter-spacing:normal;text-transform:none}
 .card>:not(h3){margin-left:16px;margin-right:16px}
 .card>:last-child{margin-bottom:16px}
 .card>h3+*{margin-top:12px}
@@ -107,7 +116,7 @@ header .btn.pri{font-family:var(--f-head);font-size:15px;letter-spacing:.16em;pa
 .ubar .trk i,.mini .trk i{box-shadow:0 0 8px currentColor}
 .ubar b,.mini b{font-family:var(--f-mono)}
 /* ô nhập */
-textarea,input[type=text],input[type=search],input[type=password],.field select,.settings select,.hire input,.hire select,.picker>button{
+textarea,input[type=text],input[type=search],input[type=password],.field select,.settings select,.turnopts select,.hire input,.hire select,.picker>button{
   border:1px solid var(--line2)!important;background:var(--soft)!important;padding:8px 10px!important;color:var(--text)}
 textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent),0 0 14px rgba(56,200,255,.4)}
 .field>span,.hire label,.optgroup>b{font-family:var(--f-head);font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
@@ -121,7 +130,8 @@ textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)!
 .st.d:before{background:var(--ok);box-shadow:0 0 6px var(--ok)}
 .st div{font-family:var(--f-head);font-size:13px;letter-spacing:.12em;text-transform:uppercase}
 /* hội thoại */
-.msg.owner{background:linear-gradient(90deg,var(--accent2),var(--accent));color:#fff}
+/* tin của chủ: cùng kiểu tấm kính với tin quản lý (nền nhạt + vạch sáng), vạch accent bên PHẢI để phân biệt */
+.msg.owner{background:var(--me);color:var(--text);border:1px solid var(--line2);border-right:2px solid var(--accent)}
 .msg.manager{background:var(--soft);border-left:2px solid var(--mgr)}
 .msg.tool{font-family:var(--f-mono)}
 .msg.event{font-family:var(--f-mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
@@ -132,3 +142,17 @@ summary b{font-family:var(--f-head);font-size:15px;letter-spacing:.12em;text-tra
 .toast{background:var(--panel);color:var(--text);border:1px solid var(--accent);box-shadow:0 0 20px rgba(56,200,255,.45);font-family:var(--f-mono);font-size:12px;text-transform:uppercase;letter-spacing:.05em;backdrop-filter:blur(12px)}
 .modal{background:rgba(2,10,24,.6);backdrop-filter:blur(6px)}
 .htmlprev .bar2{background:var(--soft);border-bottom:1px solid var(--line2)}
+/* menu dọc (màn hình rộng): tấm kính hologram, chữ cyan phát sáng, mục đang chọn có vạch sáng bên trái */
+:root{
+  --nav-bg:rgba(255,255,255,.80);--nav-blur:saturate(160%) blur(16px);--nav-edge:1px solid var(--line2);
+  --nav-shadow:1px 0 0 rgba(56,200,255,.25),6px 0 30px rgba(0,120,255,.10);
+  --nav-font:700 15px/1.25 var(--f-head);--nav-ls:.16em;--nav-tt:uppercase;--nav-item-pad:10px 16px 7px;
+  --nav-ink:var(--muted);--nav-hover-bg:var(--fill);--nav-hover-ink:var(--accent);
+  --nav-on-bg:linear-gradient(90deg,var(--fill),transparent);--nav-on-ink:var(--accent);
+  --nav-on-shadow:inset 3px 0 0 var(--accent),inset 0 0 18px rgba(56,200,255,.12);--nav-on-glow:var(--tglow);
+  --nav-arrow:transparent;--nav-line:var(--line2);--nav-muted:var(--muted)}
+:root[data-dark="1"]{--nav-bg:rgba(3,12,28,.82)}
+@media (min-width:901px){
+  :root .nav a.on .ni{filter:drop-shadow(0 0 4px var(--accent))}
+  :root .nav .ncount{border-radius:0!important;font-family:var(--f-mono)}
+}

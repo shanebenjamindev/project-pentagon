@@ -42,10 +42,22 @@ header{background:var(--header);backdrop-filter:saturate(180%) blur(20px);-webki
 .badge.cho{background:color-mix(in srgb,var(--warn) 18%,transparent);color:color-mix(in srgb,var(--warn) 85%,var(--text))}
 .badge.loi{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
 .chip{border:0;background:var(--fill);border-radius:6px}
-textarea,input[type=text],input[type=search],input[type=password],.field select,.settings select,.hire input,.hire select,.picker>button{
+textarea,input[type=text],input[type=search],input[type=password],.field select,.settings select,.turnopts select,.hire input,.hire select,.picker>button{
   border:0!important;background:var(--soft)!important;border-radius:8px!important;padding:9px 12px!important}
 textarea:focus,input:focus,select:focus{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
 .msg{border-radius:12px}.msg.owner{background:var(--accent);color:#fff}
 .mstatus{border-radius:8px}.mstatus.wait{border:0}
 .toast{border-radius:10px;background:rgba(29,29,31,.92);color:#fff}
 .final-card{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--ok) 45%,transparent),var(--shadow)!important}
+/* menu dọc (màn hình rộng): thanh bên kiểu macOS — kính mờ sáng, mục bo góc, mục đang chọn tô nhạt màu nhấn */
+:root{
+  --nav-bg:var(--header);--nav-blur:saturate(180%) blur(20px);--nav-edge:1px solid var(--line);
+  --nav-font:500 13.5px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;--nav-ls:-.01em;
+  --nav-r:8px;--nav-item-m:1px 8px;--nav-item-w:auto;--nav-item-pad:7px 10px;--nav-ni-o:1;
+  --nav-ink:var(--text);--nav-hover-bg:var(--fill);--nav-hover-ink:var(--text);
+  --nav-on-bg:color-mix(in srgb,var(--accent) 14%,transparent);--nav-on-ink:var(--accent);--nav-arrow:transparent;
+  --nav-line:var(--line);--nav-muted:var(--muted)}
+@media (min-width:901px){
+  :root .nav .ni{color:var(--accent);width:18px;height:18px}
+  :root .nav a.on{font-weight:600!important}
+}

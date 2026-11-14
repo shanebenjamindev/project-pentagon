@@ -1,22 +1,25 @@
 # Gemini CLI báo "gói miễn phí không được hỗ trợ" dù bạn có Google AI Pro
 
-**Trạng thái: CHƯA XONG.** Không tra cứu được nguồn chính thức, nên chưa có nguyên nhân đã được xác minh.
+## Kết luận
 
-## Đã xác minh (từ máy này)
+- Nhiều khả năng đây **không phải lỗi đăng nhập nhầm tài khoản**. Theo kết quả tra cứu của worker `mark-1` (codex), từ **18/6/2026** luồng "Sign in with Google" của Gemini CLI không còn hỗ trợ Gemini Code Assist cá nhân, kể cả Google AI Pro và AI Ultra. Google hướng người dùng sang **Antigravity**.
+- Vì vậy **đăng nhập lại bằng đúng tài khoản AI Pro có thể không khôi phục được quyền dùng Gemini CLI**.
+- Không nên đặt `GOOGLE_CLOUD_PROJECT` cho tài khoản cá nhân để thử sửa lỗi này.
 
-- `config/workers.conf`: tài khoản `gemini-main` (đăng nhập mặc định) đã bị tắt, ghi chú lỗi `UNSUPPORTED_CLIENT`: Google ngừng cho Gemini CLI dùng gói miễn phí.
-- Tài khoản `gehihi` (công cụ gemini) cũng báo đúng lỗi "Google chặn: tài khoản gói miễn phí không còn dùng được Gemini CLI". Dòng `gehihi` trong `config/workers.conf` vẫn đang bật, dù ghi chú nói Gemini tắt. Đây là mâu thuẫn cần sửa.
-- Worker Claude (`claude-3`, vai trò tra-cứu) không tìm được nguồn vì quyền WebSearch/WebFetch bị từ chối.
-- Tôi cũng thử WebSearch và WebFetch trực tiếp: đều bị từ chối quyền, nên không lấy được tài liệu Google.
+## Mức độ tin cậy
 
-## Giả thuyết chưa kiểm chứng
+- Nguồn: worker `mark-1` (codex, có truy cập mạng). Kết quả đầy đủ: `results/mark-1-011704.md`.
+- Các URL worker dẫn: `developers.google.com/gemini-code-assist/docs/deprecations/code-assist-individuals`, `.../deprecations`, `github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.mdx`, `github.com/google-gemini/gemini-cli/issues/28229`, `ai.google.dev/gemini-api/docs/billing`.
+- **Tôi chưa tự mở được các URL này** vì quyền WebSearch/WebFetch vẫn bị từ chối. Thông tin ngày 18/6/2026 cần được đối chiếu trực tiếp với trang deprecations trước khi tin tuyệt đối.
+- Chưa có worker thứ hai kiểm chéo (bước 5). Lý do: các worker khác không có quyền web, nên không kiểm chứng được nguồn.
 
-- Nguyên nhân khả dĩ nhất: Gemini CLI đang đăng nhập bằng một tài khoản Google khác với tài khoản đã mua AI Pro (ví dụ tài khoản cá nhân miễn phí hoặc tài khoản Workspace).
-- Cách thử (do bạn tự làm, tôi chưa làm): vào one.google.com để xem gói AI Pro gắn với email nào. Sau đó đăng nhập lại Gemini CLI bằng đúng email đó. Có thể cần xoá thông tin đăng nhập cũ trong `~/.gemini/` (ví dụ `oauth_creds.json`) rồi chạy lại.
-- Chưa biết AI Pro có cần thêm `GOOGLE_CLOUD_PROJECT` hay không. Cần đối chiếu tài liệu chính thức của Gemini CLI.
+## Các cách xử lý
 
-## Việc cần chủ làm
+1. **Chuyển sang Antigravity** theo hướng dẫn của Google (nếu đúng như worker báo cáo).
+2. **Dùng Gemini API key** từ AI Studio. Đây là cơ chế và quota riêng, tính theo billing của dự án Google Cloud/Gemini API, **không** dùng quyền lợi của AI Pro.
+3. Nếu lỗi thực tế không phải `UNSUPPORTED_CLIENT` (ví dụ đòi `GOOGLE_CLOUD_PROJECT` hoặc báo lỗi giấy phép tổ chức), có thể đang dùng nhầm luồng xác thực hoặc tài khoản Workspace. Khi đó cần xem lại thông báo lỗi chính xác.
 
-1. Cấp quyền WebSearch và WebFetch cho phiên này, rồi tôi tra lại các nguồn chính thức (github.com/google-gemini/gemini-cli, support.google.com, ai.google.dev).
-2. Hoặc tự kiểm tra email gắn với gói AI Pro tại one.google.com và báo lại.
-3. Quyết định có sửa `config/workers.conf` (tắt dòng `gehihi` nếu vẫn bị chặn) không.
+## Việc còn lại
+
+- Trong `config/workers.conf`, dòng `gehihi` (gemini) đang bật nhưng đã bị chặn cùng lỗi. Nên tắt dòng này.
+- Bạn cần đối chiếu thông báo lỗi chính xác đang hiện trên máy với mục 3 ở trên.
