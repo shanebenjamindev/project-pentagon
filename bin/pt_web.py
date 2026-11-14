@@ -26,6 +26,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import pt_manager
 import pt_notify
 import pt_followup
+import pt_files
 import tracker
 from tracker import ROOT, TASKS, read, summary, task_ids
 
@@ -303,6 +304,14 @@ def decode_images(images):
             raise ValueError("Nội dung ảnh không khớp định dạng khai báo")
         stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         result.append(("img-%s-%02d-%s.%s" % (stamp, index, secrets.token_hex(3), ext), raw))
+    return result
+
+
+def decode_attachments(files, images):
+    """File đính kèm (bảng tính, tài liệu). Tổng dung lượng ảnh + file tối đa 40 MB (khớp POST_LIMIT_BIG)."""
+    result = pt_files.decode_files(files)
+    if sum(len(x[1]) for x in images) + sum(len(x[1]) for x in result) > 40 * 1024 * 1024:
+        raise ValueError("Tổng dung lượng ảnh và file đính kèm tối đa 40 MB")
     return result
 
 
@@ -660,7 +669,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.close_connection = True
                 return self.json({"error": "Nội dung gửi lên quá lớn (%s), server chỉ nhận tối đa %s%s" % (
                     human_size(n), human_size(limit),
-                    " — ảnh đính kèm quá lớn" if path in ("/api/giao", "/api/send") else "")}, 413)
+                    " — ảnh / file đính kèm quá lớn" if path in ("/api/giao", "/api/send") else "")}, 413)
             body = json.loads(self.rfile.read(n) or b"{}")
             if not isinstance(body, dict):
                 body = {}
@@ -739,12 +748,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/giao":
                 images = decode_images(body.get("images") or [])
-                request = str(body.get("text", "")).strip() or ("Xem ảnh đính kèm" if images else "")
+                files = decode_attachments(body.get("files"), images)
+                request = str(body.get("text", "")).strip() or ("Xem ảnh / file đính kèm" if images or files else "")
                 mode = body.get("mode") if body.get("mode") in ("duyet", "lam-luon") else "tu-quyet"
                 size = body.get("size") if body.get("size") in ("nho", "vua", "lon") else "auto"
                 split = body.get("split") if body.get("split") in ("mot", "song-song") else "auto"
                 tid = pt_manager.launch_new(request, mode, size, split, background=True,
-                                            assignee=str(body.get("assignee") or ""), images=images)
+                                            assignee=str(body.get("assignee") or ""), images=images, files=files)
                 return self.json({"ok": True, "id": tid})
             if path == "/api/lan":
                 if self.from_lan():
@@ -832,16 +842,20 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(tid, str) or tid not in task_ids():
                     return self.json({"error": "không có task"}, 404)
                 images = decode_images(body.get("images") or [])
-                message = str(body.get("text", "")).strip() or ("Xem ảnh đính kèm" if images else "")
-                attachment = save_images(tid, images)
+                files = decode_attachments(body.get("files"), images)
+                message = str(body.get("text", "")).strip() or ("Xem ảnh / file đính kèm" if images or files else "")
+                attachment = save_images(tid, images) + pt_manager.save_task_files(tid, files, message)
                 try:
                     sent = pt_manager.send(tid, message + attachment, reaper=True, size=str(body.get("size") or "auto"),
                                            model=str(body.get("model") or ""), worker=str(body.get("worker") or ""),
                                            worker_model=str(body.get("worker_model") or ""))
                 except Exception:
+                    attach_dir = os.path.join(os.path.realpath(TASKS), tid, "attachments") + os.sep
                     for line in attachment.splitlines():
-                        candidate = line.removeprefix("- ")
-                        if candidate:
+                        candidate = line.strip().removeprefix("- ").split(" (từ: ")[0]
+                        if " → " in candidate:
+                            candidate = candidate.split(" → ", 1)[1].rsplit(" (", 1)[0]
+                        if candidate.startswith(attach_dir):
                             try: os.remove(candidate)
                             except OSError: pass
                     raise

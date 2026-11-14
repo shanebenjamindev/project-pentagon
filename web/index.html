@@ -116,7 +116,7 @@ a.chips:hover .chip{border-color:var(--muted)}
 .msg.event{align-self:center;font-size:12px;color:var(--warn);text-align:center}
 .msg.error{align-self:stretch;color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--panel));white-space:pre-wrap;font-size:12.5px}
 .composer{margin-top:10px;display:flex;flex-direction:column;gap:6px}
-.attach-preview{display:flex;gap:8px;flex-wrap:wrap}.attach-item{position:relative;width:72px;height:72px;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:3px}.attach-item img{width:100%;height:100%;object-fit:cover;border-radius:5px}.attach-item button{position:absolute;right:-6px;top:-6px;border:1px solid var(--line);border-radius:50%;background:var(--panel);color:var(--text);width:22px;height:22px;cursor:pointer}
+.attach-preview{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}.attach-file{position:relative;display:inline-flex;align-items:center;gap:6px;max-width:260px;height:40px;padding:0 26px 0 10px;border:1px solid var(--line);border-radius:8px;background:var(--soft);font-size:12.5px}.attach-file .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.attach-file .sub{flex:none;font-size:11.5px}.attach-file button{position:absolute;right:4px;top:50%;margin-top:-10px;border:0;background:none;color:var(--muted);width:20px;height:20px;cursor:pointer}.attach-item{position:relative;width:72px;height:72px;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:3px}.attach-item img{width:100%;height:100%;object-fit:cover;border-radius:5px}.attach-item button{position:absolute;right:-6px;top:-6px;border:1px solid var(--line);border-radius:50%;background:var(--panel);color:var(--text);width:22px;height:22px;cursor:pointer}
 textarea{width:100%;min-height:70px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);color:var(--text);font:inherit}
 textarea:focus,input:focus{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);border-color:var(--accent)}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -263,8 +263,10 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 details.fu{margin-left:18px;border-top:1px dashed var(--line)}
 .ask{margin:6px 0 2px 18px}
 .ask input{font-size:13px}
-.tr.agrow{grid-template-columns:minmax(150px,1fr) 110px minmax(160px,1.2fr) minmax(200px,2fr) 90px 170px}
-.tr.agrow2{grid-template-columns:minmax(150px,1fr) 110px minmax(160px,1.2fr) 110px 210px}
+.tr.agrow{grid-template-columns:minmax(150px,1fr) 150px minmax(160px,1.2fr) minmax(200px,2fr) 90px 170px}
+.tr.agrow2{grid-template-columns:minmax(150px,1fr) 150px minmax(160px,1.2fr) 110px 210px}
+/* ô vai trò: tên dài (vd "Kiểm tra (review)", chữ in hoa giãn rộng ở giao diện Siêu anh hùng) bị cắt "…" thay vì tràn sang cột Task */
+.tr .rcell{min-width:0}.tr .rcell .badge{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
 .tr .askrow{grid-column:1/-1}
 @media (max-width:980px){.tr.agrow,.tr.agrow2{grid-template-columns:1fr}}
 /* thông báo */
@@ -710,8 +712,8 @@ html,body{max-width:100%;overflow-x:hidden;overflow-x:clip} /* clip: không bi�
       <h3>Giao task mới</h3>
       <div class="sub">AI quản lý sẽ tối ưu yêu cầu, chia việc cho các worker, kiểm tra và tổng hợp — như lệnh /giao.</div>
       <textarea id="newText" placeholder="Mô tả task bằng tiếng Việt… (⌘/Ctrl + Enter để giao)"></textarea>
-      <div class="attach-preview" id="newImagesPreview"></div><input hidden type="file" accept="image/*" multiple id="newImagesFile">
-      <div class="row"><button class="btn sm" type="button" onclick="document.getElementById('newImagesFile').click()">📎 Ảnh</button><span class="sub">Tối đa 8 ảnh · ảnh lớn tự thu nhỏ (cạnh dài 2000px)</span></div>
+      <div class="attach-preview" id="newImagesPreview"></div><input hidden type="file" accept="image/*,.csv,.tsv,.xlsx,.xls,.ods,.pdf,.docx,.txt,.md,.json" multiple id="newImagesFile">
+      <div class="row"><button class="btn sm" type="button" onclick="document.getElementById('newImagesFile').click()">📎 Đính kèm</button><span class="sub">Ảnh, Excel/CSV, PDF, Word… · tối đa 8 ảnh + 5 file (10 MB/file) · link Google Sheet/Drive đã chia sẻ công khai dán vào nội dung là đọc được</span></div>
       <div class="fields">
         <label class="field"><span>Giao cho AI</span>
           <div class="picker" id="whoPicker"><button type="button" id="whoBtn"></button><div class="menu" id="whoMenu" hidden></div></div>
@@ -982,7 +984,7 @@ function skeleton(){
         <span id="p-acct"></span>
       </div><div id="p-mstatus"></div><div class="chat" id="p-chat"></div>
       <div class="composer"><div class="row" id="p-inbox"></div><textarea id="msg" placeholder="Nhắn cho quản lý: trả lời câu hỏi, duyệt kế hoạch, yêu cầu sửa… (⌘/Ctrl + Enter để gửi)"></textarea>
-      <div class="attach-preview" id="msgImagesPreview"></div><input hidden type="file" accept="image/*" multiple id="msgImagesFile"><div class="row"><button class="btn sm" type="button" onclick="document.getElementById('msgImagesFile').click()">📎 Ảnh</button><span class="sub">Tối đa 8 ảnh · ảnh lớn tự thu nhỏ (cạnh dài 2000px)</span></div>
+      <div class="attach-preview" id="msgImagesPreview"></div><input hidden type="file" accept="image/*,.csv,.tsv,.xlsx,.xls,.ods,.pdf,.docx,.txt,.md,.json" multiple id="msgImagesFile"><div class="row"><button class="btn sm" type="button" onclick="document.getElementById('msgImagesFile').click()">📎 Đính kèm</button><span class="sub">Ảnh, Excel/CSV, PDF, Word… · tối đa 8 ảnh + 5 file (10 MB/file) · link Google Sheet/Drive đã chia sẻ công khai dán vào nội dung là đọc được</span></div>
       <div class="turnopts">
         <label><span>Quản lý dùng</span><select id="turnMgr" title="Model của AI quản lý cho lượt này"></select></label>
         <label><span>Giao cho</span><select id="turnWho" title="Nhân viên làm phần việc của tin nhắn này"></select></label>
@@ -1107,18 +1109,22 @@ async function loadOpenFiles(id){
   }
 }
 async function sendMsg(){
-  if(imgBusy.msg){toast("Đang thu nhỏ ảnh, đợi một chút rồi gửi");return}
-  const v=$("#msg").value.trim();if((!v&&!imageDrafts.msg.length)||!cur)return;
+  if(imgBusy.msg){toast("Đang đọc ảnh / file, đợi một chút rồi gửi");return}
+  const v=$("#msg").value.trim();if((!v&&draftEmpty("msg"))||!cur)return;
   const mv=$("#turnMgr").value||"auto", worker=$("#turnWho").value, worker_model=worker?$("#turnWModel").value:"";
-  const body={id:cur.id,text:v,images:imageDrafts.msg.map(x=>({name:x.name,data:x.data})),size:mv.startsWith("size:")?mv.slice(5):"auto",model:mv.startsWith("model:")?mv.slice(6):"",worker,worker_model};
+  const body={id:cur.id,text:v,images:imageDrafts.msg.map(x=>({name:x.name,data:x.data})),files:draftFiles("msg"),size:mv.startsWith("size:")?mv.slice(5):"auto",model:mv.startsWith("model:")?mv.slice(6):"",worker,worker_model};
   const d=await act("/api/send",body);
   if(d)toast(d.queued?`Đã xếp hàng · ${d.queued_count} tin đang chờ`:`Đã gửi${worker?" — giao cho "+worker+(worker_model?" ("+worker_model+")":""):""}${mv==="auto"?"":" — quản lý dùng "+(body.model||SIZES[body.size]||body.size)}`);
   if(d){$("#msg").value="";clearDraftImages("msg");$("#turnMgr").value="auto";$("#turnWho").value="";fillTurnOpts()}
 }
 
 const imageDrafts={msg:[],new:[]};
-function renderDraftImages(key){const el=$(key==="msg"?"#msgImagesPreview":"#newImagesPreview");if(!el)return;el.innerHTML=imageDrafts[key].map((x,i)=>`<span class="attach-item"><img src="${x.data}" alt="${esc(x.name)}"><button type="button" title="Xoá ảnh" data-img-remove="${key}:${i}">×</button></span>`).join("")}
-function clearDraftImages(key){imageDrafts[key]=[];renderDraftImages(key)}
+const fileDrafts={msg:[],new:[]};  // bảng tính / tài liệu đính kèm (không phải ảnh)
+const FILE_EXT=[".csv",".tsv",".xlsx",".xls",".ods",".pdf",".docx",".txt",".md",".json"], FILE_MAX=10*1024*1024, FILE_COUNT=5;
+const draftEmpty=key=>!imageDrafts[key].length&&!fileDrafts[key].length;
+const draftFiles=key=>fileDrafts[key].map(x=>({name:x.name,data:x.data}));
+function renderDraftImages(key){const el=$(key==="msg"?"#msgImagesPreview":"#newImagesPreview");if(!el)return;el.innerHTML=fileDrafts[key].map((x,i)=>`<span class="attach-file" title="${esc(x.name)}">📄 <span class="fn">${esc(x.name)}</span><span class="sub">${fsize(x.size)}</span><button type="button" title="Bỏ file" data-file-remove="${key}:${i}">×</button></span>`).join("")+imageDrafts[key].map((x,i)=>`<span class="attach-item"><img src="${x.data}" alt="${esc(x.name)}"><button type="button" title="Xoá ảnh" data-img-remove="${key}:${i}">×</button></span>`).join("")}
+function clearDraftImages(key){imageDrafts[key]=[];fileDrafts[key]=[];renderDraftImages(key)}
 // ---- ảnh đính kèm: tự thu nhỏ trước khi gửi (cạnh dài ≤ 2000px, JPEG 0.85; PNG/WebP có trong suốt giữ PNG/WebP)
 const IMG_MAX_SIDE=2000, IMG_MAX_BYTES=5*1024*1024, IMG_TOTAL=40*1024*1024, IMG_RAW_MAX=40*1024*1024;
 const readDataURL=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>no(r.error);r.readAsDataURL(f)});
@@ -1147,7 +1153,9 @@ const imgBusy={msg:0,new:0};
 async function addDraftFiles(key,files){const allowed=["image/png","image/jpeg","image/gif","image/webp"];
   files=[...files];  // chép ra mảng: FileList của <input> bị xoá ngay sau lời gọi (input.value="") trong khi ta còn await
   for(const f of files){
-    if(!allowed.includes(f.type)){toast("Chỉ nhận PNG, JPEG, GIF hoặc WebP: "+f.name);continue}
+    const ext=(f.name.match(/\.[^.]+$/)||[""])[0].toLowerCase();
+    if(!f.type.startsWith("image/")&&FILE_EXT.includes(ext)){await addDocFile(key,f);continue}
+    if(!allowed.includes(f.type)){toast("Không nhận loại file này: "+f.name+" — ảnh PNG/JPEG/GIF/WebP hoặc "+FILE_EXT.join(" "));continue}
     if(imageDrafts[key].length+imgBusy[key]>=8){toast("Tối đa 8 ảnh mỗi lần gửi");break}
     if(f.size>IMG_RAW_MAX||(f.type==="image/gif"&&f.size>IMG_MAX_BYTES)){toast("Ảnh quá lớn: "+f.name+(f.type==="image/gif"?" (GIF tối đa 5 MB)":""));continue}
     imgBusy[key]++;
@@ -1158,8 +1166,18 @@ async function addDraftFiles(key,files){const allowed=["image/png","image/jpeg",
       imageDrafts[key].push({name:f.name,data:r.data,size:r.size});renderDraftImages(key)}
     catch(e){toast("Không đọc được ảnh: "+f.name)}
     finally{imgBusy[key]--}}}
-function setupImageDraft(key,textareaId,fileId){const area=$("#"+textareaId),input=$("#"+fileId);input.onchange=()=>{addDraftFiles(key,input.files);input.value=""};area.addEventListener("paste",e=>{const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==="file").map(i=>i.getAsFile()).filter(Boolean);if(files.length)addDraftFiles(key,files)});for(const ev of ["dragenter","dragover"]){area.addEventListener(ev,e=>{if([...e.dataTransfer.types].includes("Files")){e.preventDefault();e.dataTransfer.dropEffect="copy"}})}area.addEventListener("drop",e=>{const files=[...(e.dataTransfer.files||[])].filter(f=>f.type.startsWith("image/"));if(files.length){e.preventDefault();addDraftFiles(key,files)}})}
+async function addDocFile(key,f){
+  if(fileDrafts[key].length>=FILE_COUNT){toast("Tối đa "+FILE_COUNT+" file mỗi lần gửi");return}
+  if(!f.size){toast("File đang trống: "+f.name);return}
+  if(f.size>FILE_MAX){toast("File quá lớn (tối đa 10 MB): "+f.name);return}
+  const total=imageDrafts[key].reduce((n,x)=>n+x.size,0)+fileDrafts[key].reduce((n,x)=>n+x.size,0);
+  if(total+f.size>IMG_TOTAL){toast("Tổng dung lượng ảnh và file tối đa 40 MB");return}
+  imgBusy[key]++;
+  try{fileDrafts[key].push({name:f.name,data:await readDataURL(f),size:f.size});renderDraftImages(key)}
+  catch(e){toast("Không đọc được file: "+f.name)}finally{imgBusy[key]--}}
+function setupImageDraft(key,textareaId,fileId){const area=$("#"+textareaId),input=$("#"+fileId);input.onchange=()=>{addDraftFiles(key,input.files);input.value=""};area.addEventListener("paste",e=>{const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==="file").map(i=>i.getAsFile()).filter(Boolean);if(files.length)addDraftFiles(key,files)});for(const ev of ["dragenter","dragover"]){area.addEventListener(ev,e=>{if([...e.dataTransfer.types].includes("Files")){e.preventDefault();e.dataTransfer.dropEffect="copy"}})}area.addEventListener("drop",e=>{const files=[...(e.dataTransfer.files||[])];if(files.length){e.preventDefault();addDraftFiles(key,files)}})}
 setupImageDraft("new","newText","newImagesFile");
+document.addEventListener("click",e=>{const b=e.target.closest("[data-file-remove]");if(!b)return;const [key,index]=b.dataset.fileRemove.split(":");fileDrafts[key].splice(+index,1);renderDraftImages(key)});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-img-remove]");if(!b)return;const [key,index]=b.dataset.imgRemove.split(":");imageDrafts[key].splice(+index,1);renderDraftImages(key)});
 
 // ---------------- Trang 3: Văn phòng làm việc
@@ -1349,14 +1367,14 @@ let askOpen=null;
 function renderAgents(d){
   setPart("agRun",`<div class="tr agrow hd"><span>Agent</span><span>Vai trò</span><span>Task</span><span>Đang làm</span><span>Thời gian</span><span style="text-align:right">Thao tác</span></div>`+
     (d.running.map(a=>`<div class="tr agrow"><div><i class="dot ${a.kind==="manager"?"mgr":"run"}"></i> <b>${esc(a.name)}</b><div class="sub">${esc(a.model||"")}${a.account?" · "+esc(a.account):""}</div></div>
-      <span>${a.followup?'<span class="badge cho">Hỏi tiếp</span>':a.role?`<span class="badge">${esc(ROLE_TXT[a.role]||a.role)}</span>`:'<span class="sub">—</span>'}</span>
+      <span class="rcell">${a.followup?'<span class="badge cho">Hỏi tiếp</span>':a.role?`<span class="badge" title="${esc(ROLE_TXT[a.role]||a.role)}">${esc(ROLE_TXT[a.role]||a.role)}</span>`:'<span class="sub">—</span>'}</span>
       <a href="${taskUrl(a.task)}" data-link>${esc(a.title)}</a><span class="sub">${esc((a.pending||a.summary||"").slice(0,160))}</span>
       <span class="sub" data-started="${a.started}"></span>
       <div class="acts"><a class="btn sm" href="${taskUrl(a.task)}" data-link>Mở task</a>${a.pending?"":`<button class="btn sm danger" data-agstop="${a.kind}" data-task="${esc(a.task)}" data-pid="${esc(a.pid)}">Dừng</button>`}</div></div>`).join("")
     ||'<div class="empty">Không có agent nào đang chạy.</div>'));
   setPart("agRecent",`<div class="tr agrow2 hd"><span>Agent</span><span>Vai trò</span><span>Task</span><span>Lúc</span><span style="text-align:right">Thao tác</span></div>`+
     (d.recent.map(r=>{const key=r.task+"|"+r.file;return `<div class="tr agrow2"><div><b>${esc(r.worker)}</b><div class="sub">${r.followup_of?"hỏi tiếp: "+esc((r.question||"").slice(0,80)):esc(r.model||"")}</div></div>
-      <span>${r.role?`<span class="badge">${esc(ROLE_TXT[r.role]||r.role)}</span>`:'<span class="sub">—</span>'}</span>
+      <span class="rcell">${r.role?`<span class="badge" title="${esc(ROLE_TXT[r.role]||r.role)}">${esc(ROLE_TXT[r.role]||r.role)}</span>`:'<span class="sub">—</span>'}</span>
       <a href="${taskUrl(r.task)}/ket-qua" data-link>${esc(r.title)}</a><span class="sub" data-ago="${r.mtime}">${ago(r.mtime)}</span>
       <div class="acts"><a class="btn sm" href="${taskUrl(r.task)}/ket-qua" data-link>Xem</a><button class="btn sm ${askOpen===key?"pri":""}" data-agask="${esc(key)}">Hỏi tiếp</button></div>
       ${askOpen===key?`<div class="askrow ask row"><input type="text" class="grow" data-ask-input="${esc(r.file)}" data-ask-task="${esc(r.task)}" placeholder="Hỏi tiếp ${esc(r.worker)} (không làm đổi phiên gốc)…"><button class="btn sm pri" data-ask-btn="${esc(r.file)}" data-ask-task="${esc(r.task)}">Gửi</button></div>`:""}</div>`}).join("")
@@ -1796,11 +1814,11 @@ document.addEventListener("click",e=>{if(!e.target.closest("#whoPicker"))$("#who
 
 $("#newText").onkeydown=e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();$("#newGo").click()}};
 $("#newGo").onclick=async()=>{
-  if(imgBusy.new){toast("Đang thu nhỏ ảnh, đợi một chút rồi giao");return}
-  const text=$("#newText").value.trim();if(!text&&!imageDrafts.new.length){$("#newText").focus();return}
+  if(imgBusy.new){toast("Đang đọc ảnh / file, đợi một chút rồi giao");return}
+  const text=$("#newText").value.trim();if(!text&&draftEmpty("new")){$("#newText").focus();return}
   const mode=$("#newMode").value, split=$("#newSplit").value, assignee=who;
   $("#newGo").disabled=true;
-  try{const d=await post("/api/giao",{text,images:imageDrafts.new.map(x=>({name:x.name,data:x.data})),mode,size:"auto",split,assignee});
+  try{const d=await post("/api/giao",{text,images:imageDrafts.new.map(x=>({name:x.name,data:x.data})),files:draftFiles("new"),mode,size:"auto",split,assignee});
     giaoModal.classList.remove("on");$("#newText").value="";clearDraftImages("new");
     toast(assignee&&busySet.has(assignee)?`Đã giao — ${assignee} đang bận nên task chờ (pending)`:"Đã giao task — quản lý đang làm");go(taskUrl(d.id))}
   catch(e){toast("Không giao được: "+e.message)}finally{$("#newGo").disabled=false}

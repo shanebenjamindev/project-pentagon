@@ -42,6 +42,7 @@ import uuid
 import fcntl
 from contextlib import contextmanager
 
+import pt_files
 import tracker
 from tracker import ROOT, TASKS, kv, pid_alive, read
 
@@ -1233,7 +1234,7 @@ def giao_prompt(request, mode):
     return tpl.replace("$ARGUMENTS", request.strip()) + extra
 
 
-def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee="", images=None):
+def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee="", images=None, files=None):
     """Tạo task từ yêu cầu của chủ. Trả về (id task, prompt lượt đầu). Chưa chạy quản lý."""
     request = request.strip()
     if not request:
@@ -1246,7 +1247,7 @@ def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee="", i
     if r.returncode != 0 or not os.path.isdir(tdir):
         raise RuntimeError("không tạo được task: %s" % (r.stderr.strip() or r.stdout.strip()))
     tid = os.path.basename(tdir)
-    request += save_task_images(tid, images)
+    request += save_task_images(tid, images) + save_task_files(tid, files, request)
     bp = os.path.join(tdir, "brief.md")
     brief = read(bp) or ""
     brief = brief.replace("## Yêu cầu gốc (nguyên văn)\n", "## Yêu cầu gốc (nguyên văn)\n\n" + request + "\n", 1)
@@ -1280,12 +1281,28 @@ def save_task_images(tid, images):
     return "\n\nẢnh đính kèm (dùng công cụ Read để xem):\n" + "\n".join("- " + p for p in paths)
 
 
-def launch_new(request, mode="tu-quyet", size="auto", split="auto", background=True, assignee="", images=None):
+def save_task_files(tid, files, text=""):
+    """Ghi file đính kèm (bảng tính, tài liệu) và file lấy từ link Google Sheet/Drive trong text.
+    Trả đoạn chỉ dẫn chèn vào yêu cầu gửi quản lý."""
+    fetched, notes = pt_files.fetch_links(text)
+    files = list(files or []) + fetched
+    if not files and not notes:
+        return ""
+    folder = os.path.realpath(os.path.join(TASKS, tid, "attachments"))
+    if not folder.startswith(os.path.realpath(TASKS) + os.sep):
+        raise ValueError("Đường dẫn task không hợp lệ")
+    out = pt_files.save_files(folder, files)
+    if notes:
+        out += "\n\nLink Google Sheet/Drive chưa đọc được (báo chủ nếu cần):\n" + "\n".join(notes)
+    return out
+
+
+def launch_new(request, mode="tu-quyet", size="auto", split="auto", background=True, assignee="", images=None, files=None):
     """Tạo task và cho quản lý bắt đầu. size=auto: AI phân loại cỡ trước (ở luồng nền nếu background).
     assignee: AI chủ chỉ định; nếu AI đó đang bận, task pending đến khi nó rảnh."""
     if assignee and assignee not in worker_names():
         raise RuntimeError("không có AI tên %s" % assignee)
-    tid, prompt = new_task(request, mode, size, split, assignee, images=images)
+    tid, prompt = new_task(request, mode, size, split, assignee, images=images, files=files)
     append_event(tid, "pentagon_owner", request.strip())
     extra = (" · giao cho %s" % assignee) if assignee else ""
     if norm_size(size) in SIZES:

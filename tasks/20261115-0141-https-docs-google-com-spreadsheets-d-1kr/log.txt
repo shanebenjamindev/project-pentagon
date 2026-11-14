@@ -1,0 +1,3 @@
+01:41:57 quan-ly [bước 1 Tiếp nhận] tạo task: https://docs.google.com/spreadsheets/d/1kRahPaILxE6IGxFZ9kS4
+01:42:19 quan-ly [bước 1 Tiếp nhận] tiếp nhận: đọc Google Sheet chủ gửi
+01:42:35 quan-ly [CHỜ CHỦ] chờ chủ: cần làm gì với sheet + cấp quyền đọc sheet
