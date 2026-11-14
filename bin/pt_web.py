@@ -1,0 +1,434 @@
+"""Web app của Pentagon (bin/dashboard): xem tiến độ và thao tác — giao task, trò chuyện với quản lý,
+duyệt, dừng, huỷ worker. Chỉ nghe trên 127.0.0.1.
+
+Bảo vệ: chỉ nhận Host là 127.0.0.1/localhost (chống DNS rebinding); mọi thao tác (POST) phải có
+header X-Pentagon và Content-Type JSON, nên trang web lạ mở trong trình duyệt không gửi lệnh được (CORS chặn).
+Cookie không gắn theo cổng; dịch vụ khác trên cùng host có thể nhận cookie phiên.
+"""
+import json
+import hashlib
+import hmac
+import os
+import secrets
+import subprocess
+import sys
+import threading
+import time
+import getpass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
+
+import pt_manager
+import tracker
+from tracker import ROOT, TASKS, read, summary, task_ids
+
+PAGE = os.path.join(ROOT, "web", "index.html")
+LOGIN_PAGE = os.path.join(ROOT, "web", "login.html")
+AUTH_FILE = os.path.join(ROOT, "config", "auth.conf")
+STATIC = {"logo.png", "mark.png", "favicon.png"}
+WORKERS = {"items": [], "checked": 0}
+PORT = [8765]
+SESSIONS = {}
+AUTH_LOCK = threading.Lock()
+VERIFY_LOCK = threading.Lock()
+FAILURES = 0
+LAST_FAILURE = 0
+LOCKED_UNTIL = 0
+SESSION_SECONDS = 7 * 24 * 60 * 60
+PBKDF2_ROUNDS = 300000
+
+
+def auth_config():
+    try:
+        with open(AUTH_FILE, encoding="ascii") as f:
+            encoded = f.read().strip()
+    except FileNotFoundError:
+        return ""
+    except (OSError, UnicodeError):
+        return None
+    try:
+        algorithm, rounds, salt, digest = encoded.split("$")
+        if algorithm != "pbkdf2_sha256" or int(rounds) < PBKDF2_ROUNDS or len(bytes.fromhex(salt)) != 16 or len(bytes.fromhex(digest)) != 32:
+            return None
+    except (ValueError, TypeError):
+        return None
+    return encoded
+
+
+def password_hash(password):
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PBKDF2_ROUNDS)
+    return "pbkdf2_sha256$%d$%s$%s" % (PBKDF2_ROUNDS, salt.hex(), digest.hex())
+
+
+def valid_password(password, encoded):
+    try:
+        algorithm, rounds, salt, expected = encoded.split("$")
+        if algorithm != "pbkdf2_sha256" or int(rounds) < PBKDF2_ROUNDS:
+            return False
+        actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), bytes.fromhex(salt), int(rounds)).hex()
+        return hmac.compare_digest(actual, expected)
+    except (ValueError, TypeError):
+        return False
+
+
+def set_password_cli(clear=False):
+    if clear:
+        try:
+            os.remove(AUTH_FILE)
+        except FileNotFoundError:
+            pass
+        print("Đã tắt đăng nhập dashboard.")
+        return 0
+    first = getpass.getpass("Mật khẩu dashboard: ")
+    second = getpass.getpass("Nhập lại mật khẩu: ")
+    if first != second:
+        print("Mật khẩu nhập lại không khớp.", file=sys.stderr)
+        return 1
+    if len(first) < 8:
+        print("Mật khẩu phải có ít nhất 8 ký tự.", file=sys.stderr)
+        return 1
+    os.makedirs(os.path.dirname(AUTH_FILE), exist_ok=True)
+    temp_file = AUTH_FILE + ".tmp-" + secrets.token_hex(8)
+    fd = os.open(temp_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="ascii") as f:
+        f.write(password_hash(first) + "\n")
+    os.replace(temp_file, AUTH_FILE)
+    print("Đã đặt mật khẩu dashboard.")
+    return 0
+
+
+def clear_sessions():
+    with AUTH_LOCK:
+        SESSIONS.clear()
+
+
+def refresh_workers_forever():
+    while True:
+        try:
+            out = subprocess.run([os.path.join(ROOT, "bin", "workers"), "--tsv"], capture_output=True,
+                                 text=True, timeout=90).stdout
+            items = []
+            for line in out.splitlines():
+                p = line.split("\t")
+                if len(p) >= 3:
+                    items.append({"name": p[0], "tool": p[1], "login": p[2],
+                                  "model": p[3] if len(p) > 3 else "", "desc": p[4] if len(p) > 4 else ""})
+            WORKERS["items"], WORKERS["checked"] = items, int(time.time())
+        except Exception as e:  # không để luồng nền chết
+            sys.stderr.write("[dashboard] không đọc được bin/workers: %s\n" % e)
+        time.sleep(120)
+
+
+def retry_forever():
+    """Tự cho quản lý làm tiếp các task đã hẹn giờ (sau khi mọi tài khoản hết hạn mức)."""
+    while True:
+        try:
+            pt_manager.check_retries()
+        except Exception as e:
+            sys.stderr.write("[dashboard] lỗi khi tự làm tiếp: %s\n" % e)
+        time.sleep(30)
+
+
+def office():
+    """Văn phòng làm việc: mỗi worker một bàn (đang làm gì, rảnh/bận, hôm nay làm bao nhiêu), cộng các AI quản lý đang chạy."""
+    today = time.strftime("%Y-%m-%d")
+    now = time.time()
+    desks = {w["name"]: dict(w, working=[], done_today=0, secs_today=0, fails_today=0, limited_at="", last="")
+             for w in WORKERS["items"]}
+    managers = []
+    for tid in task_ids():
+        tdir = os.path.join(TASKS, tid)
+        recent = now - tracker.newest_mtime(tdir) < 86400
+        if not recent and not tid.startswith(today.replace("-", "")):
+            continue
+        t = summary(tid)
+        for r in t["running"]:
+            d = desks.setdefault(r.get("worker", "?"), {"name": r.get("worker", "?"), "tool": r.get("tool", ""),
+                                 "login": "ok", "model": "", "desc": "", "working": [], "done_today": 0,
+                                 "secs_today": 0, "fails_today": 0, "limited_at": "", "last": ""})
+            d["working"].append({"task": tid, "title": t["title"], "summary": r.get("summary", ""),
+                                 "started": r["started"], "model": r.get("model", ""), "perm": r.get("perm", "")})
+        for r in tracker.list_results(tdir):
+            if r.get("worker") in desks and str(r.get("at", "")).startswith(today):
+                desks[r["worker"]]["done_today"] += 1
+                desks[r["worker"]]["secs_today"] += r.get("secs", 0)
+                desks[r["worker"]]["last"] = max(desks[r["worker"]]["last"], r.get("at", ""))
+        if tid.startswith(today.replace("-", "")) or recent:
+            for i in tracker.parse_log(read(os.path.join(tdir, "log.txt"))):
+                if i["who"] in desks and i["kind"] == "fail":
+                    desks[i["who"]]["fails_today"] += 1
+                    if "hết hạn mức" in i["text"] and i["time"] > desks[i["who"]]["limited_at"]:
+                        desks[i["who"]]["limited_at"] = i["time"]
+        m = t["manager"]
+        if m["running"] or m["pending"] or m["retry_at"] > 1:
+            managers.append({"task": tid, "title": t["title"], "running": m["running"], "pending": m["pending"],
+                             "started": m["started"], "model": m["model"], "account": m["account"],
+                             "retry_at": m["retry_at"], "state": t["state"], "step": t["step"],
+                             "step_label": t["step_label"]})
+    # usage của từng tài khoản: % hạn mức gói thuê bao + token hôm nay (không tốn thêm lượt gọi)
+    import pt_usage
+    homes = {r[0]: pt_manager.resolve_home(r[2]) for r in pt_manager.conf_rows(pt_manager.WORKERS)}
+    for d in desks.values():
+        d["usage"] = pt_usage.usage_for(d["name"], d.get("tool", ""), homes.get(d["name"], ""))
+    return {"now": int(now), "desks": list(desks.values()), "managers": managers,
+            "workers_checked": WORKERS["checked"]}
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def send(self, code, body, ctype="application/json; charset=utf-8", extra_headers=None):
+        data = body.encode("utf-8") if isinstance(body, str) else body
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Length", str(len(data)))
+        for name, value in extra_headers or []:
+            self.send_header(name, value)
+        self.end_headers()
+        self.wfile.write(data)
+
+    def json(self, obj, code=200, extra_headers=None):
+        self.send(code, json.dumps(obj, ensure_ascii=False), extra_headers=extra_headers)
+
+    def session_tokens(self):
+        tokens = []
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            key, sep, value = part.strip().partition("=")
+            if sep and key == "pentagon_session":
+                tokens.append(value)
+        return tokens
+
+    def logged_in(self, encoded):
+        now = time.time()
+        with AUTH_LOCK:
+            for token in self.session_tokens():
+                item = SESSIONS.get(token)
+                if item and item[0] > now and hmac.compare_digest(item[1], encoded):
+                    return True
+                if item:
+                    SESSIONS.pop(token, None)
+        return False
+
+    def redirect(self, location):
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def host_ok(self):
+        host = (self.headers.get("Host") or "").lower()
+        return host in ("127.0.0.1:%d" % PORT[0], "localhost:%d" % PORT[0])
+
+    def do_GET(self):
+        if not self.host_ok():
+            return self.json({"error": "Host không hợp lệ"}, 403)
+        u = urlparse(self.path)
+        q = {k: v[0] for k, v in parse_qs(u.query).items()}
+        try:
+            encoded = auth_config()
+            if encoded is None and not u.path.startswith("/static/"):
+                return self.send(503, "config/auth.conf bị hỏng — chạy bin/dashboard --set-password hoặc --clear-password", "text/plain; charset=utf-8")
+            if not encoded:
+                clear_sessions()
+            if u.path == "/login":
+                if not encoded or self.logged_in(encoded):
+                    return self.redirect("/")
+                return self.send(200, read(LOGIN_PAGE) or "thiếu web/login.html", "text/html; charset=utf-8")
+            if encoded and u.path.startswith("/api/") and not self.logged_in(encoded):
+                return self.json({"error": "chưa đăng nhập"}, 401)
+            if encoded and u.path == "/" and not self.logged_in(encoded):
+                return self.redirect("/login")
+            if u.path == "/":
+                return self.send(200, read(PAGE) or "thiếu web/index.html", "text/html; charset=utf-8")
+            if u.path.startswith("/static/") and u.path[8:] in STATIC:
+                with open(os.path.join(ROOT, "web", u.path[8:]), "rb") as f:
+                    return self.send(200, f.read(), "image/png")
+            if u.path == "/api/tasks":
+                tasks = [summary(i) for i in task_ids()]
+                busy = sorted({r.get("worker") for t in tasks for r in t["running"]})
+                return self.json({"now": int(time.time()), "tasks": tasks, "busy": busy, "auth": bool(encoded),
+                                  "sizes": pt_manager.manager_models(),
+                                  "workers": WORKERS["items"], "workers_checked": WORKERS["checked"]})
+            if u.path == "/api/office":
+                return self.json(office())
+            if u.path == "/api/task":
+                tid = q.get("id", "")
+                if tid not in task_ids():
+                    return self.json({"error": "không có task"}, 404)
+                t = summary(tid, with_docs=True)
+                t["chat"] = pt_manager.chat(tid)
+                last = t["chat"][-1]["role"] if t["chat"] else ""
+                t["manager_stderr"] = pt_manager.stderr_tail(tid) if last == "error" or (
+                    t["manager"]["session"] and not t["manager"]["running"] and last not in ("end", "event")) else ""
+                return self.json(t)
+            if u.path == "/api/file":
+                tid, rel = q.get("id", ""), q.get("path", "")
+                if tid not in task_ids():
+                    return self.json({"error": "không có task"}, 404)
+                base = os.path.realpath(os.path.join(TASKS, tid))
+                p = os.path.realpath(os.path.join(base, rel))
+                if not p.startswith(base + os.sep) or not os.path.isfile(p):
+                    return self.json({"error": "không có file"}, 404)
+                return self.json({"path": rel, "text": read(p) or ""})
+            return self.json({"error": "không có"}, 404)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def do_POST(self):
+        if not self.host_ok() or self.headers.get("X-Pentagon") != "1" \
+                or not (self.headers.get("Content-Type") or "").startswith("application/json"):
+            return self.json({"error": "từ chối"}, 403)
+        origin = self.headers.get("Origin")
+        if origin and origin.lower() not in ("http://127.0.0.1:%d" % PORT[0], "http://localhost:%d" % PORT[0]):
+            return self.json({"error": "từ chối"}, 403)
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            if n < 0:
+                return self.json({"error": "Content-Length không hợp lệ"}, 400)
+            if n > 200000:
+                return self.json({"error": "nội dung quá dài"}, 413)
+            body = json.loads(self.rfile.read(n) or b"{}")
+            if not isinstance(body, dict):
+                body = {}
+        except ValueError:
+            return self.json({"error": "JSON không hợp lệ"}, 400)
+        path = urlparse(self.path).path
+        encoded = auth_config()
+        if encoded is None:
+            return self.json({"error": "config/auth.conf bị hỏng — chạy bin/dashboard --set-password hoặc --clear-password"}, 503)
+        if path in ("/api/login", "/api/logout"):
+            if path == "/api/logout":
+                with AUTH_LOCK:
+                    for token in self.session_tokens():
+                        SESSIONS.pop(token, None)
+                return self.json({"ok": True}, extra_headers=[("Set-Cookie", "pentagon_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")])
+            if not encoded:
+                return self.json({"ok": True})
+            global FAILURES, LAST_FAILURE, LOCKED_UNTIL
+            with VERIFY_LOCK:
+                now = time.time()
+                with AUTH_LOCK:
+                    if LAST_FAILURE and now - LAST_FAILURE > 600:
+                        FAILURES, LAST_FAILURE = 0, 0
+                    wait = max(0, int(LOCKED_UNTIL - now + 0.999))
+                if wait:
+                    self.json({"error": "Đăng nhập tạm khoá", "retry_after": wait}, 429)
+                    return
+                password = body.get("password", "")
+                if not isinstance(password, str) or not valid_password(password, encoded):
+                    with AUTH_LOCK:
+                        FAILURES += 1
+                        LAST_FAILURE = time.time()
+                        if FAILURES >= 5:
+                            FAILURES, LOCKED_UNTIL = 0, time.time() + 60
+                            wait = 60
+                        else:
+                            wait = 0
+                    if wait:
+                        self.json({"error": "Đăng nhập tạm khoá", "retry_after": wait}, 429)
+                    else:
+                        self.json({"error": "Mật khẩu không đúng"}, 401)
+                    return
+                token = secrets.token_urlsafe(32)
+                with AUTH_LOCK:
+                    FAILURES, LAST_FAILURE, LOCKED_UNTIL = 0, 0, 0
+                    now = time.time()
+                    for old_token, session in list(SESSIONS.items()):
+                        if session[0] <= now:
+                            SESSIONS.pop(old_token, None)
+                    SESSIONS[token] = (now + SESSION_SECONDS, encoded)
+                return self.json({"ok": True}, extra_headers=[("Set-Cookie", "pentagon_session=%s; HttpOnly; SameSite=Strict; Path=/; Max-Age=%d" % (token, SESSION_SECONDS))])
+        if encoded and path.startswith("/api/") and not self.logged_in(encoded):
+            return self.json({"error": "chưa đăng nhập"}, 401)
+        tid = body.get("id", "")
+        try:
+            if path == "/api/giao":
+                mode = body.get("mode") if body.get("mode") in ("duyet", "lam-luon") else "tu-quyet"
+                size = body.get("size") if body.get("size") in ("nho", "vua", "lon") else "auto"
+                split = "song-song" if body.get("split") == "song-song" else "mot"
+                tid = pt_manager.launch_new(str(body.get("text", "")), mode, size, split, background=True)
+                return self.json({"ok": True, "id": tid})
+            if tid not in task_ids():
+                return self.json({"error": "không có task"}, 404)
+            if path == "/api/send":
+                pt_manager.send(tid, str(body.get("text", "")), reaper=True)
+            elif path == "/api/stop":
+                pt_manager.stop(tid)
+            elif path == "/api/kill-worker":
+                pt_manager.kill_worker(tid, str(body.get("pid", "")))
+            elif path == "/api/cancel":
+                pt_manager.cancel_task(tid)
+            elif path == "/api/set-split":
+                split = "song-song" if body.get("split") == "song-song" else "mot"
+                pt_manager.put(tid, "split", split)
+                pt_manager.append_event(tid, "pentagon_event", "Chủ đổi kiểu giao việc: %s (áp dụng từ lượt sau)."
+                                        % ("song song nhiều worker" if split == "song-song" else "một worker làm"))
+            elif path == "/api/retry-now":
+                pt_manager.put(tid, "retry_at", "1")
+                pt_manager.check_retries()
+            elif path == "/api/done":
+                subprocess.run([os.path.join(ROOT, "bin", "progress"), os.path.join(TASKS, tid), "xong",
+                                "chủ đánh dấu hoàn thành"], capture_output=True)
+            else:
+                return self.json({"error": "không có"}, 404)
+            return self.json({"ok": True, "id": tid})
+        except RuntimeError as e:
+            return self.json({"error": str(e)}, 409)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+
+def cmd_dashboard(argv):
+    port, do_open = 8765, False
+    if argv == ["--set-password"]:
+        return set_password_cli()
+    if argv == ["--clear-password"]:
+        return set_password_cli(clear=True)
+    i = 0
+    while i < len(argv):
+        if argv[i] in ("-p", "--port") and i + 1 < len(argv):
+            port = int(argv[i + 1])
+            i += 1
+        elif argv[i] == "--open":
+            do_open = True
+        elif argv[i] in ("-h", "--help"):
+            print("Cách dùng: bin/dashboard [--port N] [--open] | --set-password | --clear-password\n"
+                  "  Web app Pentagon tại http://127.0.0.1:8765 (chỉ máy này truy cập được).\n"
+                  "  --open  mở luôn trình duyệt\n"
+                  "  --set-password  đặt mật khẩu dashboard (tối thiểu 8 ký tự)\n"
+                  "  --clear-password  tắt đăng nhập dashboard")
+            return 0
+        i += 1
+    server = None
+    for p in range(port, port + 10):
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", p), Handler)
+            port = p
+            break
+        except OSError:
+            continue
+    if not server:
+        print("Không mở được cổng %d-%d" % (port, port + 9), file=sys.stderr)
+        return 1
+    PORT[0] = port
+    threading.Thread(target=refresh_workers_forever, daemon=True).start()
+    threading.Thread(target=retry_forever, daemon=True).start()
+    url = "http://127.0.0.1:%d" % port
+    print("Pentagon: %s   (Ctrl+C để tắt; các quản lý đang chạy nền vẫn tiếp tục)" % url, flush=True)
+    if do_open:
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        try:
+            subprocess.Popen([opener, url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print()
+    return 0

@@ -4,8 +4,11 @@ source "$(dirname "$0")/lib.sh"
 
 title="$*"
 [ -n "$title" ] || die "cách dùng: bin/new-task \"tiêu đề ngắn\""
-slug="$(printf '%s' "$title" | sed 's/[đĐ]/d/g' | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null \
-  | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//; s/-*$//' | cut -c1-40)"
+ascii="$(printf '%s' "$title" | python3 -c 'import sys,unicodedata as u
+t = sys.stdin.read().replace("đ", "d").replace("Đ", "D")
+print("".join(c for c in u.normalize("NFD", t) if not u.combining(c)))' 2>/dev/null \
+  || printf '%s' "$title" | sed 's/[đĐ]/d/g' | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null)"
+slug="$(printf '%s' "$ascii" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//; s/-*$//' | cut -c1-40)"
 dir="$ORCH_ROOT/tasks/$(date +%Y%m%d-%H%M)-${slug:-task}"
 mkdir -p "$dir/results"
 
@@ -29,4 +32,5 @@ cat >"$dir/plan.md" <<'EOF'
 |---|----------|--------|------------|------------|
 EOF
 
+"$ORCH_ROOT/bin/progress" "$dir" 1 "tạo task: $title" 2>/dev/null
 echo "$dir"

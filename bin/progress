@@ -1,0 +1,48 @@
+#!/bin/bash
+# Ghi tiến độ của một task để chủ theo dõi (bin/status, bin/dashboard).
+#   bin/progress <thư_mục_task> <bước> ["ghi chú"]
+#   <bước>: 1 tiếp nhận | 2 tối ưu | 3 kế hoạch | 4 giao việc | 5 kiểm tra | 6 tổng hợp
+#           cho  = đang chờ chủ trả lời/duyệt (giữ nguyên bước hiện tại)
+#           tiep = làm tiếp sau khi chờ (giữ nguyên bước hiện tại)
+#           xong = task hoàn thành
+#           loi  = task bị dừng/lỗi
+source "$(dirname "$0")/lib.sh"
+
+TASK="$1"; STEP_ARG="$2"; shift 2 2>/dev/null; NOTE="$*"
+if [ -z "$TASK" ] || [ -z "$STEP_ARG" ]; then
+  sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1
+fi
+[ -d "$TASK" ] || die "không thấy thư mục task: $TASK"
+TASK="$(cd "$TASK" && pwd)"
+ST="$TASK/status"
+
+old_step="$(sed -n 's/^step=//p' "$ST" 2>/dev/null)"; old_step="${old_step:-1}"
+case "$STEP_ARG" in
+  [1-6]) step="$STEP_ARG"; state="dang-lam" ;;
+  cho)   step="$old_step"; state="cho" ;;
+  tiep)  step="$old_step"; state="dang-lam" ;;
+  xong)  step=6; state="xong" ;;
+  loi)   step="$old_step"; state="loi" ;;
+  *) die "bước không hợp lệ: $STEP_ARG (dùng 1-6, cho, tiep, xong, loi)" ;;
+esac
+
+case "$step" in
+  1) label="Tiếp nhận" ;; 2) label="Tối ưu yêu cầu" ;; 3) label="Lập kế hoạch" ;;
+  4) label="Giao việc" ;; 5) label="Kiểm tra" ;; 6) label="Tổng hợp" ;;
+esac
+case "$state" in
+  cho)  tag="CHỜ CHỦ" ;;
+  xong) tag="HOÀN THÀNH" ;;
+  loi)  tag="DỪNG/LỖI" ;;
+  *)    tag="bước $step $label" ;;
+esac
+
+NOTE_ONE="$(printf '%s' "$NOTE" | tr '\n' ' ')"
+{
+  echo "step=$step"
+  echo "state=$state"
+  echo "note=$NOTE_ONE"
+  echo "updated=$(date +%s)"
+} >"$ST"
+echo "$(date '+%H:%M:%S') quan-ly [$tag] $NOTE_ONE" >>"$TASK/log.txt"
+say "[progress] $(basename "$TASK"): $tag${NOTE_ONE:+ — $NOTE_ONE}"

@@ -1,0 +1,8 @@
+#!/bin/bash
+# Mở giao diện web theo dõi task (tự làm mới mỗi 3 giây), chỉ truy cập được từ máy này.
+#   bin/dashboard            chạy tại http://127.0.0.1:8765
+#   bin/dashboard --open     chạy và mở trình duyệt
+#   bin/dashboard --port N   đổi cổng
+#   bin/dashboard --set-password   đặt mật khẩu; --clear-password   tắt mật khẩu
+command -v python3 >/dev/null 2>&1 || { echo "Lỗi: cần python3 (macOS: xcode-select --install hoặc brew install python)" >&2; exit 1; }
+exec python3 "$(dirname "$0")/tracker.py" dashboard "$@"

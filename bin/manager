@@ -1,0 +1,9 @@
+#!/bin/bash
+# Chạy AI quản lý ở nền (không cần mở Claude Code) — cũng là thứ giao diện web dùng.
+#   bin/manager new [--duyet|--lam-luon] "yêu cầu"   tạo task, quản lý bắt đầu làm
+#   bin/manager send <task> "tin nhắn"               trả lời/nhắn cho quản lý của task
+#   bin/manager stop <task>                          dừng quản lý
+#   bin/manager size <task> <nho|vua|lon>          đổi cỡ task (quản lý dùng)
+#   bin/manager kill-worker <task> <pid>             huỷ một worker đang chạy
+command -v python3 >/dev/null 2>&1 || { echo "Lỗi: cần python3" >&2; exit 1; }
+exec python3 "$(dirname "$0")/tracker.py" manager "$@"

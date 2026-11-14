@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pentagon</title>
+<link rel="icon" type="image/png" href="/static/favicon.png">
+<style>
+:root{
+  --bg:#f6f7f9;--panel:#fff;--line:#e3e6ea;--text:#1d2228;--muted:#69727d;--soft:#f0f2f5;
+  --accent:#3b6fd8;--ok:#1f9d55;--warn:#c58a00;--bad:#d64545;--run:#0e8fa6;--mgr:#8a4fd1;--me:#e8f0ff;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121417;--panel:#1a1d21;--line:#2b3036;--text:#e6e8eb;--muted:#9099a3;--soft:#22262b;
+  --accent:#6f9bff;--ok:#3ccf7f;--warn:#f0b429;--bad:#ff6b6b;--run:#3cc7de;--mgr:#b98aff;--me:#23324f;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:7px;padding:5px 12px;font-size:13px}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.danger{color:var(--bad)}.btn.danger:hover{border-color:var(--bad)}
+.btn.sm{padding:2px 9px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0;letter-spacing:2px;display:flex;align-items:center;gap:8px;font-weight:700}
+header h1 img{height:28px;width:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+#logoutBtn{white-space:nowrap;flex-shrink:0}
+.welcome{text-align:center;padding:60px 20px;color:var(--muted)}
+.welcome img{width:min(340px,80%);height:auto;filter:drop-shadow(0 6px 18px rgba(0,0,0,.25));margin-bottom:18px}
+.settings{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.settings select{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:6px;padding:2px 6px}
+.optgroup{margin-bottom:10px}.optgroup>b{display:block;font-size:12.5px;margin-bottom:4px}
+.sub{color:var(--muted);font-size:12.5px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;background:var(--soft)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none;display:inline-block}
+.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.run{background:var(--run);animation:pulse 1.2s infinite}.dot.mgr{background:var(--mgr);animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+main{display:grid;grid-template-columns:330px 1fr;min-height:calc(100vh - 54px)}
+aside{border-right:1px solid var(--line);background:var(--panel);overflow:auto;max-height:calc(100vh - 54px);position:sticky;top:54px}
+.filter{display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.filter button{flex:1;border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:6px;padding:4px;font-size:12px}
+.filter button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.task{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.task:hover{background:var(--soft)}
+.task.sel{background:var(--soft);box-shadow:inset 3px 0 0 var(--accent)}
+.task .t{font-weight:600;margin-bottom:4px}
+.meta{color:var(--muted);font-size:12px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.bar{display:flex;gap:3px;margin:6px 0}
+.bar i{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.bar i.d{background:var(--ok)}.bar i.c{background:var(--accent)}.bar i.c.cho{background:var(--warn)}.bar i.c.loi{background:var(--bad)}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600;color:#fff;background:var(--accent)}
+.badge.xong{background:var(--ok)}.badge.cho{background:var(--warn)}.badge.loi{background:var(--bad)}
+section.detail{padding:20px 26px;min-width:0}
+.empty{color:var(--muted);padding:40px;text-align:center}
+.head{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.head .grow{flex:1;min-width:240px}
+.head h2{margin:0 0 4px;font-size:21px}
+.stepper{display:flex;margin:18px 0 8px;flex-wrap:wrap;gap:8px 0}
+.st{flex:1;min-width:90px;text-align:center;position:relative;font-size:12px;color:var(--muted)}
+.st:before{content:"";position:absolute;top:13px;left:-50%;right:50%;height:2px;background:var(--line);z-index:0}
+.st:first-child:before{display:none}
+.st b{position:relative;z-index:1;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--panel);border:2px solid var(--line);font-size:12px;margin-bottom:4px}
+.st.d b{background:var(--ok);border-color:var(--ok);color:#fff}.st.d:before{background:var(--ok)}
+.st.c{color:var(--text);font-weight:600}.st.c b{border-color:var(--accent);color:var(--accent)}
+.st.c.cho b{border-color:var(--warn);color:var(--warn)}.st.c.loi b{border-color:var(--bad);color:var(--bad)}
+.note{background:var(--soft);border-left:3px solid var(--accent);padding:8px 12px;border-radius:4px;margin:10px 0 0}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;margin-top:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;min-width:0}
+.card h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px}
+.card h3 .sub{font-weight:400}
+.card h3 .right{margin-left:auto;display:flex;gap:6px}
+/* hội thoại với quản lý */
+.mstatus{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--soft);margin-bottom:10px;font-size:13px;flex-wrap:wrap}
+.mstatus.wait{background:color-mix(in srgb,var(--warn) 15%,var(--panel));border:1px solid color-mix(in srgb,var(--warn) 45%,transparent)}
+.mstatus .grow{flex:1}
+.chat{max-height:460px;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:2px}
+.msg{max-width:92%;padding:8px 12px;border-radius:10px;font-size:13.5px}
+.msg.owner{align-self:flex-end;background:var(--me);white-space:pre-wrap;word-break:break-word}
+.msg.manager{align-self:flex-start;background:var(--soft)}
+.msg.tool{align-self:flex-start;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);padding:2px 12px;word-break:break-all}
+.msg.end{align-self:center;font-size:11.5px;color:var(--muted)}
+.msg.event{align-self:center;font-size:12px;color:var(--warn)}
+.msg.error{align-self:stretch;color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--panel));white-space:pre-wrap;font-size:12.5px}
+.composer{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+textarea{width:100%;min-height:70px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel);color:var(--text);font:inherit}
+textarea:focus{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);border-color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row .grow{flex:1}
+.runner{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.runner:first-of-type{border-top:0;padding-top:0}
+.runner .w{font-weight:600}
+.runner .el{font-variant-numeric:tabular-nums;color:var(--run);font-weight:600;white-space:nowrap;min-width:52px}
+.runner .grow{flex:1;min-width:0}
+.log{max-height:520px;overflow:auto;font-size:12.5px}
+.log div{display:grid;grid-template-columns:auto 1fr;gap:0 8px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.log .tm{color:var(--muted);font-variant-numeric:tabular-nums}
+.log .who{font-weight:600}
+.log .tx{grid-column:1/-1;word-break:break-word}
+.k-manager .who{color:var(--mgr)}.k-start .who{color:var(--run)}.k-ok .who{color:var(--ok)}.k-fail .who,.k-fail .tx{color:var(--bad)}
+details{border-top:1px solid var(--line);padding:8px 0}
+details:first-of-type{border-top:0}
+summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.md{overflow-x:auto;font-size:13.5px}
+.md>:first-child{margin-top:0}.md>:last-child{margin-bottom:0}
+.md h1,.md h2,.md h3,.md h4{margin:12px 0 6px;font-size:15px}.md h1{font-size:16px}
+.md p{margin:6px 0}.md ul,.md ol{margin:6px 0;padding-left:22px}
+.md table{border-collapse:collapse;margin:8px 0;font-size:13px;width:100%}
+.md th,.md td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+.md th{background:var(--soft)}
+.md code{background:var(--soft);padding:1px 5px;border-radius:4px;font-size:12.5px}
+.msg.manager .md code{background:var(--panel)}
+.md pre{background:var(--soft);padding:10px;border-radius:6px;overflow:auto}.md pre code{padding:0;background:none}
+.md blockquote{margin:6px 0;padding-left:10px;border-left:3px solid var(--line);color:var(--muted)}
+.muted{color:var(--muted)}
+/* hộp giao task */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:8vh 16px;z-index:10}
+.modal.on{display:flex}
+.modal .box{max-height:86vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;width:min(640px,100%);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal h3{margin:0 0 4px}
+.modal textarea{min-height:150px;margin:10px 0}
+.opts{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:13px}
+.opts label{display:flex;gap:8px;align-items:baseline;cursor:pointer}
+.tabs{display:flex;gap:2px;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:3px}
+.tabs button{border:0;background:none;color:var(--muted);padding:4px 12px;border-radius:7px;font-size:13px;font-weight:600}
+.tabs button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.office{padding:22px 26px;max-width:1400px;margin:0 auto}
+.office h2{margin:0 0 2px;font-size:20px}
+.office h4{margin:26px 0 10px;font-size:13px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.desks{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.desk{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.desk.busy{border-color:color-mix(in srgb,var(--run) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--run) 12%,transparent)}
+.desk.mgr.busy{border-color:color-mix(in srgb,var(--mgr) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--mgr) 12%,transparent)}
+.desk.off{opacity:.65}
+.desk .top{display:flex;align-items:center;gap:8px}
+.desk .nm{font-weight:700;font-size:15px}
+.desk .tool{margin-left:auto;font-size:11px;padding:1px 8px;border-radius:99px;background:var(--soft);border:1px solid var(--line);color:var(--muted)}
+.desk .stt{font-size:13px;font-weight:600}
+.desk .job{background:var(--soft);border-radius:8px;padding:8px 10px;font-size:12.5px;cursor:pointer}
+.desk .job:hover{outline:1px solid var(--accent)}
+.desk .job b{display:block;font-size:13px}
+.usage{display:flex;flex-direction:column;gap:5px;font-size:12px}
+.ubar{display:grid;grid-template-columns:62px 1fr 42px;gap:6px;align-items:center}
+.ubar .tr{height:7px;border-radius:4px;background:var(--line);overflow:hidden}
+.ubar .tr i{display:block;height:100%;background:var(--ok);border-radius:4px}
+.ubar .tr i.mid{background:var(--warn)}.ubar .tr i.hi{background:var(--bad)}
+.ubar b{text-align:right;font-variant-numeric:tabular-nums}
+.desk .foot{margin-top:auto;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.on{opacity:.95}
+@media (max-width:1250px){.grid{grid-template-columns:1fr}}
+@media (max-width:900px){
+  .office{padding:16px}
+  header .tabs{order:5;width:100%}
+  main{grid-template-columns:1fr}
+  aside{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}
+  section.detail{padding:16px}
+  header{position:static}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1><img src="/static/mark.png" alt="">PENTAGON</h1>
+  <nav class="tabs" id="tabs"><button data-v="dh" class="on">Phòng Điều hành</button><button data-v="vp">Văn phòng làm việc</button></nav>
+  <button class="btn pri" id="newBtn">+ Giao task</button>
+  <button class="btn sm" id="logoutBtn" hidden>Đăng xuất</button>
+  <span class="sub" id="summary">đang tải…</span>
+  <div class="chips" id="workers"></div>
+</header>
+<section class="office" id="office" hidden></section>
+<main id="dh">
+  <aside>
+    <div class="filter" id="filter">
+      <button data-f="active" class="on">Đang làm</button><button data-f="all">Tất cả</button><button data-f="done">Xong</button>
+    </div>
+    <div id="list"></div>
+  </aside>
+  <section class="detail" id="detail"><div class="welcome"><img src="/static/logo.png" alt="Pentagon"><div>Chọn một task bên trái, hoặc bấm “+ Giao task”.</div></div></section>
+</main>
+
+<div class="modal" id="modal"><div class="box">
+  <h3>Giao task mới</h3>
+  <div class="sub">AI quản lý sẽ tối ưu yêu cầu, chia việc cho các worker, kiểm tra và tổng hợp — như lệnh /giao.</div>
+  <textarea id="newText" placeholder="Mô tả task bằng tiếng Việt… (⌘/Ctrl + Enter để giao)"></textarea>
+  <div class="opts">
+   <div class="optgroup sub">Cỡ task (nhỏ/vừa/lớn) do AI quản lý tự phân loại để chọn model: task nhỏ dùng model nhỏ <span id="sizeMap"></span>.</div>
+   <div class="optgroup"><b>Cách giao việc</b>
+    <label><input type="radio" name="split" value="mot" checked> <span><b>Một worker làm</b> <span class="sub">— giao cho một AI phù hợp nhất, làm lần lượt, không chạy song song</span></span></label>
+    <label><input type="radio" name="split" value="song-song"> <span><b>Song song</b> <span class="sub">— chia việc cho nhiều worker cùng làm một lúc</span></span></label>
+   </div>
+   <div class="optgroup"><b>Duyệt kế hoạch</b>
+    <label><input type="radio" name="mode" value="tu-quyet" checked> <span><b>Để quản lý tự quyết</b> <span class="sub">— task lớn/mơ hồ thì hỏi bạn trước, nhỏ thì làm luôn</span></span></label>
+    <label><input type="radio" name="mode" value="duyet"> <span><b>Chờ tôi duyệt kế hoạch</b> <span class="sub">— lập kế hoạch xong thì dừng chờ bạn đồng ý</span></span></label>
+    <label><input type="radio" name="mode" value="lam-luon"> <span><b>Làm luôn</b> <span class="sub">— chỉ hỏi khi thật sự thiếu thông tin</span></span></label>
+   </div>
+  </div>
+  <div class="row"><span class="grow sub">Quản lý chạy nền trên máy này; đóng trang không làm dừng task.</span>
+    <button class="btn" id="newCancel">Huỷ</button><button class="btn pri" id="newGo">Giao task</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STEPS=["Tiếp nhận","Tối ưu yêu cầu","Lập kế hoạch","Giao việc","Kiểm tra","Tổng hợp"];
+let view=location.hash==="#van-phong"?"vp":"dh", filter="active", sel=location.hash==="#van-phong"?"":decodeURIComponent(location.hash.slice(1))||"", lastList="", parts={}, openSet=new Set(), fileCache={}, cur=null, busyPost=false;
+let skew=0, SIZES={nho:"",vua:"",lon:""}, redirecting=false;
+const SIZE_TXT={nho:"Nhỏ",vua:"Vừa",lon:"Lớn"};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const now=()=>Date.now()/1000+skew;
+function dur(s){s=Math.max(0,Math.floor(s));if(s<60)return s+"s";if(s<3600)return Math.floor(s/60)+"m"+String(s%60).padStart(2,"0")+"s";return Math.floor(s/3600)+"h"+String(Math.floor(s%3600/60)).padStart(2,"0")+"m"}
+function ago(t){if(!t)return"?";const d=now()-t;if(d<60)return"vừa xong";if(d<3600)return Math.floor(d/60)+" phút trước";if(d<86400)return Math.floor(d/3600)+" giờ trước";return new Date(t*1000).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
+function toast(m){if(redirecting)return;const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),3200)}
+
+// Markdown tối giản: tiêu đề, bảng, danh sách, code, trích dẫn, in đậm
+function inline(s){return esc(s).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>")}
+function md(src){
+  src=String(src||"").replace(/<!--[\s\S]*?-->/g,"");
+  const L=src.split("\n"),out=[];let i=0;
+  while(i<L.length){
+    const l=L[i];
+    if(/^\s*```/.test(l)){const b=[];i++;while(i<L.length&&!/^\s*```/.test(L[i]))b.push(L[i++]);i++;out.push("<pre><code>"+esc(b.join("\n"))+"</code></pre>");continue}
+    let m=l.match(/^(#{1,6})\s+(.*)/);if(m){out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`);i++;continue}
+    if(/^\s*\|/.test(l)){const rows=[];while(i<L.length&&/^\s*\|/.test(L[i]))rows.push(L[i++]);
+      const cells=r=>r.trim().replace(/^\||\|$/g,"").split("|").map(c=>c.trim());
+      let h="<table>";rows.forEach((r,k)=>{if(/^[\s|:-]+$/.test(r))return;const tag=k===0?"th":"td";h+="<tr>"+cells(r).map(c=>`<${tag}>${inline(c)}</${tag}>`).join("")+"</tr>"});
+      out.push(h+"</table>");continue}
+    if(/^\s*([-*]|\d+\.)\s+/.test(l)){const ord=/^\s*\d+\./.test(l),b=[];while(i<L.length&&/^\s*([-*]|\d+\.)\s+/.test(L[i]))b.push(L[i++].replace(/^\s*([-*]|\d+\.)\s+/,""));
+      out.push((ord?"<ol>":"<ul>")+b.map(x=>"<li>"+inline(x)+"</li>").join("")+(ord?"</ol>":"</ul>"));continue}
+    if(/^>\s?/.test(l)){const b=[];while(i<L.length&&/^>\s?/.test(L[i]))b.push(L[i++].replace(/^>\s?/,""));out.push("<blockquote>"+inline(b.join(" "))+"</blockquote>");continue}
+    if(!l.trim()){i++;continue}
+    const b=[];while(i<L.length&&L[i].trim()&&!/^(#{1,6}\s|\s*```|\s*\||\s*([-*]|\d+\.)\s|>)/.test(L[i]))b.push(L[i++]);
+    out.push("<p>"+b.map(inline).join("<br>")+"</p>");
+  }
+  return out.join("");
+}
+
+async function apiFetch(path,options={}){
+  const r=await fetch(path,options);
+  if(r.status===401){redirecting=true;location.href="/login";throw new Error("Phiên đăng nhập đã hết hạn")}
+  return r;
+}
+async function post(path,body){
+  const r=await apiFetch(path,{method:"POST",headers:{"Content-Type":"application/json","X-Pentagon":"1"},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({error:"lỗi máy chủ"}));
+  if(!r.ok||d.error)throw new Error(d.error||("lỗi "+r.status));
+  return d;
+}
+async function act(path,body,okMsg){
+  if(busyPost)return;busyPost=true;
+  try{const d=await post(path,body);if(okMsg)toast(okMsg);parts={};await tick();return d}
+  catch(e){toast("Không được: "+e.message)}finally{busyPost=false}
+}
+
+function bar(t){let h='<div class="bar">';for(let k=1;k<=6;k++){const d=t.state==="xong"||k<t.step,c=!d&&k===t.step;h+=`<i class="${d?"d":""} ${c?"c "+t.state:""}"></i>`}return h+"</div>"}
+function badge(t){const txt=t.state==="dang-lam"?`Bước ${t.step}/6 · ${t.step_label}`:t.state==="xong"?"Hoàn thành":`${t.state_label} · bước ${t.step}`;return `<span class="badge ${t.state}">${esc(txt)}</span>`}
+
+function renderList(d){
+  const busy=new Set(d.busy);
+  $("#workers").innerHTML=d.workers.map(w=>{
+    const cls=busy.has(w.name)?"run":w.login==="ok"?"ok":"bad";
+    const tip=busy.has(w.name)?"đang làm việc":w.login==="ok"?"rảnh, đã đăng nhập":w.login==="logout"?"chưa đăng nhập":"chưa cài CLI";
+    return `<span class="chip" title="${esc(tip+(w.model?" · model "+w.model:"")+" · "+w.desc)}"><span class="dot ${cls}"></span>${esc(w.name)}</span>`}).join("")||'<span class="sub">đang kiểm tra worker…</span>';
+  const act=d.tasks.filter(t=>t.state!=="xong"||t.running.length||t.manager.running);
+  const nrun=d.tasks.reduce((a,t)=>a+t.running.length,0), nwait=d.tasks.filter(t=>t.state==="cho"&&!t.manager.running).length;
+  $("#summary").textContent=`${d.tasks.length} task · ${act.length} đang làm · ${nrun} worker đang chạy`+(nwait?` · ${nwait} chờ bạn`:"");
+  document.title=(nwait?`(${nwait}) `:"")+"Pentagon";
+  let ts=filter==="all"?d.tasks:filter==="done"?d.tasks.filter(t=>!act.includes(t)):act;
+  if(!sel&&d.tasks.length){sel=(act[0]||d.tasks[0]).id}
+  $("#list").innerHTML=ts.map(t=>`<div class="task ${t.id===sel?"sel":""}" data-id="${esc(t.id)}">
+    <div class="t">${esc(t.title)}</div>${bar(t)}
+    <div class="meta">${badge(t)}${t.manager.running?`<span style="color:var(--mgr)">● quản lý đang làm</span>`:""}${t.manager.pending?`<span style="color:var(--mgr)">● đang chuẩn bị</span>`:""}
+      ${t.manager.retry_at>1?`<span style="color:var(--warn)">⏸ hết hạn mức</span>`:""}${t.manager.size?`<span>cỡ ${SIZE_TXT[t.manager.size]||t.manager.size}</span>`:""}
+      ${t.running.length?`<span style="color:var(--run)">▶ ${t.running.length} worker</span>`:""}
+      ${t.plan_total?`<span>${t.plan_done}/${t.plan_total} việc con</span>`:""}<span>${t.results_count} kết quả</span>
+      ${t.fails?`<span style="color:var(--bad)">${t.fails} lỗi</span>`:""}<span data-ago="${t.updated}">${ago(t.updated)}</span></div></div>`).join("")
+    ||`<div class="empty">${filter==="active"?"Không có task nào đang làm.":"Chưa có task."}</div>`;
+  updTimers();
+}
+
+// Khung chi tiết dựng 1 lần cho mỗi task; mỗi lần làm mới chỉ thay phần nào đổi, để không mất chữ đang gõ
+function skeleton(){
+  $("#detail").innerHTML=`<div id="p-head"></div><div class="stepper" id="p-steps"></div><div id="p-note"></div>
+  <div class="grid"><div>
+    <div class="card"><h3>Trao đổi với AI quản lý</h3>
+      <div class="settings">
+        <span id="p-size"></span>
+        <label>Giao việc <select id="splitSel"><option value="mot">Một worker làm</option><option value="song-song">Song song</option></select></label>
+        <span id="p-acct"></span>
+      </div><div id="p-mstatus"></div><div class="chat" id="p-chat"></div>
+      <div class="composer"><textarea id="msg" placeholder="Nhắn cho quản lý: trả lời câu hỏi, duyệt kế hoạch, yêu cầu sửa… (⌘/Ctrl + Enter để gửi)"></textarea>
+      <div class="row"><span class="grow sub" id="p-hint"></span><button class="btn" id="okBtn">Đồng ý, tiến hành</button><button class="btn pri" id="sendBtn">Gửi</button></div></div></div>
+    <div id="p-run"></div>
+    <div class="card"><h3>Kế hoạch <span class="sub" id="p-plancount"></span></h3><div class="md" id="p-plan"></div></div>
+    <div class="card"><h3>Kết quả của worker <span class="sub" id="p-rescount"></span></h3><div id="p-results"></div></div>
+    <div class="card" id="p-docs"></div>
+  </div><div><div class="card"><h3>Nhật ký <span class="sub">mới nhất ở trên</span></h3><div class="log" id="p-log"></div></div></div></div>`;
+  $("#sendBtn").onclick=sendMsg;
+  $("#okBtn").onclick=()=>{$("#msg").value="Đồng ý, tiến hành.";sendMsg()};
+  $("#splitSel").onchange=e=>act("/api/set-split",{id:cur.id,split:e.target.value},"Đã đổi cách giao việc — áp dụng từ lượt sau");
+  $("#msg").onkeydown=e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();sendMsg()}};
+}
+function setPart(id,html){if(parts[id]===html)return false;parts[id]=html;const el=document.getElementById(id);if(el)el.innerHTML=html;return true}
+
+function renderDetail(t){
+  if(!document.getElementById("p-head")||parts._id!==t.id){skeleton();parts={_id:t.id}}
+  cur=t;
+  const m=t.manager, waiting=t.state==="cho"&&!m.running;
+  setPart("p-head",`<div class="head"><div class="grow"><h2>${esc(t.title)}</h2>
+    <div class="meta">${badge(t)}<span>${esc(t.id)}</span><span>tạo ${esc(t.created)}</span><span>tasks/${esc(t.id)}/</span></div></div>
+    <div class="row">${t.state!=="xong"?`<button class="btn sm" data-act="done">Đánh dấu xong</button>`:""}
+      ${t.state!=="xong"&&t.state!=="loi"?`<button class="btn sm danger" data-act="cancel">Huỷ task</button>`:""}</div></div>`);
+  setPart("p-steps",STEPS.map((s,k)=>{const n=k+1,d=t.state==="xong"||n<t.step,c=!d&&n===t.step;return `<div class="st ${d?"d":""} ${c?"c "+t.state:""}"><b>${d?"✓":n}</b><div>${s}</div></div>`}).join(""));
+  setPart("p-note",t.note?`<div class="note">${esc(t.note)}</div>`:"");
+
+  const sp=$("#splitSel");
+  if(document.activeElement!==sp)sp.value=m.split||"mot";
+  setPart("p-size",m.size?`Cỡ: <b>${SIZE_TXT[m.size]||esc(m.size)}</b> <span title="AI quản lý tự phân loại; nó có thể đổi cỡ khi làm">· quản lý phân loại</span>`:(m.pending?"Cỡ: đang phân loại…":"Cỡ: chưa phân loại"));
+  setPart("p-acct",`Model: <b>${esc(m.model||"mặc định")}</b>`+(m.account?` · Tài khoản: <b>${esc(m.account)}</b>`:""));
+  let ms;
+  if(m.pending) ms=`<div class="mstatus"><span class="dot mgr"></span><span class="grow">${esc(m.pending)}</span></div>`;
+  else if(m.retry_at>1&&!m.running) ms=`<div class="mstatus wait"><span class="grow"><b>Hết hạn mức ở mọi tài khoản Claude.</b> Phần đã làm được giữ nguyên; quản lý sẽ tự làm tiếp lúc ${new Date(m.retry_at*1000).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})} (để bin/dashboard chạy).</span><button class="btn sm" data-act="retry">Thử ngay</button></div>`;
+  else if(m.running) ms=`<div class="mstatus"><span class="dot mgr"></span><span class="grow"><b>Quản lý đang làm</b> · <span data-started="${m.started}"></span></span><button class="btn sm danger" data-act="stop">Dừng quản lý</button></div>`;
+  else if(waiting) ms=`<div class="mstatus wait"><span class="grow"><b>Quản lý đang chờ bạn.</b> ${esc(t.note)}</span></div>`;
+  else if(!m.session) ms=`<div class="mstatus"><span class="grow sub">Task này chưa có phiên quản lý trên web (có thể tạo từ Claude Code). Gửi tin nhắn để quản lý web đọc lại task và làm tiếp.</span></div>`;
+  else ms=`<div class="mstatus"><span class="grow sub">Quản lý đang nghỉ. Gửi tin nhắn để giao thêm việc hoặc yêu cầu sửa.</span></div>`;
+  if(t.manager_stderr) ms+=`<div class="msg error">Lỗi khi chạy quản lý:\n${esc(t.manager_stderr)}</div>`;
+  setPart("p-mstatus",ms);
+
+  const box=$("#p-chat"), atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<40;
+  if(setPart("p-chat",(t.chat||[]).map(c=>c.role==="manager"?`<div class="msg manager"><div class="md">${md(c.text)}</div></div>`
+      :`<div class="msg ${c.role}">${esc(c.text)}</div>`).join("")||'<div class="sub">Chưa có trao đổi nào.</div>')&&atBottom) box.scrollTop=box.scrollHeight;
+  $("#msg").disabled=m.running||!!m.pending;$("#sendBtn").disabled=m.running||!!m.pending;
+  $("#okBtn").style.display=waiting?"":"none";
+  $("#p-hint").textContent=m.running?"Chờ quản lý xong lượt này để nhắn tiếp (hoặc Dừng).":"";
+
+  setPart("p-run",t.running.length?`<div class="card"><h3><span class="dot run"></span>Worker đang chạy</h3>${t.running.map(r=>`<div class="runner">
+      <span class="el" data-started="${r.started}"></span>
+      <div class="grow"><div class="w">${esc(r.worker)} <span class="sub">(${esc(r.tool)}, quyền ${esc(r.perm)}${r.model?", model "+esc(r.model):""})</span></div><div>${esc(r.summary)}</div></div>
+      <button class="btn sm danger" data-act="kill" data-pid="${esc(r.pid)}">Huỷ</button></div>`).join("")}</div>`:"");
+  setPart("p-plancount",t.plan_total?`${t.plan_done}/${t.plan_total} việc con xong`:"");
+  setPart("p-plan",t.plan_total?md(t.plan.replace(/^#\s+Kế hoạch\s*\n/,"")):'<span class="muted">Chưa lập kế hoạch.</span>');
+  setPart("p-rescount",String(t.results.length));
+  setPart("p-results",t.results.length?t.results.map(r=>`<details data-key="${esc(r.file)}" ${openSet.has(r.file)?"open":""}><summary><b>${esc(r.worker||r.name)}</b><span class="sub">${esc(r.at||"")} · ${r.secs!=null?r.secs+"s":""} · quyền ${esc(r.perm||"?")} · ${esc(r.name)}</span></summary>
+      <div class="md" data-file="${esc(r.file)}">${fileCache[t.id+"/"+r.file]!=null?md(fileCache[t.id+"/"+r.file]):'<span class="muted">đang tải…</span>'}</div></details>`).join(""):'<span class="muted">Chưa có kết quả nào.</span>');
+  const doc=(k,title,body,open)=>`<details data-key="${k}" ${openSet.has(k)||(open&&!openSet.has("!"+k))?"open":""}><summary><b>${title}</b></summary><div class="md">${body?md(body):'<span class="muted">Chưa có.</span>'}</div></details>`;
+  setPart("p-docs",doc("final","Kết quả cuối (final.md)",t.final,t.has_final)+doc("brief","Yêu cầu (brief.md)",t.brief,!t.has_final));
+  setPart("p-log",t.log.slice().reverse().map(i=>`<div class="k-${i.kind}"><span class="tm">${esc(i.time)}</span><span class="who">${esc(i.who==="quan-ly"?"quản lý":i.who)}</span><span class="tx">${esc(i.text)}</span></div>`).join("")||'<span class="muted">Chưa có.</span>');
+  updTimers();loadOpenFiles(t.id);
+}
+
+async function loadOpenFiles(id){
+  for(const el of document.querySelectorAll("details[open] [data-file]")){
+    const f=el.dataset.file,key=id+"/"+f;if(fileCache[key]!=null)continue;
+    try{const r=await (await apiFetch(`/api/file?id=${encodeURIComponent(id)}&path=${encodeURIComponent(f)}`)).json();fileCache[key]=r.text||"";el.innerHTML=md(fileCache[key])}catch(e){}
+  }
+}
+
+async function sendMsg(){
+  const v=$("#msg").value.trim();if(!v||!cur)return;
+  const d=await act("/api/send",{id:cur.id,text:v},"Đã gửi cho quản lý");
+  if(d)$("#msg").value="";
+}
+
+// ---------------- Văn phòng làm việc
+function hhmm(t){return new Date(t*1000).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}
+function renderOffice(o){
+  const mg=o.managers.map(m=>{
+    const st=m.running?`<span style="color:var(--mgr)">● Đang điều phối · <span data-started="${m.started}"></span></span>`
+      :m.pending?`<span style="color:var(--mgr)">● ${esc(m.pending)}</span>`
+      :`<span style="color:var(--warn)">⏸ Hết hạn mức — tự làm tiếp lúc ${hhmm(m.retry_at)}</span>`;
+    return `<div class="desk mgr ${m.running?"busy":""}"><div class="top"><span class="dot ${m.running||m.pending?"mgr":""}"></span><span class="nm">AI quản lý</span><span class="tool">điều hành</span></div>
+      <div class="stt">${st}</div>
+      <div class="job" data-open="${esc(m.task)}"><b>${esc(m.title)}</b>Bước ${m.step}/6 · ${esc(m.step_label)}</div>
+      <div class="foot">Model ${esc(m.model||"mặc định")}${m.account?" · tài khoản "+esc(m.account):""}</div></div>`}).join("");
+  const desks=o.desks.slice().sort((a,b)=>(b.working.length-a.working.length)||a.name.localeCompare(b.name)).map(d=>{
+    const busy=d.working.length>0, off=d.login!=="ok";
+    let st, dot;
+    if(busy){st=`<span style="color:var(--run)">● Đang làm ${d.working.length>1?d.working.length+" việc":""}</span>`;dot="run"}
+    else if(off){st=`<span style="color:var(--bad)">✕ ${d.login==="logout"?"Chưa đăng nhập":"Chưa cài CLI"}</span>`;dot="bad"}
+    else if(d.limited_at){st=`<span style="color:var(--warn)">⚠ Hết hạn mức lúc ${esc(d.limited_at.slice(0,5))} — đang rảnh</span>`;dot="ok"}
+    else{st=`<span style="color:var(--ok)">○ Rảnh</span>`;dot="ok"}
+    const u=d.usage||{}, today=new Date().toLocaleDateString("sv-SE"), td=(u.days||{})[today]||{};
+    const fmtTok=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?Math.round(n/1e3)+"k":String(n||0);
+    const bars=(u.windows||[]).map(w=>{const p=w.used==null?null:Math.min(100,w.used);
+      return `<div class="ubar" title="${w.resets_at?"làm mới lúc "+new Date(w.resets_at*1000).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"}):""}"><span>${esc(w.label)}</span>
+        <span class="tr"><i class="${p>=90?"hi":p>=70?"mid":""}" style="width:${p??0}%"></i></span><b>${p==null?"?":Math.round(p)+"%"}</b></div>`}).join("");
+    const usage=`<div class="usage">${bars||`<span class="sub">${d.tool==="gemini"?"Gemini chưa có số liệu hạn mức.":"Chưa có số liệu hạn mức — sẽ có sau lần chạy kế tiếp."}</span>`}
+      ${(u.windows||[]).some(w=>w.resets_at)?`<span class="sub">Làm mới: ${(u.windows||[]).filter(w=>w.resets_at).map(w=>esc(w.label)+" lúc "+new Date(w.resets_at*1000).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"})).join(" · ")}</span>`:""}
+      <span class="sub">Hôm nay: ${td.calls||0} lần gọi · ${fmtTok(td.tokens)} token${u.plan?" · gói "+esc(u.plan):""}${u.rate_at?" · số liệu "+ago(u.rate_at):""}</span></div>`;
+    const jobs=d.working.map(w=>`<div class="job" data-open="${esc(w.task)}"><b>${esc(w.title)}</b>${esc(w.summary.slice(0,140))}
+      <div class="sub"><span data-started="${w.started}"></span> · quyền ${esc(w.perm)}${w.model?" · "+esc(w.model):""}</div></div>`).join("");
+    return `<div class="desk ${busy?"busy":""} ${off?"off":""}"><div class="top"><span class="dot ${dot}"></span><span class="nm">${esc(d.name)}</span><span class="tool">${esc(d.tool)}</span></div>
+      <div class="stt">${st}${u.limited?' <span style="color:var(--bad)">· đang chạm hạn mức</span>':""}</div>${jobs}${usage}
+      <div class="sub">${esc(d.desc||"")}${d.model?" · model "+esc(d.model):""}</div>
+      <div class="foot">Pentagon hôm nay: ${d.done_today} việc xong${d.secs_today?" · "+dur(d.secs_today):""}${d.fails_today?` · <span style="color:var(--bad)">${d.fails_today} lần lỗi</span>`:""}${d.last?" · gần nhất "+esc(d.last.slice(11,16)):""}</div></div>`}).join("");
+  const nb=o.desks.filter(d=>d.working.length).length;
+  setPart("office",`<h2>Văn phòng làm việc</h2><div class="sub">Mỗi AI là một nhân viên ngồi một bàn. ${nb} đang làm · ${o.desks.length-nb} rảnh hoặc nghỉ. Bấm vào một việc để mở task trong Phòng Điều hành.</div>
+    <h4>Ban điều hành</h4>${mg?`<div class="desks">${mg}</div>`:'<div class="sub">Không có AI quản lý nào đang chạy.</div>'}
+    <h4>Nhân viên</h4><div class="desks">${desks||'<div class="sub">Đang kiểm tra danh sách worker…</div>'}</div>`);
+  updTimers();
+}
+function switchView(v){
+  view=v;document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+  $("#office").hidden=v!=="vp";$("#dh").hidden=v!=="dh";
+  if(v==="vp")history.replaceState(null,"","#van-phong");else history.replaceState(null,"",sel?"#"+encodeURIComponent(sel):"#");
+  lastList="";parts.office=null;tick();
+}
+$("#tabs").onclick=e=>{const b=e.target.closest("button");if(b)switchView(b.dataset.v)};
+$("#office").onclick=e=>{const j=e.target.closest("[data-open]");if(!j)return;sel=j.dataset.open;openSet.clear();parts={};switchView("dh")};
+
+async function tick(){
+  if(redirecting)return;
+  try{
+    const tasksResponse=await apiFetch("/api/tasks");const d=await tasksResponse.json();
+    $("#logoutBtn").hidden=!d.auth;
+    skew=d.now-Date.now()/1000;
+    if(d.sizes){SIZES=d.sizes;$("#sizeMap").textContent=`(nhỏ → ${SIZES.nho}, vừa → ${SIZES.vua}, lớn → ${SIZES.lon}; worker cũng theo cỡ từng việc con)`}
+    const s=JSON.stringify([d.tasks,d.workers,d.busy,d.sizes,filter,sel]);if(s!==lastList){lastList=s;renderList(d)}
+    if(view==="vp"){renderOffice(await (await apiFetch("/api/office")).json());return}
+    if(sel){const r=await apiFetch("/api/task?id="+encodeURIComponent(sel));
+      if(r.ok)renderDetail(await r.json());
+      else{$("#detail").innerHTML='<div class="empty">Không tìm thấy task này.</div>';parts={}}}
+  }catch(e){if(!redirecting){$("#summary").textContent="mất kết nối tới bin/dashboard — đang thử lại…";lastList=""}}
+}
+
+$("#logoutBtn").onclick=async()=>{try{await post("/api/logout",{});location.href="/login"}catch(e){toast("Đăng xuất không thành công: "+e.message)}};
+
+$("#filter").onclick=e=>{const b=e.target.closest("button");if(!b)return;filter=b.dataset.f;document.querySelectorAll("#filter button").forEach(x=>x.classList.toggle("on",x===b));lastList="";tick()};
+$("#list").onclick=e=>{const el=e.target.closest(".task");if(!el||el.dataset.id===sel)return;sel=el.dataset.id;location.hash=encodeURIComponent(sel);openSet.clear();lastList="";parts={};tick()};
+$("#detail").addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b||!cur)return;const a=b.dataset.act;
+  if(a==="stop"&&confirm("Dừng quản lý? Các worker nó đang chạy cũng sẽ dừng."))act("/api/stop",{id:cur.id},"Đã dừng quản lý");
+  if(a==="kill"&&confirm("Huỷ worker này?"))act("/api/kill-worker",{id:cur.id,pid:b.dataset.pid},"Đã huỷ worker");
+  if(a==="cancel"&&confirm("Huỷ cả task? Quản lý và mọi worker đang chạy sẽ dừng."))act("/api/cancel",{id:cur.id},"Đã huỷ task");
+  if(a==="retry")act("/api/retry-now",{id:cur.id},"Đang cho quản lý làm tiếp");
+  if(a==="done")act("/api/done",{id:cur.id},"Đã đánh dấu xong");
+});
+document.addEventListener("toggle",e=>{const d=e.target;if(!d.dataset||!d.dataset.key)return;const k=d.dataset.key;
+  if(d.open){openSet.add(k);openSet.delete("!"+k);loadOpenFiles(sel)}else{openSet.delete(k);openSet.add("!"+k)}},true);
+
+// giao task mới
+const modal=$("#modal");
+$("#newBtn").onclick=()=>{modal.classList.add("on");$("#newText").focus()};
+$("#newCancel").onclick=()=>modal.classList.remove("on");
+modal.onclick=e=>{if(e.target===modal)modal.classList.remove("on")};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")modal.classList.remove("on")});
+$("#newText").onkeydown=e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();$("#newGo").click()}};
+$("#newGo").onclick=async()=>{
+  const text=$("#newText").value.trim();if(!text){$("#newText").focus();return}
+  const mode=document.querySelector('input[name=mode]:checked').value;
+  const size="auto", split=document.querySelector('input[name=split]:checked').value;
+  $("#newGo").disabled=true;
+  try{const d=await post("/api/giao",{text,mode,size,split});$("#newText").value="";modal.classList.remove("on");
+    sel=d.id;location.hash=encodeURIComponent(sel);filter="active";lastList="";parts={};toast("Đã giao task — quản lý đang làm");await tick()}
+  catch(e){toast("Không giao được: "+e.message)}finally{$("#newGo").disabled=false}
+};
+
+function updTimers(){document.querySelectorAll("[data-started]").forEach(el=>el.textContent=dur(now()-(+el.dataset.started)));
+  document.querySelectorAll("[data-ago]").forEach(el=>el.textContent=ago(+el.dataset.ago))}
+setInterval(updTimers,1000);
+if(view==="vp")switchView("vp");else tick();
+setInterval(tick,3000);
+</script>
+</body>
+</html>

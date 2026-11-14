@@ -34,6 +34,9 @@ case "$(uname -s)" in
   Darwin|Linux) ok "hệ điều hành: $(uname -s)" ;;
   *) miss "hệ điều hành $(uname -s) chưa hỗ trợ — trên Windows hãy chạy trong WSL" ;;
 esac
+if command -v python3 >/dev/null 2>&1; then ok "python3 (cho bin/status, bin/dashboard)"
+else miss "thiếu python3 (cần cho bin/status, bin/dashboard) — macOS: xcode-select --install"
+fi
 for c in perl awk sed iconv; do
   if command -v "$c" >/dev/null 2>&1; then ok "$c"; else miss "thiếu $c"; fi
 done

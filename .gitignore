@@ -3,6 +3,7 @@
 
 # Cài đặt Claude Code riêng của từng máy
 .claude/settings.local.json
+config/auth.conf
 
 # Rác khi chạy code trong các task
 __pycache__/
@@ -10,6 +11,10 @@ __pycache__/
 .pytest_cache/
 .venv/
 node_modules/
+
+# Worker đang chạy (file tạm, bin/ask tự xoá khi xong)
+tasks/*/running/
+tasks/*/manager/pid
 
 # Muốn giữ lịch sử task riêng trên từng máy (không đồng bộ) thì bỏ dấu # dòng dưới
 # tasks/

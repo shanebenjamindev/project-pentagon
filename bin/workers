@@ -1,13 +1,21 @@
 #!/bin/bash
 # Liệt kê các worker và trạng thái đăng nhập của từng tài khoản.
+#   bin/workers         bảng dễ đọc
+#   bin/workers --tsv   tên<TAB>công_cụ<TAB>trạng_thái<TAB>model<TAB>thế_mạnh (cho bin/dashboard)
 source "$(dirname "$0")/lib.sh"
 
-printf '%-14s %-8s %-16s %-12s %s\n' "WORKER" "CONG CU" "TRANG THAI" "MODEL" "THE MANH"
+TSV=0; [ "$1" = "--tsv" ] && TSV=1
+
+[ "$TSV" = 1 ] || printf '%-14s %-8s %-16s %-12s %s\n' "WORKER" "CONG CU" "TRANG THAI" "MODEL" "THE MANH"
 conf_rows | while IFS='|' read -r name tool home_raw desc model; do
   home="$(resolve_home "$home_raw")"
-  if ! command -v "$tool" >/dev/null 2>&1; then st="chua cai CLI"
-  elif is_logged_in "$tool" "$home"; then st="da dang nhap"
-  else st="CHUA dang nhap"
+  if ! command -v "$tool" >/dev/null 2>&1; then st="chua cai CLI"; code=missing
+  elif is_logged_in "$tool" "$home"; then st="da dang nhap"; code=ok
+  else st="CHUA dang nhap"; code=logout
   fi
-  printf '%-14s %-8s %-16s %-12s %s\n' "$name" "$tool" "$st" "${model:-mac dinh}" "$desc"
+  if [ "$TSV" = 1 ]; then
+    printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$tool" "$code" "$model" "$desc"
+  else
+    printf '%-14s %-8s %-16s %-12s %s\n' "$name" "$tool" "$st" "${model:-mac dinh}" "$desc"
+  fi
 done

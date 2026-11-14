@@ -1,0 +1,8 @@
+#!/bin/bash
+# Xem tiến độ các task ngay trong terminal.
+#   bin/status              danh sách task: bước hiện tại, worker đang chạy, số kết quả
+#   bin/status <task>       chi tiết 1 task (id, một phần id, hoặc "latest")
+#   bin/status -w [giây]    tự làm mới liên tục (Ctrl+C để thoát)
+#   bin/status -a           hiện cả task cũ
+command -v python3 >/dev/null 2>&1 || { echo "Lỗi: cần python3 (macOS: xcode-select --install hoặc brew install python)" >&2; exit 1; }
+exec python3 "$(dirname "$0")/tracker.py" status "$@"

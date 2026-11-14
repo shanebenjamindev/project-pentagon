@@ -8,26 +8,29 @@ usage() {
 Cách dùng: bin/ask <worker|claude|codex|gemini> [tuỳ chọn] "nội dung việc"
            bin/ask <...> [tuỳ chọn] -        (đọc nội dung việc từ stdin)
 
-  <worker>      tên trong config/workers.conf, vd claude-2 (đúng tài khoản đó)
+  <worker>      tên trong config/workers.conf, vd claude-2 (thử tài khoản đó trước; hết hạn mức thì
+                chuyển sang các tài khoản khác cùng công cụ)
   claude|codex|gemini
                 xoay vòng các tài khoản của công cụ đó; tài khoản lỗi/hết hạn mức thì chuyển tài khoản kế tiếp
   -w            cho phép sửa file trong thư mục làm việc (mặc định: chỉ đọc)
   -C <dir>      thư mục làm việc (mặc định: ~/.pentagon/workspace)
   -t <dir>      thư mục task: lưu kết quả vào <dir>/results/
-  -m <model>    chọn model cụ thể
+  -s <cỡ>       cỡ việc: nho | vua | lon — chọn model theo config/models.conf (việc nhỏ → model nhỏ)
+  -m <model>    chọn model cụ thể (ưu tiên hơn -s); có thể kèm @mức_suy_nghĩ, vd sonnet@high
   --timeout <s> giới hạn thời gian mỗi lần thử (mặc định 1200 giây)
 EOF
 }
 
 TARGET="$1"; shift
 case "$TARGET" in ""|-h|--help) usage; exit 1 ;; esac
-WRITE=0; WD=""; TASK=""; MODEL_ARG=""; TIMEOUT="${ORCH_TIMEOUT:-1200}"
+WRITE=0; WD=""; TASK=""; MODEL_ARG=""; SIZE=""; TIMEOUT="${ORCH_TIMEOUT:-1200}"
 while [ $# -gt 0 ]; do
   case "$1" in
     -w) WRITE=1 ;;
     -C) WD="$2"; shift ;;
     -t) TASK="$2"; shift ;;
     -m) MODEL_ARG="$2"; shift ;;
+    -s) SIZE="$(norm_size "$2")"; [ -n "$SIZE" ] || die "cỡ việc không hợp lệ: $2 (dùng nho, vua, lon)"; shift ;;
     --timeout) TIMEOUT="$2"; shift ;;
     -h|--help) usage; exit 0 ;;
     --) shift; break ;;
@@ -46,9 +49,16 @@ if [ -n "$TASK" ]; then
   TASK="$(cd "$TASK" && pwd)"
 fi
 
-# Chọn danh sách tài khoản sẽ thử
+# Chọn danh sách tài khoản sẽ thử. Gọi theo tên worker: tài khoản đó trước, rồi các tài khoản khác cùng công cụ.
 ROWS="$(conf_rows | awk -F'|' -v t="$TARGET" '$1 == t')"
-[ -n "$ROWS" ] || ROWS="$(conf_rows | awk -F'|' -v t="$TARGET" '$2 == t')"
+if [ -n "$ROWS" ]; then
+  T_TOOL="$(printf '%s' "$ROWS" | cut -d'|' -f2)"
+  OTHERS="$(conf_rows | awk -F'|' -v t="$TARGET" -v k="$T_TOOL" '$2 == k && $1 != t')"
+  [ -n "$OTHERS" ] && ROWS="$ROWS
+$OTHERS"
+else
+  ROWS="$(conf_rows | awk -F'|' -v t="$TARGET" '$2 == t')"
+fi
 [ -n "$ROWS" ] || die "không có worker hay công cụ tên '$TARGET' trong config/workers.conf"
 
 if [ "$WRITE" = 1 ]; then
@@ -56,12 +66,14 @@ if [ "$WRITE" = 1 ]; then
 else
   PERM="Bạn CHỈ ĐƯỢC ĐỌC, không tạo hay sửa file. Đưa toàn bộ kết quả vào câu trả lời."
 fi
-FULL="[Bạn là một AI worker trong hệ thống nhiều AI. Một AI quản lý giao cho bạn đúng một phần việc dưới đây.
+BASE_FULL="[Bạn là một AI worker trong hệ thống nhiều AI. Một AI quản lý giao cho bạn đúng một phần việc dưới đây.
 - Chỉ làm phần việc này và không hỏi lại. Nếu thiếu thông tin, tự giả định hợp lý và ghi rõ giả định.
 - Trả lời bằng tiếng Việt (trừ code). Kết thúc bằng mục \"## Kết quả\" tóm tắt ngắn gọn.
 - $PERM]
 
 $PROMPT"
+FULL="$BASE_FULL"
+CONT_NOTE=""   # lời dặn "làm tiếp" khi tài khoản trước hết hạn mức giữa chừng
 
 # Câu trả lời ngắn có chữ báo hết hạn mức thì coi như thất bại để chuyển tài khoản
 looks_limited() {
@@ -69,23 +81,56 @@ looks_limited() {
     grep -Eiq 'usage limit|rate limit|limit reached|hit your limit|quota|exhausted|too many requests|429' "$1"
 }
 
-TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+TMP="$(mktemp -d)"
+MARK=""   # file đánh dấu "đang chạy" trong <task>/running/, để bin/status và bin/dashboard hiển thị
+trap 'rm -rf "$TMP"; [ -n "$MARK" ] && rm -f "$MARK"' EXIT
+trap 'exit 130' INT TERM HUP
 OUT="$TMP/out"; ERR="$TMP/err"
+SUMMARY="$(printf '%s' "$PROMPT" | tr '\n\r\t' '   ' | sed 's/  */ /g' | cut -c1-200)"
+PERM_TXT="$([ "$WRITE" = 1 ] && echo sửa || echo đọc)"
+
+model_txt() { echo "${MODEL:-mặc định}${EFFORT:+@$EFFORT}${SIZE:+ · cỡ $SIZE}"; }
+
+mark_running() {   # mark_running <worker> <công_cụ>
+  [ -n "$TASK" ] || return 0
+  mkdir -p "$TASK/running"
+  MARK="$TASK/running/$$"
+  {
+    echo "worker=$1"; echo "tool=$2"; echo "started=$(date +%s)"; echo "pid=$$"
+    echo "perm=$PERM_TXT"; echo "model=$(model_txt)"; echo "wd=$WD"; echo "summary=$SUMMARY"
+  } >"$MARK"
+  echo "$(date '+%H:%M:%S') $1 START ($PERM_TXT, $(model_txt)): $SUMMARY" >>"$TASK/log.txt"
+}
+
+# Model + mức suy nghĩ cho một worker: -m > cỡ việc (-s, models.conf) > model trong workers.conf
+pick_model() {   # pick_model <công_cụ> <model_trong_workers.conf>  -> đặt MODEL, EFFORT
+  local spec="$MODEL_ARG"
+  [ -z "$spec" ] && [ -n "$SIZE" ] && spec="$(tier_spec "$1" "$SIZE")"
+  [ -z "$spec" ] && spec="$2"
+  MODEL="${spec%%@*}"; EFFORT=""
+  case "$spec" in *@*) EFFORT="${spec#*@}" ;; esac
+}
 
 run_one() {
-  local tool="$1" home="$2" MODEL="${MODEL_ARG:-$3}" args
+  local tool="$1" home="$2" args
   : >"$OUT"; : >"$ERR"
   case "$tool" in
     claude)
-      args=(claude -p --output-format text)
+      # stream-json để ghi lại % hạn mức và token (thống kê usage trên web); pt_usage.py lấy ra câu trả lời dạng text
+      args=(claude -p --output-format stream-json --verbose)
       [ "$WRITE" = 1 ] && args+=(--permission-mode acceptEdits)
       [ -n "$MODEL" ] && args+=(--model "$MODEL")
+      [ -n "$EFFORT" ] && args+=(--effort "$EFFORT")
       (cd "$WD" && perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
-        env $( [ -n "$home" ] && echo "CLAUDE_CONFIG_DIR=$home" ) "${args[@]}" "$FULL") >"$OUT" 2>"$ERR" ;;
+        env $( [ -n "$home" ] && echo "CLAUDE_CONFIG_DIR=$home" ) "${args[@]}" "$FULL") >"$OUT.raw" 2>"$ERR"
+      local rc=$?
+      python3 "$ORCH_ROOT/bin/pt_usage.py" claude-out "$name" "$OUT.raw" >"$OUT" 2>/dev/null || cp "$OUT.raw" "$OUT"
+      return $rc ;;
     codex)
       args=(codex exec --skip-git-repo-check --color never -C "$WD" -o "$OUT")
       if [ "$WRITE" = 1 ]; then args+=(-s workspace-write); else args+=(-s read-only); fi
       [ -n "$MODEL" ] && args+=(-m "$MODEL")
+      [ -n "$EFFORT" ] && args+=(-c "model_reasoning_effort=\"$EFFORT\"")
       [ -n "$home" ] && mkdir -p "$home"
       perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
         env $( [ -n "$home" ] && echo "CODEX_HOME=$home" ) "${args[@]}" "$FULL" </dev/null >"$ERR" 2>&1 ;;
@@ -104,7 +149,9 @@ run_one() {
 while IFS='|' read -r name tool home_raw desc conf_model; do
   home="$(resolve_home "$home_raw")"
   case "$home" in *" "*) say "[ask] bỏ qua $name: thư mục tài khoản không được có dấu cách"; continue ;; esac
-  say "[ask] $name ($tool) đang làm..."
+  pick_model "$tool" "$conf_model"
+  say "[ask] $name ($tool, model $(model_txt)) đang làm..."
+  mark_running "$name" "$tool"
   start=$(date +%s)
   run_one "$tool" "$home" "$conf_model"; rc=$?
   secs=$(( $(date +%s) - start ))
@@ -114,10 +161,10 @@ while IFS='|' read -r name tool home_raw desc conf_model; do
     if [ -n "$TASK" ]; then
       file="$TASK/results/$name-$(date +%H%M%S).md"
       {
-        echo "<!-- worker: $name ($tool) | $(date '+%Y-%m-%d %H:%M:%S') | ${secs}s | quyền: $([ "$WRITE" = 1 ] && echo sửa || echo đọc) | thư mục: $WD -->"
+        echo "<!-- worker: $name ($tool) | $(date '+%Y-%m-%d %H:%M:%S') | ${secs}s | quyền: $([ "$WRITE" = 1 ] && echo sửa || echo đọc) | thư mục: $WD | model: $(model_txt) -->"
         echo "## Việc được giao"; echo; echo "$PROMPT"; echo; echo "## Trả lời"; echo; cat "$OUT"
       } >"$file"
-      echo "$(date '+%H:%M:%S') $name ok ${secs}s -> results/$(basename "$file")" >>"$TASK/log.txt"
+      echo "$(date '+%H:%M:%S') $name ok ${secs}s ($(model_txt)) -> results/$(basename "$file")" >>"$TASK/log.txt"
       say "[ask] đã lưu: $file"
     fi
     cat "$OUT"; [ -n "$(tail -c 1 "$OUT")" ] && echo
@@ -131,6 +178,36 @@ while IFS='|' read -r name tool home_raw desc conf_model; do
   fi
   say "[ask] $name thất bại: $reason -> thử tài khoản kế tiếp"
   [ -n "$TASK" ] && echo "$(date '+%H:%M:%S') $name FAIL ${secs}s: $reason" >>"$TASK/log.txt"
+
+  # Hết hạn mức / quá giờ giữa chừng: giữ phần đã làm, tài khoản kế tiếp làm TIẾP chứ không làm lại
+  case "$reason" in "hết hạn mức"|quá*)
+    LIMITED=1
+    partial=""
+    [ -s "$OUT" ] && ! looks_limited "$OUT" && partial="$(tail -c 6000 "$OUT")"
+    if [ -n "$partial" ] && [ -n "$TASK" ]; then
+      pf="$TASK/results/dang-do-$name-$(date +%H%M%S).txt"
+      { echo "<!-- phần làm dở của $name trước khi $reason -->"; echo "$partial"; } >"$pf"
+      echo "$(date '+%H:%M:%S') $name giữ phần làm dở -> results/$(basename "$pf")" >>"$TASK/log.txt"
+    fi
+    CONT_NOTE="[LÀM TIẾP: một worker khác đã nhận đúng việc này nhưng dừng giữa chừng ($reason)."
+    [ "$WRITE" = 1 ] && CONT_NOTE="$CONT_NOTE
+- Các file trong thư mục làm việc $WD có thể đã được tạo/sửa một phần. Kiểm tra hiện trạng trước, giữ phần đã đúng, làm TIẾP phần còn thiếu, không làm lại từ đầu."
+    [ -n "$partial" ] && CONT_NOTE="$CONT_NOTE
+- Phần trả lời dở của worker trước (có thể bị cắt) ở dưới. Tiếp tục từ đó, rồi đưa ra câu trả lời ĐẦY ĐỦ, hoàn chỉnh:
+<<<PHẦN DỞ
+$partial
+PHẦN DỞ>>>"
+    CONT_NOTE="$CONT_NOTE]"
+    FULL="$BASE_FULL
+
+$CONT_NOTE"
+    ;;
+  esac
 done <<<"$ROWS"
 
+if [ -n "$TASK" ]; then
+  echo "$(date '+%H:%M:%S') $TARGET FAIL-ALL: mọi tài khoản đều thất bại${LIMITED:+ (hết hạn mức)}" >>"$TASK/log.txt"
+  [ -n "$LIMITED" ] && date +%s >"$TASK/limited"   # để quản lý web tự thử lại khi có hạn mức
+fi
+[ -n "$LIMITED" ] && { say "Lỗi: mọi tài khoản cho '$TARGET' đều hết hạn mức — thử công cụ khác hoặc đợi hạn mức làm mới"; exit 75; }
 die "mọi tài khoản cho '$TARGET' đều thất bại"
