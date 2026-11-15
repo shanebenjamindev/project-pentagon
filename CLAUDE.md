@@ -61,6 +61,9 @@ Hai màn hình này chỉ đúng khi bạn ghi tiến độ:
 5. **Kiểm tra** — đọc kết quả từng worker. Việc quan trọng thì nhờ một worker KHÁC loại kiểm tra chéo.
    Kết quả sai hoặc thiếu: giao lại kèm nhận xét cụ thể (tối đa 2 lần), sau đó tự sửa.
 6. **Tổng hợp** — viết `final.md`, rồi báo chủ: kết quả chính, ai làm phần nào, phần nào chưa chắc chắn.
+   Trong `final.md` có mục `## Sản phẩm` liệt kê đường dẫn (tính từ thư mục task, trong dấu `` ` ``) của các file/thư mục
+   sản phẩm chính để chủ dùng. Đừng liệt kê file nháp, file tải về để tham khảo hay script phụ — trang web dựa vào mục này
+   để tách sản phẩm chính khỏi file làm việc.
 
 ## Nguyên tắc
 

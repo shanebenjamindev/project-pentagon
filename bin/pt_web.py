@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 import pt_manager
 import pt_notify
+import pt_storage
 import pt_followup
 import pt_files
 import tracker
@@ -241,16 +242,18 @@ def file_kind(name):
 
 
 def task_files(tid):
-    """Sản phẩm (file do worker/quản lý tạo ra) và báo cáo của từng nhân viên (results/*.md)."""
+    """Sản phẩm (file do worker/quản lý tạo ra, chia nhóm chính / gửi kèm / làm việc — xem pt_storage)
+    và báo cáo của từng nhân viên (results/*.md). File rác (__pycache__, .pyc…) không liệt kê."""
     base = os.path.join(TASKS, tid)
     products, reports = [], []
     for root, dirs, files in os.walk(base):
         rel_root = os.path.relpath(root, base)
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith("backup")
+                         and not pt_storage.is_junk(d, True)
                          and not (rel_root == "." and d.startswith(".")))
         for n in sorted(files):
             rel = n if rel_root == "." else os.path.join(rel_root, n)
-            if rel_root == "." and n in INTERNAL_FILES:
+            if (rel_root == "." and n in INTERNAL_FILES) or pt_storage.is_junk(n, False):
                 continue
             p = os.path.join(root, n)
             try:
@@ -262,10 +265,17 @@ def task_files(tid):
                 reports.append(item)
             else:
                 products.append(item)
-            if len(products) > 400:
-                return {"products": products, "reports": reports, "truncated": True}
-    products.sort(key=lambda x: ({"html": 0, "image": 1, "pdf": 2, "video": 3, "audio": 3, "text": 4}.get(x["kind"], 5), x["path"]))
-    return {"products": products, "reports": reports, "truncated": False}
+            if len(products) > 5000:
+                break
+    products, info = pt_storage.group_products(tid, products)
+    order = {"html": 0, "image": 1, "pdf": 2, "video": 3, "audio": 3, "text": 4}
+    products.sort(key=lambda x: (order.get(x["kind"], 5), x["path"]))
+    # file làm việc có thể rất nhiều (ảnh/video tải về, khung hình nháp): gửi tối đa 300 cái, kèm tổng số
+    work = [x for x in products if x["group"] == "work"]
+    keep = set(id(x) for x in work[:300])
+    out = [x for x in products if x["group"] != "work" or id(x) in keep]
+    return {"products": out, "reports": reports, "truncated": len(work) > 300, "from_final": info["from_final"], "bundles": info["bundles"],
+            "work_total": {"count": len(work), "size": sum(x["size"] for x in work)}}
 
 
 def decode_images(images):
@@ -614,6 +624,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(accounts_view())
             if u.path == "/api/trash":
                 return self.json({"items": pt_manager.trash_list()})
+            if u.path == "/api/storage":  # Cài đặt › Dung lượng
+                return self.json(pt_storage.usage(pt_manager._busy))
+            if u.path == "/api/storage/dir":
+                try:
+                    return self.json(pt_storage.dir_usage(q.get("id", ""), q.get("path", "")))
+                except RuntimeError as e:
+                    return self.json({"error": str(e)}, 400)
             if u.path == "/api/office":
                 return self.json(office())
             if u.path == "/api/task":
@@ -822,6 +839,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"ok": True, "name": name})
             if path == "/api/task/restore":
                 return self.json({"ok": True, "id": pt_manager.restore_task(str(body.get("trash_id", "")))})
+            if path == "/api/storage/delete":  # {id, path} — xoá vĩnh viễn một file/thư mục trong task
+                return self.json({"ok": True, "freed": pt_storage.delete_path(
+                    str(body.get("id", "")), str(body.get("path", "")), pt_manager._busy)})
+            if path == "/api/storage/clean-junk":  # {id?} — dọn file rác của một task hoặc mọi task
+                tid = str(body.get("id", ""))
+                freed, skipped = pt_storage.clean_junk([tid] if tid else pt_storage.task_ids(), pt_manager._busy)
+                return self.json({"ok": True, "freed": freed, "skipped": skipped})
+            if path == "/api/storage/empty-trash":
+                return self.json({"ok": True, "freed": pt_storage.empty_trash()})
             if path == "/api/task/purge":
                 pt_manager.purge_task(str(body.get("trash_id", "")))
                 return self.json({"ok": True})
