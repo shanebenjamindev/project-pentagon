@@ -1,3 +1,0 @@
-01:28:11 quan-ly [bước 1 Tiếp nhận] tạo task: xóa 2 theme quân đội và cổ điển khỏi hệ thống
-01:28:24 quan-ly [bước 2 Tối ưu yêu cầu] tìm các chỗ dùng theme
-01:28:42 quan-ly [HOÀN THÀNH] Đã xóa 2 theme Quân sự và Cổ điển

@@ -22,14 +22,15 @@ norm_size() {
     nho|nhỏ|small|s) echo nho ;;
     vua|vừa|medium|m) echo vua ;;
     lon|lớn|large|l) echo lon ;;
+    sieu|siêu|sieu-kho|siêu-khó|xl) echo sieu ;;
   esac
 }
 
-# Model theo cỡ việc từ config/models.conf: tier_spec <vai_trò|công_cụ> <nho|vua|lon>
+# Model theo cỡ việc từ config/models.conf: tier_spec <vai_trò|công_cụ> <nho|vua|lon|sieu>
 # In "model" hoặc "model@effort"; rỗng nếu không cấu hình hoặc là "-".
 tier_spec() {
   local f="$ORCH_ROOT/config/models.conf" col
-  case "$2" in nho) col=2 ;; vua) col=3 ;; lon) col=4 ;; *) return 0 ;; esac
+  case "$2" in nho) col=2 ;; vua) col=3 ;; lon) col=4 ;; sieu) col=5 ;; *) return 0 ;; esac
   [ -f "$f" ] || return 0
   sed -e 's/#.*$//' "$f" | awk -F'|' -v r="$1" -v c="$col" '{
     for (i = 1; i <= NF; i++) gsub(/^[ \t]+|[ \t]+$/, "", $i)

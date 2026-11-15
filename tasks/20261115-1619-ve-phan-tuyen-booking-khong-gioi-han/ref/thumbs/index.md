@@ -1,0 +1,51 @@
+# DanHeeg thumbnails
+
+| Thumb | Đường dẫn gốc tuyệt đối | Độ phân giải gốc |
+|---|---|---|
+| `01.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/01CD2567-56F7-46B5-A5F3-DA9F74B454CD.JPG` | 3024 × 4032 |
+| `02.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/04158165-C1B1-4F2D-A132-E3E246E8B5E5.JPG` | 4032 × 3024 |
+| `03.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/066E0F65-79ED-493B-9D54-B9D6F390A7CB.JPG` | 4032 × 3024 |
+| `04.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/09380DA6-7B95-417B-93A7-44F4E88C83C8.JPG` | 3024 × 4032 |
+| `05.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/0DDAE480-5316-4FB7-BC9B-FA0CE43291C0.JPG` | 4032 × 3024 |
+| `06.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/1345F5DC-6DE9-4FA6-AFC3-8D85B68A4746.JPG` | 3024 × 4032 |
+| `07.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/15A57361-6D2D-4B81-A5BA-2EC0E52BB61A.JPG` | 3024 × 4032 |
+| `08.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/1FA5D8B6-9CDC-46C6-AD56-F4C24CE81938.JPG` | 4032 × 3024 |
+| `09.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/20DA54BB-A4F8-4867-82AD-D42E4AD930D4.JPG` | 3024 × 4032 |
+| `10.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/24E2D6DF-4E1D-43B3-AA44-BA45699DD323.JPG` | 3024 × 4032 |
+| `11.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/3423F6D2-7E0D-460F-8910-296D1BAEC698.JPG` | 4032 × 3024 |
+| `12.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/3B4FB576-A1A0-49F4-816E-F13138528EC7.JPG` | 4032 × 3024 |
+| `13.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/3BCA270D-C094-47E4-8351-CF9B9774A33F.JPG` | 4032 × 3024 |
+| `14.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/3C2A865B-D380-47D8-B632-830ED7FAFBE4.JPG` | 4032 × 3024 |
+| `15.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/3ED76BC0-BEC2-4D37-989D-A78A1EE7B037.JPG` | 4032 × 3024 |
+| `16.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/3FA89F2B-0336-4735-B727-3AC4127D13F5.JPG` | 3024 × 4032 |
+| `17.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/40C2E396-911E-46FC-8FF7-2BD40D296476.JPG` | 3520 × 1980 |
+| `18.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/422ACFD4-4F3A-498E-9905-47E7D4E06480.JPG` | 3024 × 4032 |
+| `19.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/476C5CBA-B9B6-4B45-B6A5-3DA8E0E46E0A.JPG` | 4032 × 3024 |
+| `20.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/49204419-E3C9-4748-9A55-B21BA46D9E6E.JPG` | 4032 × 3024 |
+| `21.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/559C6CDF-E638-4D08-A13C-99CC7C19AD69.JPG` | 3024 × 4032 |
+| `22.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/6FA05E23-3D01-416B-A1DF-CFA28B8F0D1E.JPG` | 3024 × 4032 |
+| `23.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/7728A33C-C033-49BE-9C9A-101EC95FA3CA.JPG` | 4032 × 3024 |
+| `24.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/7DEEF5FC-520B-46FC-BA2A-29FC8CF4F75B.JPG` | 4032 × 3024 |
+| `25.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/7ED05EB7-5B3C-4149-88BF-45E2A1C1A189.JPG` | 4032 × 3024 |
+| `26.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/84387516-D722-41D5-84F0-C48C4D68BFC8.JPG` | 3024 × 4032 |
+| `27.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/8B9190A4-D338-490B-91D6-9AA893C68695.JPG` | 4032 × 3024 |
+| `28.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/8CEB691B-F89B-4379-A943-20685C070BED.JPG` | 4032 × 3024 |
+| `29.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/958A5A51-6B5A-438E-AC9B-42D64625C39A.JPG` | 4032 × 3024 |
+| `30.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/9B514C69-E25E-41AD-96BA-FBF1B5E2ABBD.JPG` | 4032 × 3024 |
+| `31.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/ABD10B0B-9046-48E7-9DCD-4EA6DE142CE2.JPG` | 4032 × 3024 |
+| `32.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/B09A70DD-EEDF-4A43-866C-49840A254B19.JPG` | 3024 × 4032 |
+| `33.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/B45A5DB1-1833-425D-B8AD-34B4A50104B5.JPG` | 4032 × 3024 |
+| `34.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/B6E1B0CF-E6FA-4BAE-A3C3-28374C4A779F.JPG` | 4032 × 3024 |
+| `35.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/C6A0305C-78B2-4A3A-8193-0980FDF91702.JPG` | 4032 × 3024 |
+| `36.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/CA36BBD9-0EA1-4C95-8A80-0A060F3AEE4D.JPG` | 3024 × 4032 |
+| `37.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/D7F71CFF-23D9-4A60-ACFE-328C179DB83E.JPG` | 4032 × 3024 |
+| `38.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/DFE4BBD6-5D68-4ED6-8D4D-F42EE1B9CF9A.JPG` | 4032 × 3024 |
+| `39.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/E425D5FF-A6D2-437C-8129-0AC6AEA10999.JPG` | 4032 × 3024 |
+| `40.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/E4938183-998A-4CD3-9214-6D65301E4AA5.JPG` | 3024 × 4032 |
+| `41.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/FF5E52C2-4902-437E-881B-DF96209A9D50.JPG` | 4032 × 3024 |
+| `v01.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/DJI_20261110203918_0059_D.MP4` | 1512 × 2688 |
+| `v02.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/DJI_20261110211400_0078_D.MP4` | 1512 × 2688 |
+| `v03.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/DJI_20261110204327_0060_D.MP4` | 1512 × 2688 |
+| `v04.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/DJI_20261110210250_0074_D.MP4` | 1512 × 2688 |
+| `v05.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/DJI_20261110204417_0061_D.MP4` | 1512 × 2688 |
+| `v06.jpg` | `/Users/macbookair/Documents/PERSONAL/DanHeeg/sources/DJI_20261110202637_0050_D.MP4` | 1512 × 2688 |

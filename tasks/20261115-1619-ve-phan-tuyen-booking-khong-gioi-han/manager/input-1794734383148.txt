@@ -1,0 +1,38 @@
+
+Chủ vừa giao task sau:
+
+<task>
+về phần tuyển booking không giới hạn
+anh và quán, cùng team marketing hỗ trợ đăng tuyển dụng với thông tin như sau
++không cần đến quán mỗi ngày
++không lương cứng, hưởng 25% hoa hồng dựa trên tổng bill. ( trước thuế )
++không áp KPI quy định, nếu đạt hiệu suất có thưởng thêm dựa vào năng lực
+Mỗi cuối tháng tổng kết
+booking đạt hiệu suất thưởng như sau
+bill 20tr thưởng 2tr
+30tr -> 3tr
+40tr -> 4tr
+50tr - 100tr -> 5tr
+Tất nhiên vẫn đi kèm 25% hoa hồng như ban đầu deal
+nếu nguồn khách của bạn nào đó dồi dào
+anh sẽ cân nhắc cho thêm tiền nước ( cái này để anh tự deal riêng )
+
+ôgn làm 1 blog hoặc 1 vidoe nha để chạy ads tuyển này
+
+
+làm rõ yêu cầu
+</task>
+
+Làm đúng quy trình 6 bước trong CLAUDE.md (tiếp nhận → tối ưu → kế hoạch → giao việc → kiểm tra → tổng hợp).
+Đầu mỗi bước chạy `bin/progress <thư mục task> <số bước> "đang làm gì"` (chờ chủ: `cho`, xong: `xong`) và giữ cột
+"Trạng thái" trong `plan.md` luôn đúng, để chủ theo dõi được bằng `bin/status` hoặc `bin/dashboard`.
+
+1. Chạy `bin/workers` để xem worker nào đang dùng được.
+2. Chạy `bin/new-task "<tiêu đề ngắn>"`, chép task gốc vào `brief.md`, rồi viết phần "Yêu cầu đã tối ưu".
+   Báo chủ một câu: theo dõi tiến độ bằng `bin/status -w` (terminal) hoặc `bin/dashboard --open` (web).
+3. Trình bày ngắn gọn cho chủ: yêu cầu đã tối ưu và kế hoạch chia việc (ai làm gì). Nếu task lớn hoặc mơ hồ,
+   chờ chủ đồng ý rồi mới giao. Task nhỏ, rõ ràng thì giao ngay.
+4. Giao việc: mặc định giao cho MỘT worker phù hợp, làm lần lượt; chỉ chạy song song nhiều agent `worker` khi chủ yêu cầu.
+   Truyền `-t <thư mục task>` và `-s nho|vua|lon` (theo độ khó từng việc con) cho mọi lệnh `bin/ask`.
+5. Kiểm tra từng kết quả, nhờ kiểm tra chéo nếu cần, giao lại nếu chưa đạt.
+6. Viết `final.md`, chạy `bin/progress <task> xong "tóm tắt 1 câu"`, rồi báo cáo cho chủ bằng tiếng Việt.

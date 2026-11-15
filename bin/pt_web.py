@@ -9,6 +9,7 @@ import json
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -25,6 +26,8 @@ from urllib.parse import parse_qs, quote, urlparse
 
 import pt_manager
 import pt_notify
+import pt_storage
+import pt_hf
 import pt_followup
 import pt_files
 import tracker
@@ -47,7 +50,7 @@ def human_size(n):
 
 # ---------------- phát hiện server đang chạy code cũ (file .py đổi sau khi khởi động)
 CODE_FILES = ("pt_web.py", "pt_manager.py", "pt_notify.py", "pt_followup.py", "tracker.py",
-              "pt_accounts.py", "pt_usage.py")
+              "pt_accounts.py", "pt_usage.py", "pt_files.py", "pt_stats.py")
 
 
 def code_mtimes():
@@ -241,16 +244,18 @@ def file_kind(name):
 
 
 def task_files(tid):
-    """Sản phẩm (file do worker/quản lý tạo ra) và báo cáo của từng nhân viên (results/*.md)."""
+    """Sản phẩm (file do worker/quản lý tạo ra, chia nhóm chính / gửi kèm / làm việc — xem pt_storage)
+    và báo cáo của từng nhân viên (results/*.md). File rác (__pycache__, .pyc…) không liệt kê."""
     base = os.path.join(TASKS, tid)
     products, reports = [], []
     for root, dirs, files in os.walk(base):
         rel_root = os.path.relpath(root, base)
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith("backup")
-                         and not (rel_root == "." and d.startswith(".")))
+                         and not pt_storage.is_junk(d, True)
+                         and not d.startswith("."))  # thư mục ẩn: .hyperframes, .transcode-cache… là bộ nhớ đệm
         for n in sorted(files):
             rel = n if rel_root == "." else os.path.join(rel_root, n)
-            if rel_root == "." and n in INTERNAL_FILES:
+            if (rel_root == "." and n in INTERNAL_FILES) or pt_storage.is_junk(n, False):
                 continue
             p = os.path.join(root, n)
             try:
@@ -262,10 +267,17 @@ def task_files(tid):
                 reports.append(item)
             else:
                 products.append(item)
-            if len(products) > 400:
-                return {"products": products, "reports": reports, "truncated": True}
-    products.sort(key=lambda x: ({"html": 0, "image": 1, "pdf": 2, "video": 3, "audio": 3, "text": 4}.get(x["kind"], 5), x["path"]))
-    return {"products": products, "reports": reports, "truncated": False}
+            if len(products) > 5000:
+                break
+    products, info = pt_storage.group_products(tid, products)
+    order = {"html": 0, "image": 1, "pdf": 2, "video": 3, "audio": 3, "text": 4}
+    products.sort(key=lambda x: (order.get(x["kind"], 5), x["path"]))
+    # file làm việc có thể rất nhiều (ảnh/video tải về, khung hình nháp): gửi tối đa 300 cái, kèm tổng số
+    work = [x for x in products if x["group"] == "work"]
+    keep = set(id(x) for x in work[:300])
+    out = [x for x in products if x["group"] != "work" or id(x) in keep]
+    return {"products": out, "reports": reports, "truncated": len(work) > 300, "from_final": info["from_final"], "bundles": info["bundles"],
+            "work_total": {"count": len(work), "size": sum(x["size"] for x in work)}}
 
 
 def decode_images(images):
@@ -509,23 +521,42 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def serve_task_file(self, rest, download=False):
+        """Gửi một file của task. Hỗ trợ Range (trình phát video cần để phát/tua, Safari bắt buộc)
+        và gửi từng khúc nên file lớn (video vài trăm MB) không phải đọc hết vào bộ nhớ."""
         tid, _, rel = rest.partition("/")
         if tid not in task_ids() or not rel:
             return self.send(404, "không có file", "text/plain; charset=utf-8")
         base = os.path.realpath(os.path.join(TASKS, tid))
         p = os.path.realpath(os.path.join(base, rel))
-        if not p.startswith(base + os.sep) or not os.path.isfile(p) or os.path.getsize(p) > 50 * 1024 * 1024:
+        if not p.startswith(base + os.sep) or not os.path.isfile(p):
             return self.send(404, "không có file", "text/plain; charset=utf-8")
         ctype = mimetypes.guess_type(p)[0] or "application/octet-stream"
         if file_kind(p) == "text" or ctype.startswith("text/"):
             ctype = ("text/html" if file_kind(p) == "html" else "text/plain") + "; charset=utf-8"
         elif ctype in ("text/html", "image/svg+xml") or file_kind(p) == "html":
             ctype += "; charset=utf-8" if "charset" not in ctype else ""
-        with open(p, "rb") as f:
-            data = f.read()
-        self.send_response(200)
+        size = os.path.getsize(p)
+        start, end, status = 0, size - 1, 200
+        m = re.match(r"bytes=(\d*)-(\d*)$", (self.headers.get("Range") or "").strip())
+        if m and (m.group(1) or m.group(2)):
+            if m.group(1):
+                start = int(m.group(1))
+                end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+            else:  # bytes=-N: N byte cuối
+                start = max(0, size - int(m.group(2)))
+            if start > end or start >= size:
+                self.send_response(416)
+                self.send_header("Content-Range", "bytes */%d" % size)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            status = 206
+        self.send_response(status)
         self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Length", str(max(0, end - start + 1)))
+        self.send_header("Accept-Ranges", "bytes")
+        if status == 206:
+            self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, size))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         # Cách ly: trang/ảnh do AI tạo chạy ở origin riêng, không gọi được API của Pentagon, không đọc được cookie
@@ -533,7 +564,18 @@ class Handler(BaseHTTPRequestHandler):
         if download:
             self.send_header("Content-Disposition", "attachment; filename*=UTF-8''%s" % quote(os.path.basename(p)))
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            with open(p, "rb") as f:
+                f.seek(start)
+                left = end - start + 1
+                while left > 0:
+                    chunk = f.read(min(1 << 20, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # trình phát video hay huỷ giữa chừng để xin đoạn khác — bình thường
 
     def from_lan(self):
         return getattr(self.server, "is_lan", False)
@@ -562,7 +604,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, read(LOGIN_PAGE) or "thiếu web/login.html", "text/html; charset=utf-8")
             if encoded and u.path.startswith("/api/") and not self.logged_in(encoded):
                 return self.json({"error": "chưa đăng nhập"}, 401)
-            is_page = u.path in ("/", "/dieu-hanh", "/van-phong", "/giao", "/thung-rac", "/tai-khoan", "/nhan-vien", "/cai-dat", "/thong-bao", "/agent") or u.path.startswith("/task/")
+            is_page = u.path in ("/", "/dieu-hanh", "/van-phong", "/giao", "/thung-rac", "/tai-khoan", "/nhan-vien", "/cai-dat", "/thong-bao", "/agent", "/thong-ke") or u.path.startswith("/task/")
             if encoded and is_page and not self.logged_in(encoded):
                 return self.redirect("/login")
             if is_page:
@@ -602,6 +644,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(task_files(tid))
             if u.path == "/api/lan":
                 return self.json(lan_status())
+            if u.path == "/api/stats":  # trang Thống kê: ?days=1|7|30|0 (0 = tất cả)
+                import pt_stats
+                try:
+                    days = max(0, min(3650, int((parse_qs(u.query).get("days") or ["7"])[0])))
+                except ValueError:
+                    days = 7
+                d = pt_stats.stats(days)
+                d["role_names"] = pt_manager.role_names()
+                return self.json(d)
             if u.path == "/api/agents":
                 return self.json(pt_followup.agents_view())
             if u.path == "/api/notifications":
@@ -614,6 +665,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(accounts_view())
             if u.path == "/api/trash":
                 return self.json({"items": pt_manager.trash_list()})
+            if u.path == "/api/hf":  # task này có phải video / có dự án HyperFrames không
+                try:
+                    return self.json(pt_hf.info(q.get("id", "")))
+                except RuntimeError as e:
+                    return self.json({"error": str(e)}, 404)
+            if u.path == "/api/storage":  # Cài đặt › Dung lượng
+                return self.json(pt_storage.usage(pt_manager._busy))
+            if u.path == "/api/storage/dir":
+                try:
+                    return self.json(pt_storage.dir_usage(q.get("id", ""), q.get("path", "")))
+                except RuntimeError as e:
+                    return self.json({"error": str(e)}, 400)
             if u.path == "/api/office":
                 return self.json(office())
             if u.path == "/api/task":
@@ -622,6 +685,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": "không có task"}, 404)
                 t = summary(tid, with_docs=True)
                 t["chat"] = pt_manager.chat(tid)
+                t["dir"] = os.path.join(TASKS, tid)   # đường dẫn đầy đủ, hiện ở đầu trang task (bấm để mở Finder)
                 t["inbox"] = pt_manager.inbox_view(tid)
                 last = t["chat"][-1]["role"] if t["chat"] else ""
                 t["manager_stderr"] = pt_manager.stderr_tail(tid) if last == "error" or (
@@ -751,7 +815,7 @@ class Handler(BaseHTTPRequestHandler):
                 files = decode_attachments(body.get("files"), images)
                 request = str(body.get("text", "")).strip() or ("Xem ảnh / file đính kèm" if images or files else "")
                 mode = body.get("mode") if body.get("mode") in ("duyet", "lam-luon") else "tu-quyet"
-                size = body.get("size") if body.get("size") in ("nho", "vua", "lon") else "auto"
+                size = body.get("size") if body.get("size") in pt_manager.SIZES else "auto"
                 split = body.get("split") if body.get("split") in ("mot", "song-song") else "auto"
                 tid = pt_manager.launch_new(request, mode, size, split, background=True,
                                             assignee=str(body.get("assignee") or ""), images=images, files=files)
@@ -820,8 +884,88 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": "không có"}, 404)
                 threading.Thread(target=refresh_workers_once, daemon=True).start()
                 return self.json({"ok": True, "name": name})
+            if path == "/api/task/reveal":  # {id, path?}: mở thư mục task (hoặc chỉ ra một file) trong Finder của máy Mac
+                if self.from_lan():
+                    return self.json({"error": "chỉ mở được thư mục khi dùng trên chính máy Mac"}, 403)
+                tid = str(body.get("id", ""))
+                if tid not in task_ids():
+                    return self.json({"error": "không có task"}, 404)
+                base = os.path.realpath(os.path.join(TASKS, tid))
+                target = os.path.realpath(os.path.join(base, str(body.get("path") or "").lstrip("/")))
+                if target != base and not target.startswith(base + os.sep):
+                    return self.json({"error": "đường dẫn không hợp lệ"}, 400)
+                if not os.path.exists(target):
+                    return self.json({"error": "không còn file / thư mục này"}, 404)
+                if sys.platform == "darwin":
+                    cmd = ["open", target] if os.path.isdir(target) else ["open", "-R", target]
+                else:
+                    cmd = ["xdg-open", target if os.path.isdir(target) else os.path.dirname(target)]
+                try:
+                    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except OSError as e:
+                    return self.json({"error": "không mở được: %s" % e}, 500)
+                return self.json({"ok": True, "path": target})
             if path == "/api/task/restore":
                 return self.json({"ok": True, "id": pt_manager.restore_task(str(body.get("trash_id", "")))})
+            if path == "/api/bulk":  # {op, ids}: thao tác hàng loạt; lỗi từng mục trả về riêng, mục khác vẫn chạy
+                op, ids = str(body.get("op", "")), body.get("ids")
+                if not isinstance(ids, list) or not ids or len(ids) > 500:
+                    return self.json({"error": "danh sách chọn không hợp lệ"}, 400)
+                ids = [str(x) for x in ids]
+                if op == "noti-read":
+                    pt_notify.read_many(ids)
+                    return self.json({"ok": True, "done": ids, "errors": []})
+                if op == "noti-delete":
+                    pt_notify.remove(ids)
+                    return self.json({"ok": True, "done": ids, "errors": []})
+                if op not in ("done", "reopen", "cancel", "delete", "restore", "purge", "acc-on", "acc-off"):
+                    return self.json({"error": "không có thao tác %s" % op}, 400)
+                done, errors, tids = [], [], set(task_ids())
+                if op in ("acc-on", "acc-off"):
+                    import pt_accounts
+                for x in ids:
+                    try:
+                        if op == "restore":
+                            pt_manager.restore_task(x)
+                        elif op == "purge":
+                            pt_manager.purge_task(x)
+                        elif op in ("acc-on", "acc-off"):
+                            pt_accounts.set_enabled(x, op == "acc-on")
+                        else:
+                            if x not in tids:
+                                raise RuntimeError("không có task")
+                            if op == "delete":
+                                pt_manager.delete_task(x)
+                            elif op == "reopen":
+                                pt_manager.reopen(x)
+                            elif op == "cancel":
+                                pt_manager.cancel_task(x)
+                            elif op == "done":
+                                subprocess.run([os.path.join(ROOT, "bin", "progress"), os.path.join(TASKS, x), "xong",
+                                                "chủ đánh dấu hoàn thành"], capture_output=True)
+                        done.append(x)
+                    except (RuntimeError, ValueError, OSError, KeyError) as e:
+                        errors.append({"id": x, "error": str(e) or e.__class__.__name__})
+                if op in ("acc-on", "acc-off"):
+                    threading.Thread(target=refresh_workers_once, daemon=True).start()
+                return self.json({"ok": True, "done": done, "errors": errors})
+            if path in ("/api/hf/start", "/api/hf/stop", "/api/hf/init"):  # editor HyperFrames của task video
+                tid = str(body.get("id", ""))
+                if path == "/api/hf/init":
+                    return self.json({"ok": True, "project": pt_hf.init(tid, str(body.get("video", "")))})
+                if path == "/api/hf/start":
+                    return self.json({"ok": True, "project": pt_hf.start(tid, str(body.get("dir", "")))})
+                pt_hf.stop(tid, str(body.get("dir", "")))
+                return self.json({"ok": True})
+            if path == "/api/storage/delete":  # {id, path} — xoá vĩnh viễn một file/thư mục trong task
+                return self.json({"ok": True, "freed": pt_storage.delete_path(
+                    str(body.get("id", "")), str(body.get("path", "")), pt_manager._busy)})
+            if path == "/api/storage/clean-junk":  # {id?} — dọn file rác của một task hoặc mọi task
+                tid = str(body.get("id", ""))
+                freed, skipped = pt_storage.clean_junk([tid] if tid else pt_storage.task_ids(), pt_manager._busy)
+                return self.json({"ok": True, "freed": freed, "skipped": skipped})
+            if path == "/api/storage/empty-trash":
+                return self.json({"ok": True, "freed": pt_storage.empty_trash()})
             if path == "/api/task/purge":
                 pt_manager.purge_task(str(body.get("trash_id", "")))
                 return self.json({"ok": True})

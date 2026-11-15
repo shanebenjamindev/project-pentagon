@@ -15,7 +15,8 @@ Cách dùng: bin/ask <worker|claude|codex|gemini> [tuỳ chọn] "nội dung vi�
   -w            cho phép sửa file trong thư mục làm việc (mặc định: chỉ đọc)
   -C <dir>      thư mục làm việc (mặc định: ~/.pentagon/workspace)
   -t <dir>      thư mục task: lưu kết quả vào <dir>/results/
-  -s <cỡ>       cỡ việc: nho | vua | lon — chọn model theo config/models.conf (việc nhỏ → model nhỏ)
+  -s <cỡ>       cỡ việc: nho | vua | lon | sieu — chọn model theo config/models.conf (việc nhỏ → model nhỏ;
+                sieu = siêu khó, model mạnh nhất như Fable — chỉ dùng khi chủ chọn)
   -m <model>    chọn model cụ thể (ưu tiên hơn -s); có thể kèm @mức_suy_nghĩ, vd sonnet@high
   --timeout <s> giới hạn thời gian mỗi lần thử (mặc định 1200 giây)
   -r <vai trò>  vai trò subagent trong config/roles: review (kiểm tra), tra-cuu, code, viet
@@ -34,7 +35,7 @@ while [ $# -gt 0 ]; do
     -C) WD="$2"; shift ;;
     -t) TASK="$2"; shift ;;
     -m) MODEL_ARG="$2"; shift ;;
-    -s) SIZE="$(norm_size "$2")"; [ -n "$SIZE" ] || die "cỡ việc không hợp lệ: $2 (dùng nho, vua, lon)"; shift ;;
+    -s) SIZE="$(norm_size "$2")"; [ -n "$SIZE" ] || die "cỡ việc không hợp lệ: $2 (dùng nho, vua, lon, sieu)"; shift ;;
     --timeout) TIMEOUT="$2"; shift ;;
     -r) ROLE="$2"; shift ;;
     --fork) FORK="$2"; shift ;;
@@ -103,7 +104,8 @@ looks_limited() {
 
 TMP="$(mktemp -d)"
 MARK=""   # file đánh dấu "đang chạy" trong <task>/running/, để bin/status và bin/dashboard hiển thị
-trap 'rm -rf "$TMP"; [ -n "$MARK" ] && rm -f "$MARK"' EXIT
+LIVE=""
+trap 'rm -rf "$TMP"; [ -n "$MARK" ] && rm -f "$MARK"; [ -n "$LIVE" ] && rm -f "$LIVE"' EXIT
 kill_tree() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done; kill -TERM "$1" 2>/dev/null; }
 on_signal() {   # bị dừng giữa chừng (vd quản lý kết thúc lượt): dừng CLI của worker, ghi nhật ký, giữ phần đã làm
   [ -n "$RUN_PID" ] && { kill_tree "$RUN_PID"; sleep 1; }
@@ -161,10 +163,15 @@ run_one() {
       [ "$WRITE" = 1 ] && args+=(--permission-mode acceptEdits)
       [ -n "$MODEL" ] && args+=(--model "$MODEL")
       [ -n "$EFFORT" ] && args+=(--effort "$EFFORT")
+      mkdir -p "$ORCH_DATA/usage"
+      LIVE="$ORCH_DATA/usage/$name.$$.stream.jsonl"
+      : >"$LIVE"
       (cd "$WD" && perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" \
-        env $( [ -n "$home" ] && echo "CLAUDE_CONFIG_DIR=$home" ) "${args[@]}" "$FULL") >"$OUT.raw" 2>"$ERR"
+        env $( [ -n "$home" ] && echo "CLAUDE_CONFIG_DIR=$home" ) "${args[@]}" "$FULL") \
+        2>"$ERR" | tee "$OUT.raw" "$LIVE" >/dev/null
       local rc=$?
       python3 "$ORCH_ROOT/bin/pt_usage.py" claude-out "$name" "$OUT.raw" >"$OUT" 2>/dev/null || cp "$OUT.raw" "$OUT"
+      rm -f "$LIVE"; LIVE=""
       return $rc ;;
     codex)
       args=(codex exec --skip-git-repo-check --color never -C "$WD" -o "$OUT")

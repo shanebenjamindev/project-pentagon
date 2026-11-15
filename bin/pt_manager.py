@@ -23,15 +23,15 @@ workers.conf và quản lý làm tiếp đúng phiên đó. Hết sạch tài kh
 hạn mức làm mới (cần bin/dashboard đang chạy).
 
 Dòng lệnh (bin/manager):
-  bin/manager new [--duyet|--lam-luon] [--co auto|nho|vua|lon] [--mot|--song-song] [--ai <worker>] "yêu cầu"
+  bin/manager new [--duyet|--lam-luon] [--co auto|nho|vua|lon|sieu] [--mot|--song-song] [--ai <worker>] "yêu cầu"
                                                    tạo task và cho quản lý bắt đầu (mặc định: quản lý tự phân loại cỡ,
                                                    tự chọn cách giao và AI làm; --ai chỉ định AI, AI bận thì task chờ)
-  bin/manager send <task> [--co auto|nho|vua|lon] "tin nhắn"
+  bin/manager send <task> [--co auto|nho|vua|lon|sieu] "tin nhắn"
                                                    gửi tin nhắn (lượt mới; quản lý đang chạy thì nạp ngay vào lượt đó);
                                                    model của lượt: auto = quản lý chọn theo yêu cầu
   bin/manager stop <task>                          dừng quản lý (và các worker nó đang chạy)
   bin/manager kill-worker <task> <pid>             huỷ một worker đang chạy
-  bin/manager size <task> <nho|vua|lon> ["lý do"]  quản lý đổi cỡ task (model đổi từ lượt sau)
+  bin/manager size <task> <nho|vua|lon|sieu> ["lý do"]  quản lý đổi cỡ task (model đổi từ lượt sau)
 """
 import json
 import os
@@ -53,7 +53,9 @@ from tracker import ROOT, TASKS, kv, pid_alive, read
 CONF = os.path.join(ROOT, "config", "manager.conf")
 MODELS = os.path.join(ROOT, "config", "models.conf")
 WORKERS = os.environ.get("ORCH_CONF") or os.path.join(ROOT, "config", "workers.conf")
-SIZES = {"nho": "nhỏ", "vua": "vừa", "lon": "lớn"}
+SIZES = {"nho": "nhỏ", "vua": "vừa", "lon": "lớn", "sieu": "siêu khó"}
+SIZE_KEYS = tuple(SIZES)              # thứ tự cột trong config/models.conf
+# "siêu khó" (model mạnh nhất, vd Fable) chỉ do chủ chọn; AI tự phân loại chỉ chọn nhỏ / vừa / lớn
 LIMIT_RE = re.compile(r"usage limit|rate limit|limit reached|hit your (?:[0-9a-z-]+ )?limit|out of (usage|credits)|quota|"
                       r"exhausted|too many requests|\b429\b", re.I)
 
@@ -146,7 +148,7 @@ def conf_rows(path):
         line = line.split("#", 1)[0]
         cells = [c.strip() for c in line.split("|")]
         if len(cells) >= 3 and cells[0]:
-            rows.append(cells + [""] * (5 - len(cells)))
+            rows.append(cells + [""] * max(0, 6 - len(cells)))
     return rows
 
 
@@ -162,7 +164,7 @@ def claude_accounts():
 
 
 def tier_spec(role, size):
-    col = {"nho": 1, "vua": 2, "lon": 3}.get(size)
+    col = {"nho": 1, "vua": 2, "lon": 3, "sieu": 4}.get(size)
     if not col:
         return ""
     for r in conf_rows(MODELS):
@@ -177,7 +179,8 @@ def manager_models():
 
 def norm_size(s):
     s = (s or "").strip().lower()
-    return {"nhỏ": "nho", "small": "nho", "vừa": "vua", "medium": "vua", "lớn": "lon", "large": "lon"}.get(s, s) \
+    return {"nhỏ": "nho", "small": "nho", "vừa": "vua", "medium": "vua", "lớn": "lon", "large": "lon",
+            "siêu khó": "sieu", "siêu": "sieu", "sieu-kho": "sieu", "sieukho": "sieu", "xl": "sieu"}.get(s, s) \
         if s else ""
 
 
@@ -324,15 +327,16 @@ def save_manager_settings(model=None, allow=None):
 
 
 def models_table():
-    rows = {r[0]: [r[1], r[2], r[3]] for r in conf_rows(MODELS)}
+    rows = {r[0]: [r[1], r[2], r[3], r[4] or "-"] for r in conf_rows(MODELS)}
     order = list(MODEL_ROWS) + [k for k in rows if k not in MODEL_ROWS]
-    return {"rows": [{"role": k, "cells": rows.get(k, ["-", "-", "-"])} for k in order], "efforts": list(EFFORTS),
+    return {"rows": [{"role": k, "cells": rows.get(k, ["-", "-", "-", "-"])} for k in order], "efforts": list(EFFORTS),
             "suggest": suggest_models()}
 
 
 def suggest_models():
     """Gợi ý cho ô nhập model: model hay dùng + mọi model đang có trong models.conf / workers.conf."""
-    base = ["haiku", "sonnet", "opus", "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5",
+    base = ["haiku", "sonnet", "opus", "fable", "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5",
+            "claude-fable-5-2",
             "gpt-6-luna", "gemini-2.5-pro", "gemini-2.5-flash"]
     opts = model_options()
     seen = []
@@ -344,7 +348,7 @@ def suggest_models():
 
 
 def save_models_table(rows):
-    """rows = {vai_trò: [nhỏ, vừa, lớn]}. Ghi lại config/models.conf, giữ chú thích, căn cột cho dễ đọc."""
+    """rows = {vai_trò: [nhỏ, vừa, lớn, siêu khó]}. Ghi lại config/models.conf, giữ chú thích, căn cột cho dễ đọc."""
     if not isinstance(rows, dict) or not rows:
         raise RuntimeError("bảng model không hợp lệ")
     known = {r[0] for r in conf_rows(MODELS)}
@@ -352,10 +356,13 @@ def save_models_table(rows):
     for role, cells in rows.items():
         if role not in known and role not in MODEL_ROWS:
             raise RuntimeError("không có dòng “%s” trong bảng model" % str(role)[:40])
-        if not isinstance(cells, list) or len(cells) != 3:
-            raise RuntimeError("dòng %s phải có đủ 3 ô nhỏ / vừa / lớn" % role)
+        if isinstance(cells, list) and len(cells) == 3:  # trang web cũ chỉ gửi 3 cột: giữ cột siêu khó đang có
+            old = {r[0]: r[4] for r in conf_rows(MODELS)}
+            cells = cells + [old.get(role) or "-"]
+        if not isinstance(cells, list) or len(cells) != 4:
+            raise RuntimeError("dòng %s phải có đủ 4 ô nhỏ / vừa / lớn / siêu khó" % role)
         vals = []
-        for size, v in zip(("nhỏ", "vừa", "lớn"), cells):
+        for size, v in zip(("nhỏ", "vừa", "lớn", "siêu khó"), cells):
             v = v.strip() if isinstance(v, str) else ""
             err = check_spec(v, allow_dash=True)
             if err:
@@ -363,12 +370,12 @@ def save_models_table(rows):
             vals.append(v)
         clean[role] = vals
     with CONF_LOCK:
-        merged = {r[0]: [r[1], r[2], r[3]] for r in conf_rows(MODELS)}
+        merged = {r[0]: [r[1], r[2], r[3], r[4] or "-"] for r in conf_rows(MODELS)}
         merged.update(clean)
         order = [k for k in MODEL_ROWS if k in merged] + [k for k in merged if k not in MODEL_ROWS]
-        head = ["# vai trò", "nhỏ", "vừa", "lớn"]  # dòng tiêu đề bảng là một dòng chú thích
+        head = ["# vai trò", "nhỏ", "vừa", "lớn", "siêu khó"]  # dòng tiêu đề bảng là một dòng chú thích
         table = [[k] + merged[k] for k in order]
-        w = [max(len(head[i]), *(len(r[i]) for r in table)) for i in range(4)]
+        w = [max(len(head[i]), *(len(r[i]) for r in table)) for i in range(5)]
         fmt = lambda cells: " | ".join(c.ljust(w[i]) for i, c in enumerate(cells)).rstrip()
         out, placed = [], False
         for line in (read(MODELS) or "").splitlines():
@@ -851,7 +858,9 @@ def rules_for(tid):
                "AI LÀM VIỆC: bạn tự chọn worker phù hợp (xem bin/workers), ưu tiên worker đang rảnh."
     return WEB_RULES.format(task=os.path.join(TASKS, tid), split=SPLIT_RULES.get(split, SPLIT_RULES["auto"]),
                             assignee=assignee, roles=roles_hint(),
-                            size="%s (task nhỏ thì cả quản lý lẫn worker dùng model nhỏ)" % SIZES.get(size, size))
+                            size=("siêu khó — chủ chọn: bạn đang dùng model mạnh nhất; việc con khó nhất giao với "
+                                  "bin/ask -s sieu, việc con thường vẫn dùng -s lon/vua/nho cho đỡ tốn hạn mức") if size == "sieu" else
+                            "%s (task nhỏ thì cả quản lý lẫn worker dùng model nhỏ)" % SIZES.get(size, size))
 
 
 SPLIT_TXT = {"auto": "quản lý tự chọn cách giao", "mot": "một worker", "song-song": "song song"}
