@@ -1,0 +1,6 @@
+#!/bin/bash
+# Hội đồng: hai AI khác loại (mặc định Codex + Claude) cùng bàn một vấn đề khó tối đa 3 vòng rồi chốt.
+#   bin/council -t <thư_mục_task> [-s nho|vua|lon|sieu] [--vong N] [--thanh-vien codex,claude] "vấn đề"
+# Xem chi tiết: bin/council --help
+command -v python3 >/dev/null 2>&1 || { echo "Lỗi: cần python3" >&2; exit 1; }
+exec python3 "$(dirname "$0")/pt_council.py" "$@"

@@ -1,0 +1,89 @@
+{
+ "name": "Lập trình",
+ "desc": "Viết / sửa code: hiểu → kế hoạch → làm → kiểm tra → tổng hợp. Kế hoạch task lớn phải được duyệt; code phải qua kiểm tra khác loại.",
+ "stages": [
+  {
+   "key": "hieu",
+   "name": "Hiểu yêu cầu",
+   "buoc": 2,
+   "goal": "Nắm rõ yêu cầu và phần code liên quan trước khi đụng vào.",
+   "rules": [
+    "Đọc code / tài liệu liên quan; việc dò tìm dài thì giao -r tra-cuu -s nho.",
+    "Ghi mục tiêu, tiêu chí xong, giả định vào brief.md."
+   ],
+   "next": [
+    "ke-hoach"
+   ]
+  },
+  {
+   "key": "ke-hoach",
+   "name": "Kế hoạch",
+   "buoc": 3,
+   "goal": "plan.md chia việc con: ai làm, đầu vào, đầu ra, cỡ (-s); đánh dấu việc nào độc lập để chạy song song.",
+   "rules": [
+    "Việc con độc lập (không cần kết quả của nhau, không sửa cùng file) thì gom để chạy bằng bin/parallel.",
+    "Task lớn / siêu khó: kế hoạch phải được một nhân viên khác loại review ĐẠT trước khi làm."
+   ],
+   "next": [
+    "lam"
+   ],
+   "gate": {
+    "review": true,
+    "khi_co": [
+     "lon",
+     "sieu"
+    ]
+   }
+  },
+  {
+   "key": "lam",
+   "name": "Làm",
+   "buoc": 4,
+   "goal": "Thực hiện các việc con theo plan.md.",
+   "rules": [
+    "-r code (có -w, -C đúng thư mục).",
+    "Việc con độc lập chạy song song bằng bin/parallel; việc phụ thuộc nhau làm lần lượt.",
+    "Cập nhật cột Trạng thái trong plan.md."
+   ],
+   "next": [
+    "kiem-tra"
+   ]
+  },
+  {
+   "key": "kiem-tra",
+   "name": "Kiểm tra",
+   "buoc": 5,
+   "goal": "Một nhân viên KHÁC LOẠI với người làm review (-r review) và kết luận ĐẠT.",
+   "rules": [
+    "Chạy test / kiểm tra thật nếu có.",
+    "CHƯA ĐẠT: quay lại bước Làm kèm nhận xét cụ thể (tối đa 2 lần), sau đó quản lý tự sửa."
+   ],
+   "next": [
+    "tong-hop"
+   ],
+   "rework": [
+    "lam"
+   ],
+   "max_rework": 2,
+   "gate": {
+    "review": true,
+    "khac_loai": true
+   }
+  },
+  {
+   "key": "tong-hop",
+   "name": "Tổng hợp",
+   "buoc": 6,
+   "goal": "final.md có mục ## Sản phẩm, báo chủ ai làm phần nào, phần nào chưa chắc chắn.",
+   "rules": [
+    "Ghi đường dẫn sản phẩm chính trong mục ## Sản phẩm."
+   ],
+   "next": [
+    "xong"
+   ],
+   "gate": {
+    "final": true
+   }
+  }
+ ]
+}

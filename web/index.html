@@ -392,6 +392,19 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .turnopts select{width:100%;font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:5px 6px;border-radius:6px}
 .turnopts select:disabled{opacity:.5}
 @media (max-width:640px){.turnopts{grid-template-columns:1fr}}
+/* dải bước của quy trình trên trang task */
+.flow{margin:-2px 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--panel);font-size:12.5px}
+.flow-h{color:var(--muted);margin-right:8px}
+.flow-st{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:4px}
+.flow .fs{padding:2px 9px;border:1px solid var(--line);border-radius:99px;color:var(--muted);white-space:nowrap}
+.flow .fs.xong{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.flow .fs.dang{color:var(--accent);border-color:var(--accent);font-weight:600;background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.flow .arr{color:var(--muted)}
+.flow .lock{font-size:10px}
+.flow-miss{margin-top:6px;color:var(--warn)}
+.wfl{display:flex;flex-direction:column;gap:10px}
+.wfl .wf{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px}
+.wfl .wf b{font-size:13.5px}
 /* trang Thống kê token */
 .tkhead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:var(--sect)}
 .tkgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap-lg)}
@@ -859,6 +872,13 @@ html,body{max-width:100%;overflow-x:hidden;overflow-x:clip} /* clip: không bi�
     <div class="sub" id="cfgModelHint" style="margin-top:8px"></div>
   </div>
 
+  <!-- Quy trình: config/workflows/*.json -->
+  <div class="card">
+    <h3>Quy trình <span class="sub">các bước quản lý đi theo; 🔒 = cổng kiểm tra, chưa đạt thì không được đi tiếp</span></h3>
+    <div class="wfl" id="cfgFlows"></div>
+    <div class="sub" style="margin-top:10px">Chọn quy trình cho từng task ở cửa sổ Giao task. Định nghĩa nằm trong <code>config/workflows/</code>.</div>
+  </div>
+
   <!-- Bảng model theo cỡ việc: config/models.conf -->
   <div class="card">
     <h3>Model theo cỡ việc <span class="sub">việc nhỏ dùng model nhỏ (nhanh, đỡ tốn hạn mức), việc lớn dùng model mạnh</span></h3>
@@ -892,7 +912,11 @@ html,body{max-width:100%;overflow-x:hidden;overflow-x:clip} /* clip: không bi�
           <div class="picker" id="whoPicker"><button type="button" id="whoBtn"></button><div class="menu" id="whoMenu" hidden></div></div>
           <small class="sub" id="whoHint">Quản lý chọn worker phù hợp, ưu tiên AI đang rảnh.</small></label>
         <label class="field"><span>Cách giao việc</span>
-          <select id="newSplit"><option value="auto" selected>Để quản lý tự chọn</option><option value="mot">Một worker làm (lần lượt)</option><option value="song-song">Song song nhiều worker</option></select></label>
+          <select id="newSplit"><option value="auto" selected>Để quản lý tự chọn</option><option value="mot">Một worker làm (lần lượt)</option><option value="song-song">Song song nhiều worker</option></select>
+          <small class="sub">Tự chọn: việc con độc lập chạy song song, mỗi việc một tài khoản khác nhau.</small></label>
+        <label class="field"><span>Quy trình</span>
+          <select id="newWorkflow"><option value="auto" selected>Để quản lý tự chọn</option><option value="none">Không theo quy trình</option></select>
+          <small class="sub" id="newWorkflowHint">Các bước có cổng kiểm tra: chưa đạt thì không được đi tiếp.</small></label>
         <label class="field"><span>Độ khó</span>
           <select id="newSize"><option value="auto" selected>Để quản lý tự phân loại</option><option value="nho">Nhỏ</option><option value="vua">Vừa</option><option value="lon">Lớn</option><option value="sieu">Siêu khó</option></select></label>
         <label class="field"><span>Duyệt kế hoạch</span>
@@ -1150,7 +1174,7 @@ async function renderTrash(){
 // ---------------- Trang 2: chi tiết task (dựng khung 1 lần, chỉ thay phần đổi để không mất chữ đang gõ)
 function skeleton(){
   clearDraftImages("msg");prodN=null;
-  $("#detail").innerHTML=`<div id="p-head"></div><div class="stepper" id="p-steps"></div><div id="p-note"></div>
+  $("#detail").innerHTML=`<div id="p-head"></div><div class="stepper" id="p-steps"></div><div id="p-flow"></div><div id="p-note"></div>
   <div class="seg ttabs" id="ttabs"><button data-tab="ket-qua">Kết quả cuối</button><button data-tab="san-pham">Sản phẩm <span class="tcount" id="p-prodcount"></span></button><button data-tab="bao-cao">Báo cáo nhân viên <span class="tcount" id="p-repcount"></span></button><button data-tab="editor" id="edTabBtn" hidden>Editor video</button><button data-tab="tien-do">Tiến độ & trao đổi</button></div>
   <div id="tabEditor" data-tabpane="editor"><div id="p-editor"></div></div>
   <div class="fwrap" id="tabFinal" data-tabpane="ket-qua">
@@ -1161,6 +1185,7 @@ function skeleton(){
     <div id="p-products"></div><div id="p-viewer"></div>
   </div>
   <div id="tabReports" data-tabpane="bao-cao">
+    <div id="p-council"></div>
     <div class="card"><h3>Báo cáo của từng nhân viên <span class="sub" id="p-rescount"></span></h3><div class="reps" id="p-results"></div></div>
   </div>
   <div class="grid" id="tabProgress" data-tabpane="tien-do"><div>
@@ -1172,7 +1197,7 @@ function skeleton(){
         <span id="p-acct"></span>
       </div><div id="p-mstatus"></div><div class="chat" id="p-chat"></div>
       <div class="composer"><div class="row" id="p-inbox"></div><textarea id="msg" placeholder="Nhắn cho quản lý: trả lời câu hỏi, duyệt kế hoạch, yêu cầu sửa… (⌘/Ctrl + Enter để gửi)"></textarea>
-      <div class="attach-preview" id="msgImagesPreview"></div><input hidden type="file" accept="image/*,.csv,.tsv,.xlsx,.xls,.ods,.pdf,.docx,.txt,.md,.json" multiple id="msgImagesFile"><div class="row"><button class="btn sm" type="button" onclick="document.getElementById('msgImagesFile').click()">📎 Đính kèm</button><span class="sub">Ảnh, Excel/CSV, PDF, Word… · tối đa 8 ảnh + 5 file (10 MB/file) · link Google Sheet/Drive đã chia sẻ công khai dán vào nội dung là đọc được</span></div>
+      <div class="attach-preview" id="msgImagesPreview"></div><input hidden type="file" accept="image/*,.csv,.tsv,.xlsx,.xls,.ods,.pdf,.docx,.txt,.md,.json" multiple id="msgImagesFile"><div class="row"><button class="btn sm" type="button" onclick="document.getElementById('msgImagesFile').click()">📎 Đính kèm</button><button class="btn sm" type="button" id="councilBtn" title="Nhờ quản lý mở hội đồng: Codex và Claude cùng bàn vấn đề này tối đa 3 vòng rồi chốt">🏛 Họp hội đồng</button><span class="sub">Ảnh, Excel/CSV, PDF, Word… · tối đa 8 ảnh + 5 file (10 MB/file) · link Google Sheet/Drive đã chia sẻ công khai dán vào nội dung là đọc được</span></div>
       <div class="turnopts">
         <label><span>Quản lý dùng</span><select id="turnMgr" title="Model của AI quản lý cho lượt này"></select></label>
         <label><span>Giao cho</span><select id="turnWho" title="Nhân viên làm phần việc của tin nhắn này"></select></label>
@@ -1201,6 +1226,7 @@ function renderDetail(t){
     <div class="row"><button class="btn sm" data-edit="${esc(t.id)}">Sửa</button>
       ${open?`<button class="btn sm" data-act="done">Đánh dấu xong</button><button class="btn sm danger" data-act="cancel">Huỷ task</button>`:`<button class="btn sm" data-act="reopen">Mở lại</button>`}
       <button class="btn sm danger" data-del="${esc(t.id)}">Xoá</button></div></div>`);
+  setPart("p-flow",flowStrip(t.workflow));
   setPart("p-steps",STEPS.map((s,k)=>{const n=k+1,d=t.state==="xong"||n<t.step,c=!d&&n===t.step;return `<div class="st ${d?"d":""} ${c?"c "+t.state:""}"><b>${d?"✓":n}</b><div>${s}</div></div>`}).join(""));
   setPart("p-note",t.note?`<div class="note">${esc(t.note)}</div>`:"");
   const sp=$("#splitSel");
@@ -1250,6 +1276,9 @@ function renderDetail(t){
       ${fus.map(f=>`<details class="fu" data-key="${esc(f.file)}" ${openSet.has(f.file)?"open":""}><summary><span class="sub">Hỏi tiếp:</span> <b>${esc(f.question||"(câu hỏi)")}</b><span class="sub">${esc(f.worker)} · ${esc(f.at||"")}</span></summary>${fileBody(f)}</details>`).join("")}
       <div class="ask row">${busy?`<span class="sub"><i class="dot run"></i> ${esc(r.worker)} đang trả lời câu hỏi tiếp…</span>`:
         `<input type="text" class="grow" data-ask-input="${esc(r.file)}" placeholder="Hỏi tiếp ${esc(r.worker)} về kết quả này (không làm đổi phiên gốc)…"><button class="btn sm" data-ask-btn="${esc(r.file)}">Hỏi tiếp</button>`}</div></div>`}).join(""):'<span class="muted">Chưa có kết quả nào.</span>');
+  const cs=t.councils||[];
+  setPart("p-council",cs.length?`<div class="card council"><h3>🏛 Họp hội đồng <span class="sub">${cs.length} cuộc họp · hai AI khác loại cùng bàn rồi chốt</span></h3>${cs.map((c,i)=>{const k="council:"+c.file;
+    return `<details data-key="${esc(k)}" ${openSet.has(k)||(i===0&&!openSet.has("!"+k))?"open":""}><summary><span class="badge ${c.agreed?"xong":"cho"}">${c.agreed?"Đồng thuận":"Chưa thống nhất"}</span> <b>${esc(c.title)}</b> <span class="sub" data-ago="${c.mtime}">${ago(c.mtime)}</span></summary><div class="md">${md(c.text.replace(/^# .*\n/,""))}</div></details>`}).join("")}</div>`:"");
   const doc=(k,title,body,open)=>`<details data-key="${k}" ${openSet.has(k)||(open&&!openSet.has("!"+k))?"open":""}><summary><b>${title}</b></summary><div class="md">${body?md(body):'<span class="muted">Chưa có.</span>'}</div></details>`;
   setPart("p-docs",doc("brief","Yêu cầu (brief.md)",t.brief,true));
   renderFinal(t);
@@ -1304,6 +1333,19 @@ let viewing=null;
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-reveal]");if(!b||!cur)return;e.preventDefault();
   try{await post("/api/task/reveal",{id:cur.id,path:b.dataset.reveal});toast(b.dataset.reveal?"Đã mở Finder tại file này":"Đã mở thư mục task trong Finder")}
   catch(err){toast("Không mở được: "+err.message)}});
+// ---- quy trình (config/workflows): ô chọn khi giao task + dải bước trên trang task
+let WF_KEYS="";
+function fillWorkflows(list){const k=list.map(w=>w.key).join(",");if(k===WF_KEYS)return;WF_KEYS=k;
+  const sel=$("#newWorkflow"),v=sel.value;
+  sel.innerHTML=`<option value="auto">Để quản lý tự chọn</option><option value="none">Không theo quy trình</option>`+list.map(w=>`<option value="${esc(w.key)}" title="${esc(w.desc)}">${esc(w.name)}</option>`).join("");
+  sel.value=[...sel.options].some(o=>o.value===v)?v:"auto";
+  sel.onchange=()=>{const w=list.find(x=>x.key===sel.value);$("#newWorkflowHint").textContent=w?w.desc:"Các bước có cổng kiểm tra: chưa đạt thì không được đi tiếp."}}
+function flowStrip(w){
+  if(!w)return"";
+  if(w.missing_def)return`<div class="flow"><span class="sub">Quy trình <b>${esc(w.name)}</b> không còn trong Cài đặt.</span></div>`;
+  return`<div class="flow"><span class="flow-h">Quy trình <b>${esc(w.name)}</b>${w.done?' <span class="badge xong">xong</span>':""}</span>
+    <div class="flow-st">${w.stages.map(s=>`<span class="fs ${s.state}" title="${esc(s.goal)}">${s.state==="xong"?"✓ ":s.state==="dang"?"● ":""}${esc(s.name)}${s.gate?' <span class="lock" title="Có cổng kiểm tra">🔒</span>':""}${s.rework?` <span class="sub">· làm lại ${s.rework}</span>`:""}</span>`).join('<span class="arr">›</span>')}</div>
+    ${w.missing&&w.missing.length?`<div class="flow-miss">Để đi tiếp còn thiếu: ${w.missing.map(esc).join(" · ")}</div>`:""}</div>`}
 // tab Sản phẩm: chính (final.md nhắc tới) / chủ gửi kèm / file làm việc (AI tải về, nháp) — server chia nhóm (pt_storage)
 const fileBtns=(id,x)=>`${x.kind==="text"?`<button class="btn sm" data-view="${esc(x.path)}">${viewing===x.path?"Đang xem":"Xem"}</button>`:["pdf","html","image","video","audio"].includes(x.kind)?`<a class="btn sm" href="${fileUrl(id,x.path)}" target="_blank" rel="noopener">Mở</a>`:""}
       <a class="btn sm" href="${fileUrl(id,x.path,1)}">Tải về</a><button type="button" class="btn sm reveal" data-reveal="${esc(x.path)}" title="Chỉ ra file này trong Finder">📂</button>`;
@@ -1679,6 +1721,10 @@ function fillTurnOpts(){
 }
 document.addEventListener("change",e=>{if(e.target.id==="turnWho")fillTurnOpts()});
 
+// nút Họp hội đồng: soạn sẵn lời nhắn cho quản lý; chủ gõ vấn đề rồi gửi
+document.addEventListener("click",e=>{if(!e.target.closest("#councilBtn"))return;   // ô nhắn được dựng lại theo từng task
+  const m=$("#msg"),pre="Họp hội đồng (bin/council) về vấn đề sau rồi báo tôi kết luận: ";if(!m)return;
+  if(!m.value.startsWith(pre))m.value=pre+m.value;m.focus();m.setSelectionRange(m.value.length,m.value.length)});
 // ---------------- Trang Thống kê token
 let TK={days:7,metric:"total",data:null,at:0,key:""};
 const tkVal=(r,m=TK.metric)=>m==="out"?r.out:m==="fresh"?r.inp+r.cw+r.out:r.inp+r.cw+r.cr+r.out;
@@ -1941,7 +1987,7 @@ async function loadConfig(){
     if(!r.ok){const m=r.status===404?"Trang web đã có bản mới nhưng máy chủ còn chạy bản cũ — tắt rồi mở lại bin/dashboard để dùng mục này.":"Không tải được cấu hình (lỗi "+r.status+").";
       boxes.forEach(s=>{$(s).textContent=m;$(s).hidden=false});CFG={failed:true};return}
     CFG=await r.json();boxes.forEach(s=>$(s).hidden=true);
-    renderMgrCfg();renderModelsCfg();renderRolesCfg();
+    renderMgrCfg();renderModelsCfg();renderRolesCfg();renderFlowsCfg();
   }catch(e){}finally{cfgLoading=false}
 }
 function renderMgrCfg(){
@@ -2018,6 +2064,13 @@ $("#cfgModelsSave").onclick=async()=>{if(!CFG||!CFG.models||!validateModels())re
     CFG=null;await loadConfig();tick()}  // đọc lại: lời nhắc model quản lý; tick() làm mới ô chọn model ở khung nhắn
   catch(e){toast("Không lưu được: "+e.message)}finally{b.disabled=false}};
 
+const GATE_TXT=g=>[g.review?"review ĐẠT"+(g.khac_loai?" (khác phòng ban)":"")+(g.khi_co?" khi task "+g.khi_co.map(x=>SIZE_TXT[x]||x).join("/"):""):"",
+  g.council?"hội đồng đồng thuận":"",g.final?"final.md có mục Sản phẩm":""].filter(Boolean).join(", ");
+function renderFlowsCfg(){
+  const L=CFG.workflows||[];
+  $("#cfgFlows").innerHTML=L.length?L.map(w=>`<div class="wf"><b>${esc(w.name)}</b> <span class="sub">${esc(w.key)}</span><div class="sub">${esc(w.desc)}</div>
+    <div class="flow-st" style="margin-top:6px">${w.stages.map(s=>`<span class="fs" style="padding:2px 9px;border:1px solid var(--line);border-radius:99px" title="${esc(s.goal+(s.gate&&Object.keys(s.gate).length?" — cổng: "+GATE_TXT(s.gate):"")+(s.rework.length?" — được quay lại: "+s.rework.join(", "):""))}">${esc(s.name)}${s.gate&&Object.keys(s.gate).length?" 🔒":""}${s.rework.length?" ↺":""}</span>`).join('<span class="sub">›</span>')}</div></div>`).join("")
+    :'<span class="muted">Chưa có quy trình nào.</span>'}
 function renderRolesCfg(){
   $("#cfgRoles").innerHTML=`<div class="tr rolerow hd"><span>Vai trò</span><span>Quyền</span><span>Mô tả</span><span style="text-align:right">Thao tác</span></div>`+
     (CFG.roles.map(r=>`<div class="tr rolerow"><div><div class="t">${esc(r.name)}</div><div class="k">-r ${esc(r.key)}</div></div>
@@ -2089,6 +2142,7 @@ async function tick(){
       skew=d.now-Date.now()/1000;lastTasks=d;
       if(d.model_options)MODEL_OPTS=d.model_options;
       if(d.roles)Object.assign(ROLE_TXT,d.roles);  // tên vai trò (kể cả vai trò mới thêm trong Cài đặt)
+      if(d.workflows)fillWorkflows(d.workflows);
       if(d.sizes){SIZES=d.sizes;$("#sizeMap").textContent=`(nhỏ → ${SIZES.nho}, vừa → ${SIZES.vua}, lớn → ${SIZES.lon}, siêu khó → ${SIZES.sieu||"-"}; worker cũng theo cỡ từng việc con)`;[...$("#newSize").options].forEach(o=>{if(SIZES[o.value])o.textContent=SIZE_TXT[o.value]+" · "+SIZES[o.value]})}
       if(d.stale!==undefined)staleGuess=false;  // server mới tự báo stale → không cần đoán
       showStale(d);
@@ -2196,10 +2250,10 @@ $("#newText").onkeydown=e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preven
 $("#newGo").onclick=async()=>{
   if(imgBusy.new){toast("Đang đọc ảnh / file, đợi một chút rồi giao");return}
   const text=$("#newText").value.trim();if(!text&&draftEmpty("new")){$("#newText").focus();return}
-  const mode=$("#newMode").value, split=$("#newSplit").value, size=$("#newSize").value, assignee=who;
+  const mode=$("#newMode").value, split=$("#newSplit").value, size=$("#newSize").value, workflow=$("#newWorkflow").value, assignee=who;
   $("#newGo").disabled=true;
-  try{const d=await post("/api/giao",{text,images:imageDrafts.new.map(x=>({name:x.name,data:x.data})),files:draftFiles("new"),mode,size,split,assignee});
-    giaoModal.classList.remove("on");$("#newText").value="";clearDraftImages("new");$("#newSize").value="auto";
+  try{const d=await post("/api/giao",{text,images:imageDrafts.new.map(x=>({name:x.name,data:x.data})),files:draftFiles("new"),mode,size,split,workflow,assignee});
+    giaoModal.classList.remove("on");$("#newText").value="";clearDraftImages("new");$("#newSize").value="auto";$("#newWorkflow").value="auto";
     toast(assignee&&busySet.has(assignee)?`Đã giao — ${assignee} đang bận nên task chờ (pending)`:"Đã giao task — quản lý đang làm");go(taskUrl(d.id))}
   catch(e){toast("Không giao được: "+e.message)}finally{$("#newGo").disabled=false}
 };
