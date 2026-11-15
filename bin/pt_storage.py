@@ -24,7 +24,7 @@ JUNK_FILES = {".DS_Store"}
 JUNK_EXT = (".pyc", ".pyo")
 # thư mục thường chứa sản phẩm cuối / thường là đồ nháp
 OUT_DIRS = {"out", "output", "outputs", "dist", "site", "final", "ket-qua", "san-pham", "build", "public", "deliverables"}
-TMP_HINT = re.compile(r"^(tmp|temp|cache|\.cache|frames?|downloads?|assets?|raw|scratch|edit|draft|nhap)$", re.I)
+TMP_HINT = re.compile(r"^(tmp|temp|cache|\.cache|\.transcode-cache|\.waveform-cache|frames?|scratch|draft|nhap)$", re.I)
 
 
 def is_junk(name, is_dir):
@@ -108,6 +108,13 @@ def group_products(tid, products):
         it["group"] = "main" if hit else "work"
         if hit and hit.endswith("/"):
             it["bundle"] = hit
+    # dự án HyperFrames (có hyperframes.json) luôn là sản phẩm chính, gom thành một mục
+    hf_dirs = [it["path"][:-len("hyperframes.json")] for it in products
+               if it["name"] == "hyperframes.json" and not it["path"].startswith("attachments/")]
+    for it in products:
+        d = next((d for d in hf_dirs if d and it["path"].startswith(d)), None)
+        if d:
+            it["group"], it["bundle"] = "main", d
     from_final = any(it["group"] == "main" for it in products)
     if not from_final:
         # final.md không chỉ rõ: lấy file trong thư mục kiểu out/, site/… và file trang web/tài liệu ở ngay gốc task
@@ -129,7 +136,7 @@ def group_products(tid, products):
             members.setdefault(it["bundle"], []).append(it)
     bundles, drop = [], set()
     for d, items in members.items():
-        if len(items) < BUNDLE_MIN:
+        if len(items) < BUNDLE_MIN and not any(x["path"] == d + "hyperframes.json" for x in items):
             for it in items:
                 it.pop("bundle", None)
             continue
@@ -137,8 +144,9 @@ def group_products(tid, products):
                       if it["name"].lower() in ("index.html", "index.htm")), None)
         keep = sorted(items, key=lambda x: (x is not entry, x["path"].count("/"), x["path"]))[:BUNDLE_KEEP]
         drop.update(id(x) for x in items if x not in keep)
+        hf = any(x["path"] == d + "hyperframes.json" for x in items)
         bundles.append({"dir": d, "count": len(items), "size": sum(x["size"] for x in items),
-                        "entry": entry["path"] if entry else None})
+                        "entry": None if hf else (entry["path"] if entry else None), "hf": hf})
     products = [x for x in products if id(x) not in drop]
     bundles.sort(key=lambda b: b["dir"])
     return products, {"from_final": from_final, "bundles": bundles}
@@ -213,19 +221,32 @@ def _resolve(tid, rel):
     return base, p, rel
 
 
+def _in_hf_project(base, p):
+    """p nằm trong (hoặc là) một dự án HyperFrames của task: file trong đó là nguồn để sửa video."""
+    while True:
+        if os.path.isfile(os.path.join(p, "hyperframes.json")):
+            return True
+        if p == base or not p.startswith(base):
+            return False
+        p = os.path.dirname(p)
+
+
 def dir_usage(tid, rel=""):
     """Các mục con của một thư mục trong task, lớn nhất trước."""
     base, p, rel = _resolve(tid, rel)
     if not os.path.isdir(p) or os.path.islink(p):
         raise RuntimeError("không phải thư mục")
     out = []
+    in_project = _in_hf_project(base, p)
     for n in os.listdir(p):
         q = os.path.join(p, n)
         is_dir = os.path.isdir(q) and not os.path.islink(q)
         size, cnt = _walk_size(q)
         path = n if not rel else rel + "/" + n
+        project = is_dir and os.path.isfile(os.path.join(q, "hyperframes.json"))
         out.append({"name": n, "path": path, "dir": is_dir, "size": size, "files": cnt,
-                    "protected": not rel and n in PROTECTED,
+                    "protected": not rel and n in PROTECTED, "project": project,
+                    "in_project": bool(in_project) and not n.startswith("."),
                     "junk": is_junk(n, is_dir), "tmp": bool(is_dir and TMP_HINT.match(n))})
     out.sort(key=lambda x: (-x["size"], x["name"]))
     return {"id": tid, "path": rel, "title": _title(base, tid), "entries": out}

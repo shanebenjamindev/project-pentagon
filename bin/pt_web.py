@@ -252,7 +252,7 @@ def task_files(tid):
         rel_root = os.path.relpath(root, base)
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith("backup")
                          and not pt_storage.is_junk(d, True)
-                         and not (rel_root == "." and d.startswith(".")))
+                         and not d.startswith("."))  # thư mục ẩn: .hyperframes, .transcode-cache… là bộ nhớ đệm
         for n in sorted(files):
             rel = n if rel_root == "." else os.path.join(rel_root, n)
             if (rel_root == "." and n in INTERNAL_FILES) or pt_storage.is_junk(n, False):

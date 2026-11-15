@@ -312,6 +312,7 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .wdir .flist .fi{font-size:12.5px;padding:5px 2px 5px 22px}
 .wmore{padding:4px 0 0 22px}
 /* tab Editor video */
+.bundle.hfb{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .edcard>h3{flex-wrap:wrap}
 .studio{display:block;width:100%;height:max(560px,calc(100vh - 250px));border:1px solid var(--line);border-radius:var(--radius-sm);background:#000}
 .edcreate{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
@@ -1260,6 +1261,8 @@ function renderProducts(id,f){
   if(prodN!==nMain){prodN=nMain;renderFside()}
   const sec=[];
   const bundleHtml=bundles.map(b=>{const items=G("main").filter(x=>x.bundle===b.dir), k="bundle:"+b.dir;
+    if(b.hf)return `<div class="bundle hfb"><div class="row"><span class="ficon">🎬</span><div class="grow"><b>Dự án video HyperFrames · ${esc(b.dir)}</b><div class="sub">${b.count} file · ${fsize(b.size)} · từng cảnh, chữ, nhạc là lớp riêng — sửa và render trong Editor video</div></div>
+      <a class="btn sm pri" href="${taskUrl(id)}/editor" data-link>Mở Editor video</a></div></div>`;
     return `<div class="bundle"><div class="row"><span class="ficon">📁</span><div class="grow"><b>${esc(b.dir)}</b><div class="sub">${b.count} file · ${fsize(b.size)}</div></div>
       ${b.entry?`<a class="btn sm pri" href="${fileUrl(id,b.entry)}" target="_blank" rel="noopener">Mở trang</a>`:""}</div>
       ${b.entry?`<iframe src="${fileUrl(id,b.entry)}" sandbox="allow-scripts allow-popups allow-forms" title="${esc(b.entry)}" loading="lazy"></iframe>`:""}
@@ -2045,7 +2048,10 @@ function renderEditor(){
   const list=idle.length?`<div class="flist">${idle.map(p=>`<div class="fi"><span class="ficon">🎬</span><span class="grow"><b>${esc(p.name)}</b> <span class="sub">${esc(p.dir||".")}/</span></span>
       <button class="btn sm pri" data-hf="start" data-dir="${esc(p.dir)}" ${HF.busy?"disabled":""}>Mở editor</button></div>`).join("")}</div>`:"";
   const vids=I.videos||[];
-  const create=`<div class="edcreate"><div class="sub">Tạo dự án HyperFrames trong thư mục task (video-editor/) để sửa chữ, cảnh, hiệu ứng trên dòng thời gian rồi xuất lại video.</div>
+  const create=`<div class="edcreate">${vids.length?`<div class="note" style="margin:0">Video đã xuất sẵn (mp4) là <b>một đoạn phim liền</b>: chữ, logo, chuyển cảnh đã in vào hình nên vào editor chỉ cắt/ghép được cả đoạn, không sửa riêng chữ hay từng cảnh.
+      Muốn sửa được từng phần thì nhờ quản lý dựng lại video thành dự án HyperFrames (mỗi cảnh, mỗi dòng chữ, nhạc là một lớp riêng) — bạn tự render.
+      <div class="row" style="margin-top:8px"><button class="btn sm pri" data-hf-rebuild>Nhờ quản lý dựng lại thành dự án sửa được</button></div></div>`:""}
+    <div class="sub">Hoặc tạo dự án HyperFrames ngay (thư mục video-editor/): từ một video có sẵn, hoặc dự án trống để tự dựng.</div>
     <div class="row">${vids.length?`<select id="hfVideo">${vids.map(v=>`<option value="${esc(v.path)}">Từ video: ${esc(v.path)} (${fsize(v.size)})</option>`).join("")}<option value="">Dự án trống</option></select>`:""}
       <button class="btn ${I.projects.length?"":"pri"}" data-hf="init" ${HF.busy?"disabled":""}>Tạo dự án HyperFrames</button></div></div>`;
   setPart("p-editor",busy+(I.node?"":`<div class="note" style="margin:0 0 12px">Máy chưa có Node.js 22+ nên chưa chạy được HyperFrames.</div>`)+studio
@@ -2065,6 +2071,13 @@ document.addEventListener("click",async e=>{
   finally{HF.busy="";HF.at=0;await loadHF(id)}
 });
 
+document.addEventListener("click",e=>{
+  if(!e.target.closest("[data-hf-rebuild]")||!cur)return;
+  go(taskUrl(cur.id)+"/tien-do");
+  setTimeout(()=>{const m=$("#msg");if(!m)return;
+    m.value="Dựng lại video này thành dự án HyperFrames sửa được trong thư mục video/ theo mục \"Task video\" của CLAUDE.md: mỗi cảnh quay là một clip riêng, mỗi dòng chữ là phần tử HTML (không in chữ vào hình), logo và nhạc là lớp riêng, giữ nguyên nội dung và thứ tự cảnh như bản hiện tại. Tải lại cảnh quay gốc nếu cần, để trong video/assets/ và không xoá. Không render — tôi sẽ tự chỉnh và render trong tab Editor video.";
+    m.focus();toast("Đã điền sẵn yêu cầu — xem lại rồi bấm Gửi")},400);
+});
 // ---------------- chọn nhiều mục + thao tác hàng loạt (task, thùng rác, thông báo, nhân viên)
 const SEL={scope:"",ids:new Set()}, SELVIS={};
 const BULK={
@@ -2142,9 +2155,9 @@ function renderStorage(){
       <div class="slist">${D.entries.map(e=>`<div class="srow">
         <span class="ficon">${e.dir?"📁":"📄"}</span>
         <div class="grow">${e.dir?`<a href="#" data-st-open="${esc(D.id)}" data-st-path="${esc(e.path)}"><b>${esc(e.name)}</b></a>`:`<b>${esc(e.name)}</b>`}
-          ${e.protected?`<span class="tag keep">hồ sơ task · giữ</span>`:e.junk?`<span class="tag">rác</span>`:e.tmp?`<span class="tag">có vẻ là đồ nháp</span>`:""}
+          ${e.protected?`<span class="tag keep">hồ sơ task · giữ</span>`:e.project?`<span class="tag keep">dự án video · cần để sửa</span>`:e.junk?`<span class="tag">rác</span>`:e.tmp?`<span class="tag">bộ nhớ đệm / nháp</span>`:e.in_project?`<span class="tag keep">nguồn của dự án video</span>`:""}
           <div class="sub">${fsize(e.size)}${e.dir?` · ${e.files} file`:""}</div>${stBar(e.size,max)}</div>
-        ${e.protected?"":`<button class="btn sm danger" data-st-del="${esc(e.path)}" data-st-size="${e.size}" data-st-files="${e.files}" ${busy?"disabled":""}>Xoá</button>`}
+        ${e.protected?"":`<button class="btn sm danger" data-st-del="${esc(e.path)}" data-st-size="${e.size}" data-st-files="${e.files}" data-st-src="${e.project||(e.in_project&&!e.tmp)?1:""}" ${busy?"disabled":""}>Xoá</button>`}
       </div>`).join("")||'<span class="muted">Thư mục trống.</span>'}</div>`);
     return;
   }
@@ -2171,7 +2184,7 @@ document.addEventListener("click",e=>{
   const o=e.target.closest("[data-st-open]");if(o){e.preventDefault();stOpen(o.dataset.stOpen,o.dataset.stPath);return}
   const d=e.target.closest("[data-st-del]");
   if(d&&stDir){const p=d.dataset.stDel;
-    if(confirm(`Xoá VĨNH VIỄN "${p}" (${fsize(+d.dataset.stSize)}${+d.dataset.stFiles>1?", "+d.dataset.stFiles+" file":""}) trong task "${stDir.title}"?\nKhông khôi phục được.`))
+    if(confirm(`Xoá VĨNH VIỄN "${p}" (${fsize(+d.dataset.stSize)}${+d.dataset.stFiles>1?", "+d.dataset.stFiles+" file":""}) trong task "${stDir.title}"?\nKhông khôi phục được.`+(d.dataset.stSrc?"\n\nĐây là nguồn của dự án video: xoá thì không sửa / render lại video được nữa.":"")))
       stPost("/api/storage/delete",{id:stDir.id,path:p},r=>`Đã xoá, giải phóng ${fsize(r.freed)}`);return}
   const b=e.target.closest("[data-st]");if(!b)return;e.preventDefault();
   const k=b.dataset.st;

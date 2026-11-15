@@ -139,7 +139,9 @@ def _proj_view(base, p, check=True):
 def info(tid):
     base = _tdir(tid)
     projs = _projects(base)
-    vids = _videos(base)
+    pdirs = [p["dir"] + "/" for p in projs if p["dir"]]
+    # video nằm trong dự án là nguồn của dự án, không phải bản đã xuất
+    vids = [v for v in _videos(base) if not any(v["path"].startswith(d) for d in pdirs)] if "" not in [p["dir"] for p in projs] else []
     title = ""
     try:
         with open(os.path.join(base, "brief.md"), encoding="utf-8", errors="replace") as f:

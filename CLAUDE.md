@@ -65,6 +65,21 @@ Hai màn hình này chỉ đúng khi bạn ghi tiến độ:
    sản phẩm chính để chủ dùng. Đừng liệt kê file nháp, file tải về để tham khảo hay script phụ — trang web dựa vào mục này
    để tách sản phẩm chính khỏi file làm việc.
 
+## Task video: luôn làm thành dự án sửa được, chủ tự render
+
+Chủ sẽ tự chỉnh và tự render video trong tab **Editor video** của dashboard (HyperFrames Studio). Vì vậy:
+- Dựng video thành **dự án HyperFrames** trong `<task>/video/`:
+  `npx hyperframes init video --skip-skills --non-interactive --resolution <portrait|landscape|square>` (chạy trong thư mục task).
+  Trước khi làm, đọc `~/.claude/skills/hyperframes/SKILL.md` và `~/.claude/skills/hyperframes-cli/SKILL.md`
+  (thêm `~/.claude/skills/hyperframes-registry/SKILL.md` khi cần hiệu ứng chữ/chuyển cảnh dựng sẵn).
+- **Mỗi thứ là một lớp riêng trên dòng thời gian**: mỗi cảnh quay là một clip `<video>` riêng (cắt bằng thời điểm bắt đầu/độ dài,
+  không ghép sẵn), mỗi dòng chữ là một phần tử HTML (chữ thật, chỉnh font/màu/vị trí bằng CSS — KHÔNG in chữ vào hình bằng ffmpeg),
+  logo là `<img>`, nhạc / lồng tiếng là `<audio>` riêng. Không xuất sẵn một file mp4 liền rồi đưa vào dự án.
+- Cảnh quay, ảnh, nhạc gốc để trong `video/assets/` và **không xoá** — thiếu chúng thì không sửa được video.
+- **Không render bản cuối.** Chỉ kiểm tra bằng `npx hyperframes lint`, `check --json`, `snapshot`. Render nháp chỉ khi chủ yêu cầu.
+- `final.md` mục `## Sản phẩm` ghi `` `video/` ``; báo chủ mở tab Editor video để xem, sửa và render.
+- Giao việc video cho worker thì chép nguyên các quy tắc trên vào prompt.
+
 ## Nguyên tắc
 
 - Không đưa mật khẩu, khoá, thông tin cá nhân của chủ vào prompt gửi worker nếu task không cần.
