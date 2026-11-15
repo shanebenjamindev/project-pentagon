@@ -168,3 +168,10 @@ summary b{font-family:var(--f-head);font-size:15px;letter-spacing:.12em;text-tra
 .toc a{border-left-color:var(--line2)}
 .ava{background:var(--fill);border:1px solid var(--line2)}
 .fdoc.pending{border-color:var(--line2)!important;box-shadow:var(--glow)!important}.fdoc.pending .fhead{border-bottom-color:var(--line2)}.fdoc.pending .fkick{color:var(--muted);text-shadow:none}
+/* ô chọn kiểu hologram: vuông, viền sáng, tích phát sáng */
+.selbox{border-color:var(--line2)!important;background:transparent!important}
+.selbox:hover{box-shadow:0 0 10px color-mix(in srgb,var(--accent) 45%,transparent)!important}
+.selbox:checked,.selbox:indeterminate{background:var(--accent)!important;border-color:var(--accent)!important;box-shadow:0 0 10px color-mix(in srgb,var(--accent) 55%,transparent)!important}
+.selbox:checked::after{border-color:var(--accent-ink)!important}.selbox:indeterminate::after{background:var(--accent-ink)!important}
+.bulkbar{border-color:var(--line2)!important;background:var(--header)!important;backdrop-filter:blur(14px);box-shadow:var(--glow),0 14px 40px rgba(0,0,0,.35)!important}
+.edcreate select{border-color:var(--line2)}

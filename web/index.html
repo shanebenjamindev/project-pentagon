@@ -316,13 +316,27 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .edcard>h3{flex-wrap:wrap}
 .studio{display:block;width:100%;height:max(560px,calc(100vh - 250px));border:1px solid var(--line);border-radius:var(--radius-sm);background:#000}
 .edcreate{display:flex;flex-direction:column;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
-.edcreate select{font:inherit;font-size:var(--fs-ctl);border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:var(--radius-sm);padding:5px 8px;max-width:100%;min-width:0;flex:1}
+.edcreate select{appearance:none;-webkit-appearance:none;font:inherit;font-size:var(--fs-ctl);height:var(--ctl-h);border:1px solid var(--line);color:var(--text);border-radius:var(--radius-sm);
+  padding:0 34px 0 10px;max-width:100%;min-width:0;flex:1;cursor:pointer;text-overflow:ellipsis;
+  background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center}
+.edcreate select:hover{border-color:var(--accent)}
 .flist+.edcreate{margin-top:12px}
 /* chọn nhiều + thanh thao tác hàng loạt */
 .selcell{display:flex;align-items:flex-start;gap:9px;min-width:0}.selcell>div{min-width:0}
-.selbox{width:16px;height:16px;margin:2px 0 0;flex:none;accent-color:var(--accent);cursor:pointer}
+.selbox{appearance:none;-webkit-appearance:none;width:18px;height:18px;margin:1px 0 0;flex:none;cursor:pointer;position:relative;
+  border:1.5px solid color-mix(in srgb,var(--muted) 70%,transparent);border-radius:5px;background:var(--panel);
+  transition:border-color .12s,background .12s,box-shadow .12s}
+.selbox:hover{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+.selbox:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:2px}
+.selbox:checked,.selbox:indeterminate{background:var(--accent);border-color:var(--accent)}
+.selbox:checked::after{content:"";position:absolute;left:5px;top:1.5px;width:4px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.selbox:indeterminate::after{content:"";position:absolute;left:3.5px;right:3.5px;top:7px;height:2px;background:#fff;border-radius:1px}
+/* ô chọn từng dòng chỉ hiện rõ khi rê chuột / đã chọn — đỡ rối mắt */
+.tr:not(.hd) .selbox:not(:checked),.tcard .selbox:not(:checked),.emp .selbox:not(:checked){opacity:.45}
+.tr:hover .selbox,.tcard:hover .selbox,.emp:hover .selbox,.selbox:focus-visible{opacity:1!important}
 .tr.hd .selcell{align-items:center}.tr.hd .selbox{margin:0}
-.emp .top .selbox,.tr.emprow .selbox{margin:0 2px 0 0;vertical-align:-3px}
+.selcell>.selbox{margin-top:2px}
+.emp .top .selbox,.tr.emprow .selbox{margin:0 4px 0 0;vertical-align:-4px}
 .selhead{display:flex;align-items:center;gap:9px;margin:0 0 10px 2px}
 .tcard.picked,.tr:has(.selbox:checked){background:color-mix(in srgb,var(--accent) 8%,var(--panel))}
 .bulkbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -481,10 +495,10 @@ details.fu{margin-left:18px;border-top:1px dashed var(--line)}
 }
 
 </style>
-<link rel="stylesheet" id="themeCss" href="/static/theme-sieu-anh-hung.css?v=6">
+<link rel="stylesheet" id="themeCss" href="/static/theme-sieu-anh-hung.css?v=7">
 <script>(function(){var t="sieu-anh-hung";try{t=localStorage.getItem("pentagon.theme")||t}catch(e){}
   if(t!=="sieu-anh-hung"&&t!=="apple")t="sieu-anh-hung";
-  var l=document.getElementById("themeCss");l.href="/static/theme-"+t+".css?v=6";
+  var l=document.getElementById("themeCss");l.href="/static/theme-"+t+".css?v=7";
   document.documentElement.dataset.theme=t})();</script>
 <style id="mobileFix">/* điện thoại: nạp SAU giao diện để luôn có hiệu lực */
 /* nút và ô nhập một dòng cao bằng nhau ở mọi giao diện (giao diện chỉ đổi màu/viền/lề ngang) */
@@ -1706,7 +1720,7 @@ syncMode();
 function applyTheme(k){
   try{localStorage.setItem("pentagon.theme",k)}catch(e){}
   const l=document.getElementById("themeCss");
-  l.href="/static/theme-"+k+".css?v=6";
+  l.href="/static/theme-"+k+".css?v=7";
   document.documentElement.dataset.theme=k;parts.themes=null;renderThemes();
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-theme-pick]");if(b)applyTheme(b.dataset.themePick)});

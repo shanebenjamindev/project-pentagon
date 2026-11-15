@@ -67,3 +67,7 @@ textarea:focus,input:focus,select:focus{outline:none;box-shadow:0 0 0 3px color-
 .reps .rep{box-shadow:0 0 0 1px var(--line),var(--shadow)}
 .fkick{font-size:17px;font-weight:600}
 .fdoc.pending{box-shadow:var(--shadow)}
+/* ô chọn kiểu Apple: tròn mềm, nền xanh khi chọn */
+.selbox{border-radius:5px;border-color:rgba(0,0,0,.22)}
+:root[data-dark="1"] .selbox{border-color:rgba(255,255,255,.28)}
+.bulkbar{border:0;border-radius:14px;background:var(--header);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);box-shadow:0 0 0 1px var(--line),0 12px 32px rgba(0,0,0,.18)}
