@@ -1,0 +1,76 @@
+{
+ "name": "Video",
+ "desc": "Video HyperFrames sửa được, chủ tự render: kịch bản → tài nguyên → dựng → kiểm tra → tổng hợp.",
+ "stages": [
+  {
+   "key": "kich-ban",
+   "name": "Kịch bản",
+   "buoc": 3,
+   "goal": "Kịch bản từng cảnh: thời lượng, hình, chữ, nhạc / lồng tiếng.",
+   "rules": [
+    "-r viet; ghi vào plan.md."
+   ],
+   "next": [
+    "tai-nguyen"
+   ]
+  },
+  {
+   "key": "tai-nguyen",
+   "name": "Tài nguyên",
+   "buoc": 4,
+   "goal": "Cảnh quay, ảnh, nhạc, logo đặt trong video/assets/ (không xoá).",
+   "rules": [
+    "Các nguồn độc lập tải / tạo song song bằng bin/parallel."
+   ],
+   "next": [
+    "dung"
+   ]
+  },
+  {
+   "key": "dung",
+   "name": "Dựng",
+   "buoc": 4,
+   "goal": "Dự án HyperFrames trong video/: mỗi cảnh, dòng chữ, logo, nhạc là một lớp riêng trên dòng thời gian.",
+   "rules": [
+    "Theo đúng mục 'Task video' trong CLAUDE.md (đọc skill hyperframes trước).",
+    "KHÔNG render bản cuối."
+   ],
+   "next": [
+    "kiem-tra"
+   ]
+  },
+  {
+   "key": "kiem-tra",
+   "name": "Kiểm tra",
+   "buoc": 5,
+   "goal": "npx hyperframes lint / check --json / snapshot sạch lỗi; một nhân viên khác loại review ĐẠT.",
+   "rules": [
+    "CHƯA ĐẠT: quay lại bước Dựng (tối đa 2 lần)."
+   ],
+   "next": [
+    "tong-hop"
+   ],
+   "rework": [
+    "dung"
+   ],
+   "max_rework": 2,
+   "gate": {
+    "review": true,
+    "khac_loai": true
+   }
+  },
+  {
+   "key": "tong-hop",
+   "name": "Tổng hợp",
+   "buoc": 6,
+   "goal": "final.md mục ## Sản phẩm ghi `video/`; báo chủ mở tab Editor video.",
+   "rules": [],
+   "next": [
+    "xong"
+   ],
+   "gate": {
+    "final": true
+   }
+  }
+ ]
+}

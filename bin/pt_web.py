@@ -30,6 +30,7 @@ import pt_storage
 import pt_hf
 import pt_followup
 import pt_files
+import pt_stage
 import tracker
 from tracker import ROOT, TASKS, read, summary, task_ids
 
@@ -49,7 +50,7 @@ def human_size(n):
 
 
 # ---------------- phát hiện server đang chạy code cũ (file .py đổi sau khi khởi động)
-CODE_FILES = ("pt_web.py", "pt_manager.py", "pt_notify.py", "pt_followup.py", "tracker.py",
+CODE_FILES = ("pt_stage.py", "pt_parallel.py", "pt_council.py", "pt_web.py", "pt_manager.py", "pt_notify.py", "pt_followup.py", "tracker.py",
               "pt_accounts.py", "pt_usage.py", "pt_files.py", "pt_stats.py")
 
 
@@ -223,7 +224,7 @@ def refresh_workers_once():
 
 # ---------------- sản phẩm của task (trang Kết quả)
 INTERNAL_FILES = {"brief.md", "plan.md", "final.md", "status", "log.txt", "limited", ".deleted_at", ".DS_Store"}
-SKIP_DIRS = {"manager", "running", "prompts", "__pycache__", ".git", "node_modules", ".venv"}
+SKIP_DIRS = {"manager", "running", "prompts", "__pycache__", ".git", "node_modules", ".venv", "hoi-dong"}
 KINDS = {
     "image": {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp"},
     "html": {".html", ".htm"},
@@ -278,6 +279,22 @@ def task_files(tid):
     out = [x for x in products if x["group"] != "work" or id(x) in keep]
     return {"products": out, "reports": reports, "truncated": len(work) > 300, "from_final": info["from_final"], "bundles": info["bundles"],
             "work_total": {"count": len(work), "size": sum(x["size"] for x in work)}}
+
+
+def councils_of(tid, limit=10):
+    """Biên bản họp hội đồng (bin/council) của task: <task>/hoi-dong/*.md, mới nhất trước."""
+    d = os.path.join(TASKS, tid, "hoi-dong")
+    try:
+        names = sorted((n for n in os.listdir(d) if n.endswith(".md")), reverse=True)[:limit]
+    except OSError:
+        return []
+    out = []
+    for n in names:
+        text = read(os.path.join(d, n)) or ""
+        first = text.splitlines()[0] if text else ""
+        out.append({"file": "hoi-dong/" + n, "title": first.lstrip("# ").replace("Họp hội đồng: ", ""),
+                    "agreed": "ĐỒNG THUẬN" in first, "mtime": int(os.path.getmtime(os.path.join(d, n))), "text": text})
+    return out
 
 
 def decode_images(images):
@@ -631,11 +648,13 @@ class Handler(BaseHTTPRequestHandler):
                 busy = sorted({r.get("worker") for t in tasks for r in t["running"]})
                 return self.json({"now": int(time.time()), "tasks": tasks, "busy": busy, "auth": bool(encoded),
                                   "sizes": pt_manager.manager_models(), "model_options": pt_manager.model_options(),
-                                  "roles": pt_manager.role_names(),
+                                  "roles": pt_manager.role_names(), "workflows": [
+                                      {"key": w["key"], "name": w["name"], "desc": w["desc"]} for w in pt_stage.defs_list()],
                                   "workers": WORKERS["items"], "workers_checked": WORKERS["checked"],
                                   "stale": bool(stale_code()), "stale_files": stale_code()})
             if u.path == "/api/config":  # Cài đặt: quyền quản lý, bảng model theo cỡ, vai trò subagent
                 return self.json({"manager": pt_manager.manager_settings(), "models": pt_manager.models_table(),
+                                  "workflows": pt_stage.defs_list(),
                                   "roles": pt_manager.roles_list()})
             if u.path == "/api/files":
                 tid = q.get("id", "")
@@ -686,6 +705,8 @@ class Handler(BaseHTTPRequestHandler):
                 t = summary(tid, with_docs=True)
                 t["chat"] = pt_manager.chat(tid)
                 t["dir"] = os.path.join(TASKS, tid)   # đường dẫn đầy đủ, hiện ở đầu trang task (bấm để mở Finder)
+                t["councils"] = councils_of(tid)
+                t["workflow"] = pt_stage.view(os.path.join(TASKS, tid))
                 t["inbox"] = pt_manager.inbox_view(tid)
                 last = t["chat"][-1]["role"] if t["chat"] else ""
                 t["manager_stderr"] = pt_manager.stderr_tail(tid) if last == "error" or (
@@ -818,7 +839,8 @@ class Handler(BaseHTTPRequestHandler):
                 size = body.get("size") if body.get("size") in pt_manager.SIZES else "auto"
                 split = body.get("split") if body.get("split") in ("mot", "song-song") else "auto"
                 tid = pt_manager.launch_new(request, mode, size, split, background=True,
-                                            assignee=str(body.get("assignee") or ""), images=images, files=files)
+                                            assignee=str(body.get("assignee") or ""), images=images, files=files,
+                                            workflow=str(body.get("workflow") or "auto"))
                 return self.json({"ok": True, "id": tid})
             if path == "/api/lan":
                 if self.from_lan():

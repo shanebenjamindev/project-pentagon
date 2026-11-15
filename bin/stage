@@ -1,0 +1,4 @@
+#!/bin/bash
+# Quy trình của task: bước hiện tại, chuyển bước có cổng kiểm tra.  (xem: bin/stage --help)
+command -v python3 >/dev/null 2>&1 || { echo "Lỗi: cần python3" >&2; exit 1; }
+exec python3 "$(dirname "$0")/pt_stage.py" "$@"

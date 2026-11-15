@@ -47,6 +47,7 @@ import fcntl
 from contextlib import contextmanager
 
 import pt_files
+import pt_stage
 import tracker
 from tracker import ROOT, TASKS, kv, pid_alive, read
 
@@ -62,7 +63,7 @@ LIMIT_RE = re.compile(r"usage limit|rate limit|limit reached|hit your (?:[0-9a-z
 # Quyền mặc định của quản lý khi chạy nền. Muốn thêm: web → Cài đặt → Quyền của AI quản lý
 # (ghi vào config/manager.conf, dòng allow=...)
 BASE_TOOLS = [
-    "Bash(bin/ask:*)", "Bash(bin/progress:*)", "Bash(bin/new-task:*)", "Bash(bin/workers)",
+    "Bash(bin/ask:*)", "Bash(bin/council:*)", "Bash(bin/parallel:*)", "Bash(bin/stage:*)", "Bash(bin/progress:*)", "Bash(bin/new-task:*)", "Bash(bin/workers)",
     "Bash(bin/workers:*)", "Bash(bin/status:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)",
     "Bash(tail:*)", "Bash(wc:*)", "Bash(mkdir:*)", "Bash(date)", "Bash(date:*)", "Bash(bin/manager size:*)",
     "Read", "Write", "Edit", "Glob", "Grep", "Agent", "Task", "TodoWrite",
@@ -76,6 +77,7 @@ Chủ làm việc với bạn qua giao diện web: chủ chỉ thấy các câu 
 - Luôn ghi tiến độ bằng bin/progress {task} <bước> "..." như CLAUDE.md quy định.
 - {split}
 - {assignee}
+- {workflow}
 - CỠ TASK: {size} — do bạn (quản lý) phân loại. Làm một lúc mà thấy cỡ sai (task lớn/nhỏ hơn dự đoán) thì chạy
   bin/manager size {task} <nho|vua|lon> "lý do" — model của bạn đổi theo từ lượt sau.
   Mỗi việc con, chọn cỡ theo độ khó của CHÍNH việc đó và truyền cho bin/ask:
@@ -87,6 +89,12 @@ Chủ làm việc với bạn qua giao diện web: chủ chỉ thấy các câu 
   -r review để KIỂM TRA kết quả sau khi làm (nên dùng worker khác loại với người làm, vd codex làm thì claude review).
   review và tra-cuu luôn chỉ được đọc. Ghi vai trò vào cột Worker trong plan.md, vd "claude (-r review, -s nho)".
   Các vai trò đang có (config/roles/, chủ sửa được trên web): {roles}.
+- HỘI ĐỒNG (bin/council): hai AI khác loại (mặc định Codex + Claude) cùng bàn một vấn đề, tối đa 3 vòng, rồi chốt
+  ĐỒNG THUẬN hoặc báo rõ chỗ CHƯA THỐNG NHẤT. Dùng cho quyết định khó, nhiều phương án, rủi ro cao (chọn kiến trúc, chẩn đoán
+  lỗi khó, hai worker cho kết quả trái nhau) hoặc khi chủ yêu cầu "họp hội đồng". Không dùng cho việc dễ — tốn gấp 4-6 lượt gọi.
+  bin/council -t {task} -s <cỡ> "vấn đề + đủ ngữ cảnh (thành viên không thấy cuộc trò chuyện này; được đọc thư mục task)"
+  Thêm --vong 2 cho nhanh, --thanh-vien claude,gemini để đổi thành viên. Biên bản tự lưu ở {task}/hoi-dong/; ghi kết luận vào
+  plan.md / final.md. Chạy trực tiếp với timeout 600000 ms; vấn đề lớn (có thể quá 10 phút) thì giao một agent worker chạy lệnh này.
 - Khi cần chủ duyệt hoặc trả lời: chạy bin/progress {task} cho "<câu hỏi ngắn>", rồi KẾT THÚC lượt bằng câu hỏi rõ ràng.
   Chủ sẽ trả lời ở lượt sau. Không dùng công cụ hỏi tương tác, không ngồi chờ.
 - Chạy bin/ask TRỰC TIẾP (không chạy nền, không dùng run_in_background, không dùng Monitor để chờ), đặt timeout của lệnh
@@ -101,14 +109,17 @@ Chủ làm việc với bạn qua giao diện web: chủ chỉ thấy các câu 
 - Một số lệnh có thể bị từ chối vì quyền chạy nền bị giới hạn. Khi đó ghi rõ trong câu trả lời lệnh nào cần chủ chạy tay."""
 
 SPLIT_RULES = {
-    "auto": "KIỂU GIAO VIỆC: BẠN TỰ CHỌN (chủ để quản lý quyết). Ưu tiên giao cho MỘT worker phù hợp nhất, làm lần lượt. "
-            "Chỉ chạy song song nhiều worker khi task có các phần độc lập, đủ lớn và làm song song lợi rõ ràng.",
+    "auto": "KIỂU GIAO VIỆC: BẠN TỰ CHỌN (chủ để quản lý quyết). Có từ 2 việc con ĐỘC LẬP trở lên (không cần kết quả "
+            "của nhau, không sửa cùng file) thì CHẠY SONG SONG bằng bin/parallel — mỗi việc tự được chia cho một tài khoản "
+            "khác nhau nên nhanh hơn mà không dồn hạn mức vào một tài khoản. Việc phụ thuộc nhau thì làm lần lượt bằng bin/ask. "
+            + "{parallel}",
     "mot": "KIỂU GIAO VIỆC: MỘT WORKER (chủ chọn). Giao việc cho MỘT worker phù hợp nhất (gọi theo tên công cụ, "
            "vd bin/ask codex, để tự xoay tài khoản). Nếu có nhiều bước thì giao LẦN LƯỢT từng bước. KHÔNG chạy song "
            "song, không gọi nhiều agent worker cùng lúc. Bạn tự kiểm tra kết quả; chỉ nhờ worker khác kiểm tra chéo "
            "khi task thật sự quan trọng.",
-    "song-song": "KIỂU GIAO VIỆC: SONG SONG (chủ chọn). Chia thành các việc con độc lập và giao cho nhiều worker "
-                 "cùng lúc (nhiều agent worker trong cùng một lượt), rồi tổng hợp.",
+    "song-song": "KIỂU GIAO VIỆC: SONG SONG (chủ chọn). Chia thành các việc con độc lập và chạy cùng lúc bằng "
+                 "bin/parallel (mỗi việc một tài khoản khác nhau), rồi tổng hợp. Chỉ những bước thật sự phụ thuộc nhau "
+                 "mới làm lần lượt. " + "{parallel}",
 }
 
 CONTINUE_MSG = ("Tài khoản Claude trước đó hết hạn mức giữa chừng nên bạn được chuyển sang tài khoản khác. "
@@ -195,7 +206,7 @@ SPEC_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,59}(@(%s))?$" % "|".join(E
 ROLE_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 RULE_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,99}$")
 READ_ONLY_ROLES = ("review", "tra-cuu")          # luôn chỉ được đọc, không đổi được
-BUILTIN_ROLES = ("code", "viet", "review", "tra-cuu")  # quản lý dùng thường xuyên: sửa được, không xoá
+BUILTIN_ROLES = ("code", "viet", "review", "tra-cuu", "hoi-dong")  # quản lý dùng thường xuyên: sửa được, không xoá
 MODEL_ROWS = ("quan-ly", "claude", "codex", "gemini")
 
 # Nhóm quyền dễ hiểu cho công tắc trên web: bật = thêm đủ các quyền của nhóm, tắt = bỏ hết.
@@ -856,14 +867,44 @@ def rules_for(tid):
     assignee = ("AI LÀM VIỆC: chủ chỉ định %s. Giao mọi việc con cho đúng worker này: bin/ask %s ... "
                 "(nếu nó hết hạn mức, bin/ask tự chuyển sang tài khoản khác cùng công cụ)." % (who, who)) if who else \
                "AI LÀM VIỆC: bạn tự chọn worker phù hợp (xem bin/workers), ưu tiên worker đang rảnh."
-    return WEB_RULES.format(task=os.path.join(TASKS, tid), split=SPLIT_RULES.get(split, SPLIT_RULES["auto"]),
-                            assignee=assignee, roles=roles_hint(),
+    tdir = os.path.join(TASKS, tid)
+    return WEB_RULES.format(task=tdir, split=SPLIT_RULES.get(split, SPLIT_RULES["auto"]).replace(
+                                "{parallel}", PARALLEL_HOWTO.format(task=tdir)),
+                            assignee=assignee, roles=roles_hint(), workflow=workflow_rules(tid, tdir),
                             size=("siêu khó — chủ chọn: bạn đang dùng model mạnh nhất; việc con khó nhất giao với "
                                   "bin/ask -s sieu, việc con thường vẫn dùng -s lon/vua/nho cho đỡ tốn hạn mức") if size == "sieu" else
                             "%s (task nhỏ thì cả quản lý lẫn worker dùng model nhỏ)" % SIZES.get(size, size))
 
 
 SPLIT_TXT = {"auto": "quản lý tự chọn cách giao", "mot": "một worker", "song-song": "song song"}
+
+PARALLEL_HOWTO = ("Cách chạy song song: ghi danh sách việc ra file JSON, vd {task}/prompts/lo-1.json = "
+                  '[{{"ten":"trang chủ","ai":"claude","r":"code","s":"vua","w":true,"C":"<thư mục>","viec":"<nội dung đủ ngữ cảnh>"}}, …] '
+                  "rồi chạy bin/parallel -t {task} -f {task}/prompts/lo-1.json (tối đa 3 việc cùng lúc, --toi-da để đổi). "
+                  "Các việc có -w không được sửa chung một file. Ghi vào plan.md việc nào chạy song song.")
+WORKFLOW_TXT = {"auto": "quản lý tự chọn quy trình", "none": "không theo quy trình"}
+
+
+def workflow_rules(tid, tdir):
+    """Dòng QUY TRÌNH trong lời dặn quản lý: theo lựa chọn của chủ khi giao task."""
+    choice = get(tid, "workflow") or "auto"
+    st = pt_stage.load_state(tdir)
+    howto = ("Chuyển bước bằng bin/stage {t} <bước> (xem bước hiện tại: bin/stage {t}). Lệnh TỪ CHỐI khi chưa qua cổng "
+             "(vd chưa review ĐẠT, người review cùng phòng ban với người làm): làm đủ điều kiện rồi chuyển lại — không lách, "
+             "không tự bỏ quy trình.").format(t=tdir)
+    if st and not st.get("done"):
+        return "QUY TRÌNH: task đang theo quy trình '%s', bước '%s'. %s" % (st.get("key"), st.get("stage"), howto)
+    if st and st.get("done"):
+        return "QUY TRÌNH: quy trình '%s' của task đã hoàn tất; việc phát sinh thêm làm theo quy tắc chung." % st.get("key")
+    names = "; ".join("%s = %s" % (d["key"], d["name"]) for d in pt_stage.defs_list())
+    if choice == "none":
+        return "QUY TRÌNH: chủ chọn KHÔNG theo quy trình cố định — làm theo 6 bước chung trong CLAUDE.md."
+    if choice != "auto":
+        return ("QUY TRÌNH: chủ chọn quy trình '%s'. Ngay sau khi tối ưu yêu cầu, chạy bin/stage %s start %s rồi đi đúng "
+                "từng bước của nó. %s" % (choice, tdir, choice, howto))
+    return ("QUY TRÌNH: bạn tự chọn. Task cần làm ra sản phẩm qua nhiều bước thì chọn quy trình hợp nhất (%s; chi tiết: "
+            "bin/stage %s list), chạy bin/stage %s start <khoá> rồi đi theo. Việc nhỏ / trả lời nhanh thì không cần quy trình. %s"
+            % (names, tdir, tdir, howto))
 
 
 def worker_names():
@@ -1526,7 +1567,7 @@ def giao_prompt(request, mode):
     return tpl.replace("$ARGUMENTS", request.strip()) + extra
 
 
-def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee="", images=None, files=None):
+def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee="", images=None, files=None, workflow="auto"):
     """Tạo task từ yêu cầu của chủ. Trả về (id task, prompt lượt đầu). Chưa chạy quản lý."""
     request = request.strip()
     if not request:
@@ -1546,6 +1587,7 @@ def new_task(request, mode="tu-quyet", size="auto", split="auto", assignee="", i
     with open(bp, "w", encoding="utf-8") as f:
         f.write(brief)
     put(tid, "split", split if split in SPLIT_RULES else "auto")
+    put(tid, "workflow", workflow if workflow in ("auto", "none") or workflow in pt_stage.defs() else "auto")
     if assignee:
         put(tid, "assignee", assignee)
     if norm_size(size) in SIZES:
@@ -1589,12 +1631,13 @@ def save_task_files(tid, files, text=""):
     return out
 
 
-def launch_new(request, mode="tu-quyet", size="auto", split="auto", background=True, assignee="", images=None, files=None):
+def launch_new(request, mode="tu-quyet", size="auto", split="auto", background=True, assignee="", images=None, files=None,
+               workflow="auto"):
     """Tạo task và cho quản lý bắt đầu. size=auto: AI phân loại cỡ trước (ở luồng nền nếu background).
     assignee: AI chủ chỉ định; nếu AI đó đang bận, task pending đến khi nó rảnh."""
     if assignee and assignee not in worker_names():
         raise RuntimeError("không có AI tên %s" % assignee)
-    tid, prompt = new_task(request, mode, size, split, assignee, images=images, files=files)
+    tid, prompt = new_task(request, mode, size, split, assignee, images=images, files=files, workflow=workflow)
     append_event(tid, "pentagon_owner", request.strip())
     extra = (" · giao cho %s" % assignee) if assignee else ""
     if norm_size(size) in SIZES:

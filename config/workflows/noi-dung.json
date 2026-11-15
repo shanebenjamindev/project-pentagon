@@ -1,0 +1,82 @@
+{
+ "name": "Viết nội dung",
+ "desc": "Bài viết, kịch bản, quảng cáo: hiểu → dàn ý → viết → biên tập → tổng hợp.",
+ "stages": [
+  {
+   "key": "hieu",
+   "name": "Hiểu yêu cầu",
+   "buoc": 2,
+   "goal": "Đối tượng đọc, giọng văn, độ dài, mục tiêu của nội dung.",
+   "rules": [
+    "Thiếu thông tin quan trọng thì tự giả định hợp lý và ghi rõ."
+   ],
+   "next": [
+    "dan-y"
+   ]
+  },
+  {
+   "key": "dan-y",
+   "name": "Dàn ý",
+   "buoc": 3,
+   "goal": "Dàn ý từng phần trong plan.md; phần nào viết riêng được thì chia việc con.",
+   "rules": [
+    "Nội dung dài nhiều phần: chia các phần độc lập để viết song song (bin/parallel, -r viet)."
+   ],
+   "next": [
+    "viet"
+   ],
+   "gate": {
+    "review": true,
+    "khi_co": [
+     "lon",
+     "sieu"
+    ]
+   }
+  },
+  {
+   "key": "viet",
+   "name": "Viết",
+   "buoc": 4,
+   "goal": "Viết đủ các phần theo dàn ý.",
+   "rules": [
+    "-r viet; các phần độc lập viết song song."
+   ],
+   "next": [
+    "bien-tap"
+   ]
+  },
+  {
+   "key": "bien-tap",
+   "name": "Biên tập",
+   "buoc": 5,
+   "goal": "Một nhân viên khác loại soát lỗi, giọng văn, độ khớp yêu cầu và kết luận ĐẠT.",
+   "rules": [
+    "CHƯA ĐẠT: quay lại bước Viết kèm nhận xét (tối đa 2 lần)."
+   ],
+   "next": [
+    "tong-hop"
+   ],
+   "rework": [
+    "viet"
+   ],
+   "max_rework": 2,
+   "gate": {
+    "review": true,
+    "khac_loai": true
+   }
+  },
+  {
+   "key": "tong-hop",
+   "name": "Tổng hợp",
+   "buoc": 6,
+   "goal": "final.md có mục ## Sản phẩm.",
+   "rules": [],
+   "next": [
+    "xong"
+   ],
+   "gate": {
+    "final": true
+   }
+  }
+ ]
+}

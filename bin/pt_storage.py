@@ -18,7 +18,7 @@ TRASH = os.path.join(TASKS, ".trash")
 
 # không bao giờ xoá từ trang Dung lượng: hồ sơ của task (yêu cầu, kế hoạch, kết quả, báo cáo, phiên quản lý)
 PROTECTED = {"brief.md", "plan.md", "final.md", "status", "log.txt", "limited", ".deleted_at",
-             "results", "manager", "attachments", "running"}
+             "results", "manager", "attachments", "running", "hoi-dong"}
 JUNK_DIRS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 JUNK_FILES = {".DS_Store"}
 JUNK_EXT = (".pyc", ".pyo")

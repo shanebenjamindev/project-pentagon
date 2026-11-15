@@ -1,0 +1,5 @@
+#!/bin/bash
+# Chạy song song nhiều việc con (mỗi việc một nhân viên, rải ra các tài khoản khác nhau), in kết quả theo thứ tự.
+#   bin/parallel -t <thư_mục_task> [--toi-da 3] -f viec.json      (xem: bin/parallel --help)
+command -v python3 >/dev/null 2>&1 || { echo "Lỗi: cần python3" >&2; exit 1; }
+exec python3 "$(dirname "$0")/pt_parallel.py" "$@"

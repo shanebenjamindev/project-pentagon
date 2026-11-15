@@ -31,9 +31,13 @@ bin/ask <worker|claude|codex|gemini> [-r vai_trò] [-s nho|vua|lon] [-w] [-C th�
 - **Subagent theo vai trò** (`-r`, định nghĩa trong `config/roles/`): `code` lập trình, `viet` viết nội dung,
   `tra-cuu` tìm và tổng hợp thông tin, `review` kiểm tra kết quả. `review` và `tra-cuu` luôn chỉ được đọc.
   Làm xong việc quan trọng thì giao một subagent `-r review` (khác loại với người làm) kiểm tra lại.
-- **Mặc định KHÔNG chạy song song**: giao cho một worker phù hợp nhất, nhiều bước thì làm lần lượt.
-- Chạy `bin/ask` trực tiếp, chờ nó xong, không chạy nền rồi bỏ đi. Kết thúc lượt khi worker còn chạy thì worker bị dừng.
-  Chỉ chia cho nhiều worker cùng lúc (nhiều agent `worker` trong một lượt) khi chủ chọn "song song".
+- **Hội đồng** (`bin/council -t <task> -s <cỡ> "vấn đề"`): Codex và Claude cùng bàn một vấn đề khó tối đa 3 vòng rồi chốt
+  đồng thuận hoặc báo chỗ bất đồng; biên bản lưu ở `<task>/hoi-dong/`. Chỉ dùng cho quyết định khó / rủi ro cao hoặc khi chủ yêu cầu.
+- **Song song** (`bin/parallel -t <task> -f <task>/prompts/lo-1.json`): có từ 2 việc con ĐỘC LẬP trở lên (không cần kết quả
+  của nhau, không sửa cùng file) thì chạy cùng lúc. Mỗi việc được rải sang một tài khoản khác nhau (ưu tiên tài khoản rảnh,
+  chưa chạm hạn mức), tối đa 3 việc một lúc. File JSON: `[{"ten","ai","r","s","w","C","viec"}, …]`. Việc phụ thuộc nhau
+  thì làm lần lượt bằng `bin/ask`. Chủ chọn "Một worker" thì không chạy song song.
+- Chạy `bin/ask` / `bin/parallel` trực tiếp, chờ xong, không chạy nền rồi bỏ đi. Kết thúc lượt khi worker còn chạy thì worker bị dừng.
 - Việc nào cũng có thể mất vài phút: chạy nền, đừng chờ vô ích.
 
 ## Báo tiến độ cho chủ (bắt buộc)
@@ -54,7 +58,7 @@ Hai màn hình này chỉ đúng khi bạn ghi tiến độ:
 1. **Tiếp nhận** — `bin/new-task "<tiêu đề ngắn>"` để tạo thư mục task. Ghi yêu cầu gốc nguyên văn vào `brief.md`.
 2. **Tối ưu yêu cầu** — viết lại thành yêu cầu rõ ràng: mục tiêu, đầu ra mong muốn, ràng buộc, tiêu chí "xong".
    Chỉ hỏi lại chủ khi thiếu thông tin mà không thể tự giả định hợp lý; còn lại tự giả định và ghi rõ giả định.
-3. **Lập kế hoạch** — chia thành các việc con trong `plan.md`: mỗi việc ghi worker phụ trách, đầu vào, đầu ra, cỡ (`-s`). Chỉ ghi việc song song khi chủ chọn song song.
+3. **Lập kế hoạch** — chia thành các việc con trong `plan.md`: mỗi việc ghi worker phụ trách, đầu vào, đầu ra, cỡ (`-s`). Đánh dấu việc con nào độc lập để chạy song song bằng `bin/parallel`.
    Việc đơn giản (trả lời nhanh, sửa 1 chỗ) thì tự làm luôn, không cần chia.
 4. **Giao việc** — mỗi việc con gửi kèm đủ ngữ cảnh: worker không thấy cuộc trò chuyện này, không thấy kết quả của worker khác
    trừ khi bạn đưa vào prompt.
@@ -79,6 +83,16 @@ Chủ sẽ tự chỉnh và tự render video trong tab **Editor video** của d
 - **Không render bản cuối.** Chỉ kiểm tra bằng `npx hyperframes lint`, `check --json`, `snapshot`. Render nháp chỉ khi chủ yêu cầu.
 - `final.md` mục `## Sản phẩm` ghi `` `video/` ``; báo chủ mở tab Editor video để xem, sửa và render.
 - Giao việc video cho worker thì chép nguyên các quy tắc trên vào prompt.
+
+## Quy trình (workflow) có cổng kiểm tra
+
+Quy trình nằm trong `config/workflows/*.json` (Lập trình, Viết nội dung, Nghiên cứu, Video): mỗi bước có mục tiêu, quy tắc,
+bước được đi tiếp, bước được quay lại làm lại (tối đa 2 lần) và **cổng** phải đạt mới được đi tiếp (vd có review ĐẠT,
+người review khác phòng ban với người làm, `final.md` có mục `## Sản phẩm`).
+- `bin/stage <task> list` · `bin/stage <task> start <khoá>` · `bin/stage <task>` (bước hiện tại, điều kiện còn thiếu)
+  · `bin/stage <task> <bước|xong> "ghi chú"` để chuyển bước — bị TỪ CHỐI khi chưa qua cổng: làm đủ điều kiện rồi chuyển lại.
+- Chủ có thể chọn quy trình khi giao task; để "quản lý tự chọn" thì task nhiều bước chọn quy trình hợp nhất,
+  việc nhỏ / trả lời nhanh không cần quy trình. Vào bước nào thì tiến độ trên dashboard tự cập nhật theo bước đó.
 
 ## Nguyên tắc
 

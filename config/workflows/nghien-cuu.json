@@ -1,0 +1,64 @@
+{
+ "name": "Nghiên cứu",
+ "desc": "Tra cứu, so sánh, phân tích: câu hỏi → tra cứu song song → đối chiếu → tổng hợp.",
+ "stages": [
+  {
+   "key": "cau-hoi",
+   "name": "Câu hỏi",
+   "buoc": 2,
+   "goal": "Chia đề tài thành các câu hỏi cụ thể, mỗi câu hỏi tra riêng được.",
+   "rules": [
+    "Ghi các câu hỏi vào plan.md."
+   ],
+   "next": [
+    "tra-cuu"
+   ]
+  },
+  {
+   "key": "tra-cuu",
+   "name": "Tra cứu",
+   "buoc": 4,
+   "goal": "Mỗi câu hỏi một việc -r tra-cuu, chạy song song bằng bin/parallel.",
+   "rules": [
+    "Dặn nhân viên ghi nguồn cho từng ý.",
+    "Câu hỏi quan trọng: giao cho 2 phòng ban khác nhau để đối chiếu."
+   ],
+   "next": [
+    "doi-chieu"
+   ]
+  },
+  {
+   "key": "doi-chieu",
+   "name": "Đối chiếu",
+   "buoc": 5,
+   "goal": "Đối chiếu các kết quả, tìm chỗ mâu thuẫn; chỗ nào hai bên trái ngược thì mở hội đồng (bin/council).",
+   "rules": [
+    "Một nhân viên khác loại review (-r review) và kết luận ĐẠT trước khi tổng hợp.",
+    "Thiếu dữ liệu: quay lại bước Tra cứu (tối đa 2 lần)."
+   ],
+   "next": [
+    "tong-hop"
+   ],
+   "rework": [
+    "tra-cuu"
+   ],
+   "max_rework": 2,
+   "gate": {
+    "review": true
+   }
+  },
+  {
+   "key": "tong-hop",
+   "name": "Tổng hợp",
+   "buoc": 6,
+   "goal": "final.md: kết luận, bảng so sánh nếu có, nguồn, phần chưa chắc chắn.",
+   "rules": [],
+   "next": [
+    "xong"
+   ],
+   "gate": {
+    "final": true
+   }
+  }
+ ]
+}
