@@ -1227,6 +1227,7 @@ function showcase(id,P){  // sản phẩm chính: xem trước trang web, ảnh,
 }
 function renderProducts(id,f){
   const P=f.products, G=g=>P.filter(x=>x.group===g), bundles=f.bundles||[];
+  P.forEach(x=>{if(!x.group)x.group=x.path.startsWith("attachments/")?"attach":"main"});  // server cũ (chưa khởi động lại) chưa chia nhóm
   const main=G("main").filter(x=>!x.bundle), att=G("attach"), work=G("work"), wt=f.work_total||{count:work.length,size:work.reduce((a,x)=>a+x.size,0)};
   const nMain=main.length+bundles.length;
   setPart("p-prodcount",nMain?String(nMain):"");
@@ -2003,7 +2004,7 @@ async function loadStorage(){
 }
 function renderStorage(){
   const S=STG;if(!S||S.loading)return;
-  if(S.error){setPart("stBody",`<span class="muted">Không tính được dung lượng: ${esc(S.error)}</span>`);return}
+  if(S.error){setPart("stBody",`<span class="muted">${/ 404 /.test(S.error)?"Dashboard đang chạy bản cũ — khởi động lại dashboard để dùng mục này.":"Không tính được dung lượng: "+esc(S.error)}</span>`);return}
   const junk=S.tasks.reduce((a,t)=>a+t.junk,0);
   setPart("stSum",`task dùng ${fsize(S.total)}${S.disk?` · ổ đĩa còn trống ${fsize(S.disk.free)} / ${fsize(S.disk.total)}`:""}`);
   if(stDir&&!stDir.error){
