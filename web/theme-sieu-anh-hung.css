@@ -156,3 +156,15 @@ summary b{font-family:var(--f-head);font-size:15px;letter-spacing:.12em;text-tra
   :root .nav a.on .ni{filter:drop-shadow(0 0 4px var(--accent))}
   :root .nav .ncount{border-radius:0!important;font-family:var(--f-mono)}
 }
+/* tab Kết quả cuối / Báo cáo nhân viên */
+.fdoc,.fbox,.reps .rep{border:1px solid var(--line2)!important;background:var(--panel);box-shadow:var(--glow)!important;backdrop-filter:blur(10px)}
+.fdoc{border-color:color-mix(in srgb,var(--ok) 60%,transparent)!important;box-shadow:0 0 18px color-mix(in srgb,var(--ok) 22%,transparent)!important}
+.fhead{border-bottom-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.fkick{font-family:var(--f-head);font-size:19px;letter-spacing:.18em;text-transform:uppercase;color:var(--ok);text-shadow:var(--tglow)}
+.fmark.ok{color:var(--accent-ink);box-shadow:0 0 14px color-mix(in srgb,var(--ok) 60%,transparent)}
+.md.doc h1{font-size:23px!important}.md.doc h2{font-size:20px!important;border-bottom-color:var(--line2)}.md.doc h3{font-size:17px!important}
+.fbox-h{font-family:var(--f-head);font-size:14px;letter-spacing:.18em;color:var(--accent);text-shadow:var(--tglow)}
+.fstat b{font-family:var(--f-head);font-size:22px;color:var(--accent)}
+.toc a{border-left-color:var(--line2)}
+.ava{background:var(--fill);border:1px solid var(--line2)}
+.fdoc.pending{border-color:var(--line2)!important;box-shadow:var(--glow)!important}.fdoc.pending .fhead{border-bottom-color:var(--line2)}.fdoc.pending .fkick{color:var(--muted);text-shadow:none}

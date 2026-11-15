@@ -250,7 +250,63 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .flist .fi .grow{flex:1;word-break:break-all}
 .viewer{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--soft);max-height:520px;overflow:auto}
 .viewer pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:12.5px}
-.final-card{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.ttabs{width:fit-content;max-width:100%;flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}
+.ttabs::-webkit-scrollbar{display:none}
+.ttabs button{flex:none;white-space:nowrap}
+@media (max-width:640px){.ttabs{display:grid!important;grid-template-columns:1fr 1fr;width:100%}.ttabs button{padding-top:6px;padding-bottom:6px}}
+.tcount{display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;border-radius:99px;background:var(--soft);color:var(--muted);font-size:11px;line-height:17px;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:0}
+.tcount:empty{display:none}
+.seg button.on .tcount{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+/* tab Kết quả cuối: final.md là một tài liệu riêng, cột phụ bên phải */
+.fwrap{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:var(--gap-lg);align-items:start;margin-top:var(--sect)}
+.fdoc{background:var(--panel);border:1px solid color-mix(in srgb,var(--ok) 45%,var(--line));border-radius:var(--radius);min-width:0;overflow:hidden}
+.fhead{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,color-mix(in srgb,var(--ok) 12%,transparent),transparent 70%);flex-wrap:wrap}
+.fhead .grow{flex:1;min-width:200px}
+.fdoc.pending{border-color:var(--line)}.fdoc.pending .fhead{background:none}
+.fmark{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--soft);color:var(--muted);font-weight:700;font-size:16px}
+.fmark.ok{background:var(--ok);color:#fff}
+.fkick{font-weight:700;font-size:16px;line-height:1.3}
+.md.doc{padding:22px 30px 30px;font-size:15px;line-height:1.7;max-width:900px}
+.md.doc h1{font-size:22px;margin:0 0 14px}
+.md.doc h2{font-size:18px;margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.md.doc h3{font-size:16px;margin:22px 0 8px}
+.md.doc h1,.md.doc h2,.md.doc h3{scroll-margin-top:84px}
+.md.doc>h1:first-child+*,.md.doc>h2:first-child{margin-top:0}
+.md.doc p{margin:10px 0}.md.doc ul,.md.doc ol{margin:8px 0 14px;padding-left:24px}.md.doc li{margin:5px 0}
+.md.doc li::marker{color:var(--accent)}
+.md.doc table{font-size:14px}.md.doc code{font-size:13px}
+.fempty{padding:28px 8px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+.fside{position:sticky;top:72px;display:flex;flex-direction:column;gap:var(--gap);max-height:calc(100vh - 90px);overflow:auto}
+.fbox{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.fbox-h{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
+.toc{display:flex;flex-direction:column}
+.toc a{display:block;padding:4px 8px;border-left:2px solid var(--line);text-decoration:none;font-size:13px;color:var(--muted);line-height:1.35}
+.toc a:hover{color:var(--accent);border-left-color:var(--accent);background:var(--soft)}
+.toc a.l1{font-weight:600;color:var(--text)}.toc a.l3{padding-left:20px;font-size:12.5px}
+.fstat{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:8px 2px;border-top:1px solid var(--line);text-decoration:none}
+.fbox-h+.fstat{border-top:0}
+.fstat b{font-size:18px;font-variant-numeric:tabular-nums;min-width:38px}
+.fstat span{font-size:13px}.fstat i{font-style:normal;color:var(--muted)}
+.fstat:hover span,.fstat:hover i{color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)}
+.chip{font-size:11.5px;padding:1px 9px;border-radius:99px;border:1px solid var(--line);background:var(--soft)}
+@media (max-width:1100px){.fwrap{grid-template-columns:1fr}.fside{position:static;max-height:none;flex-direction:row;flex-wrap:wrap}.fside .fbox{flex:1;min-width:240px}}
+@media (max-width:640px){.md.doc{padding:16px;font-size:14.5px}.fhead{padding:12px 16px}}
+/* tab Báo cáo nhân viên: mỗi báo cáo một khối riêng */
+.reps{display:flex;flex-direction:column;gap:10px}
+.reps .rep,.reps .rep:first-child{border:1px solid var(--line);border-radius:var(--radius-sm);padding:0;background:var(--panel);overflow:hidden}
+.reps .rep>details{padding:0}
+.reps summary{align-items:center;padding:10px 14px;list-style:none}
+.reps summary::-webkit-details-marker{display:none}
+.reps summary::after{content:"▸";color:var(--muted);transition:transform .15s}
+.reps details[open]>summary::after{transform:rotate(90deg)}
+.reps .rep>details[open]>summary{border-bottom:1px solid var(--line);background:var(--soft)}
+.reps .rep>details>.md{padding:12px 16px 14px}
+.reps .rmeta{margin-left:auto}
+.reps details.fu{margin:0 14px 0 30px;padding:0}
+.reps details.fu>summary{padding:8px 4px}.reps details.fu>.md{padding:4px 4px 12px}
+.reps .ask{margin:8px 14px 12px 30px}
+.ava{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);font-weight:700;font-size:12px;flex:none}
 /* chọn model / nhân viên cho từng lượt */
 .turnopts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .turnopts label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
@@ -376,10 +432,10 @@ details.fu{margin-left:18px;border-top:1px dashed var(--line)}
 }
 
 </style>
-<link rel="stylesheet" id="themeCss" href="/static/theme-sieu-anh-hung.css?v=5">
+<link rel="stylesheet" id="themeCss" href="/static/theme-sieu-anh-hung.css?v=6">
 <script>(function(){var t="sieu-anh-hung";try{t=localStorage.getItem("pentagon.theme")||t}catch(e){}
   if(t!=="sieu-anh-hung"&&t!=="apple")t="sieu-anh-hung";
-  var l=document.getElementById("themeCss");l.href="/static/theme-"+t+".css?v=5";
+  var l=document.getElementById("themeCss");l.href="/static/theme-"+t+".css?v=6";
   document.documentElement.dataset.theme=t})();</script>
 <style id="mobileFix">/* điện thoại: nạp SAU giao diện để luôn có hiệu lực */
 /* nút và ô nhập một dòng cao bằng nhau ở mọi giao diện (giao diện chỉ đổi màu/viền/lề ngang) */
@@ -967,15 +1023,20 @@ async function renderTrash(){
 
 // ---------------- Trang 2: chi tiết task (dựng khung 1 lần, chỉ thay phần đổi để không mất chữ đang gõ)
 function skeleton(){
-  clearDraftImages("msg");
+  clearDraftImages("msg");prodN=null;
   $("#detail").innerHTML=`<div id="p-head"></div><div class="stepper" id="p-steps"></div><div id="p-note"></div>
-  <div class="seg ttabs" id="ttabs"><button data-tab="ket-qua">Kết quả công việc <span class="sub" id="p-prodcount"></span></button><button data-tab="tien-do">Tiến độ & trao đổi</button></div>
-  <div id="tabResult">
-    <div class="card final-card"><h3>Kết quả cuối <span class="sub">final.md — quản lý tổng hợp</span></h3><div class="md" id="p-final"></div></div>
-    <div class="card"><h3>Sản phẩm <span class="sub" id="p-prodsub"></span></h3><div id="p-products"></div><div id="p-viewer"></div></div>
-    <div class="card"><h3>Báo cáo của từng nhân viên <span class="sub" id="p-rescount"></span></h3><div id="p-results"></div></div>
+  <div class="seg ttabs" id="ttabs"><button data-tab="ket-qua">Kết quả cuối</button><button data-tab="san-pham">Sản phẩm <span class="tcount" id="p-prodcount"></span></button><button data-tab="bao-cao">Báo cáo nhân viên <span class="tcount" id="p-repcount"></span></button><button data-tab="tien-do">Tiến độ & trao đổi</button></div>
+  <div class="fwrap" id="tabFinal" data-tabpane="ket-qua">
+    <article class="fdoc" id="p-fdoc"><div id="p-fhead"></div><div class="md doc" id="p-final"></div></article>
+    <aside class="fside" id="p-fside"></aside>
   </div>
-  <div class="grid" id="tabProgress"><div>
+  <div id="tabProducts" data-tabpane="san-pham">
+    <div class="card"><h3>Sản phẩm <span class="sub" id="p-prodsub"></span></h3><div id="p-products"></div><div id="p-viewer"></div></div>
+  </div>
+  <div id="tabReports" data-tabpane="bao-cao">
+    <div class="card"><h3>Báo cáo của từng nhân viên <span class="sub" id="p-rescount"></span></h3><div class="reps" id="p-results"></div></div>
+  </div>
+  <div class="grid" id="tabProgress" data-tabpane="tien-do"><div>
     <div class="card"><h3>Trao đổi với AI quản lý</h3>
       <div class="settings">
         <span id="p-size"></span>
@@ -1051,32 +1112,68 @@ function renderDetail(t){
       <button class="btn sm danger" data-act="kill" data-pid="${esc(r.pid)}">Huỷ</button></div>`).join("")}</div>`:"");
   setPart("p-plancount",t.plan_total?`${t.plan_done}/${t.plan_total} việc con xong`:"");
   setPart("p-plan",t.plan_total?md(t.plan.replace(/^#\s+Kế hoạch\s*\n/,"")):'<span class="muted">Chưa lập kế hoạch.</span>');
-  setPart("p-rescount",String(t.results.length));
   const reps=t.results.filter(r=>r.worker), roots=reps.filter(r=>!r.followup_of);
+  setPart("p-rescount",roots.length?`${roots.length} báo cáo${reps.length>roots.length?` · ${reps.length-roots.length} lần hỏi tiếp`:""}`:"");
+  setPart("p-repcount",roots.length?String(roots.length):"");
   const fileBody=r=>`<div class="md" data-file="${esc(r.file)}">${fileCache[t.id+"/"+r.file]!=null?md(fileCache[t.id+"/"+r.file]):'<span class="muted">đang tải…</span>'}</div>`;
   const askingNow=t.running.filter(x=>x.followup);
   setPart("p-results",roots.length?roots.map(r=>{const fus=reps.filter(x=>x.followup_of===r.file).sort((a,b)=>a.mtime-b.mtime);
     const busy=askingNow.some(x=>x.followup===r.file);
-    return `<div class="rep"><details data-key="${esc(r.file)}" ${openSet.has(r.file)?"open":""}><summary><b>${esc(r.worker||r.name)}</b>${r.role?`<span class="badge">${esc(ROLE_TXT[r.role]||r.role)}</span>`:""}<span class="sub">${esc(r.at||"")} · ${r.secs!=null?r.secs+"s":""} · quyền ${esc(r.perm||"?")}${r.session?" · có phiên":""}</span></summary>${fileBody(r)}</details>
+    return `<div class="rep"><details data-key="${esc(r.file)}" ${openSet.has(r.file)?"open":""}><summary><span class="ava">${esc((r.worker||r.name||"?").slice(0,1).toUpperCase())}</span><b>${esc(r.worker||r.name)}</b>${r.role?`<span class="badge">${esc(ROLE_TXT[r.role]||r.role)}</span>`:""}<span class="sub rmeta">${[r.at,r.secs!=null?r.secs+"s":"","quyền "+(r.perm||"?"),r.session?"có phiên":"",fus.length?fus.length+" lần hỏi tiếp":""].filter(Boolean).map(esc).join(" · ")}</span></summary>${fileBody(r)}</details>
       ${fus.map(f=>`<details class="fu" data-key="${esc(f.file)}" ${openSet.has(f.file)?"open":""}><summary><span class="sub">Hỏi tiếp:</span> <b>${esc(f.question||"(câu hỏi)")}</b><span class="sub">${esc(f.worker)} · ${esc(f.at||"")}</span></summary>${fileBody(f)}</details>`).join("")}
       <div class="ask row">${busy?`<span class="sub"><i class="dot run"></i> ${esc(r.worker)} đang trả lời câu hỏi tiếp…</span>`:
         `<input type="text" class="grow" data-ask-input="${esc(r.file)}" placeholder="Hỏi tiếp ${esc(r.worker)} về kết quả này (không làm đổi phiên gốc)…"><button class="btn sm" data-ask-btn="${esc(r.file)}">Hỏi tiếp</button>`}</div></div>`}).join(""):'<span class="muted">Chưa có kết quả nào.</span>');
   const doc=(k,title,body,open)=>`<details data-key="${k}" ${openSet.has(k)||(open&&!openSet.has("!"+k))?"open":""}><summary><b>${title}</b></summary><div class="md">${body?md(body):'<span class="muted">Chưa có.</span>'}</div></details>`;
   setPart("p-docs",doc("brief","Yêu cầu (brief.md)",t.brief,true));
-  setPart("p-final",t.has_final?md(t.final):`<span class="muted">Chưa có — quản lý viết kết quả cuối ở bước 6 (Tổng hợp).${isActive(t)?" Task đang ở bước "+t.step+"/6.":""}</span>`);
-  // tab mặc định: task xong / đã có kết quả cuối -> Kết quả; đang làm -> Tiến độ
-  const tab=R.tab||(t.has_final||t.state==="xong"?"ket-qua":"tien-do");
+  renderFinal(t);
+  // tab mặc định: task xong / đã có kết quả cuối -> Kết quả cuối; đang làm -> Tiến độ
+  const TABS=["ket-qua","san-pham","bao-cao","tien-do"];
+  const tab=TABS.includes(R.tab)?R.tab:(t.has_final||t.state==="xong"?"ket-qua":"tien-do");
   document.querySelectorAll("#ttabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
-  $("#tabResult").hidden=tab!=="ket-qua";$("#tabProgress").hidden=tab==="ket-qua";
+  document.querySelectorAll("#detail [data-tabpane]").forEach(p=>p.hidden=p.dataset.tabpane!==tab);
   setPart("p-log",t.log.slice().reverse().map(i=>`<div class="k-${i.kind}"><span class="tm">${esc(i.time)}</span><span class="who">${esc(i.who==="quan-ly"?"quản lý":i.who)}</span><span class="tx">${esc(i.text)}</span></div>`).join("")||'<span class="muted">Chưa có.</span>');
   updTimers();loadOpenFiles(t.id);
 }
+// ---- tab Kết quả cuối: final.md trình bày như một tài liệu riêng + cột phụ (mục lục, số liệu task)
+let prodN=null;
+const taskPeople=t=>{const reps=t.results.filter(r=>r.worker);return{reps,roots:reps.filter(r=>!r.followup_of),workers:[...new Set(reps.map(r=>r.worker))]}};
+function renderFinal(t){
+  const {roots,workers}=taskPeople(t);
+  const src=`Quản lý tổng hợp${roots.length?` từ ${roots.length} báo cáo`:""}${workers.length?` của ${workers.length} nhân viên`:""}`;
+  setPart("p-fhead",t.has_final
+    ?`<div class="fhead"><span class="fmark ok">✓</span><div class="grow"><div class="fkick">Kết quả cuối</div><div class="sub">${src} · final.md</div></div>
+       <div class="row"><button class="btn sm" data-final="copy">Sao chép</button><button class="btn sm" data-final="dl">Tải về .md</button></div></div>`
+    :`<div class="fhead"><span class="fmark">…</span><div class="grow"><div class="fkick">Kết quả cuối</div><div class="sub">Chưa có</div></div></div>`);
+  $("#p-fdoc").classList.toggle("pending",!t.has_final);
+  const changed=setPart("p-final",t.has_final?md(t.final):`<div class="fempty"><b>Quản lý chưa viết kết quả cuối.</b><div class="sub">Kết quả cuối có ở bước 6 (Tổng hợp)${isActive(t)?` — task đang ở bước ${t.step}/6`:""}. Trong lúc chờ, xem tab <a href="${taskUrl(t.id)}/tien-do" data-link>Tiến độ & trao đổi</a>${roots.length?` hoặc <a href="${taskUrl(t.id)}/bao-cao" data-link>${roots.length} báo cáo nhân viên</a>`:""}.</div></div>`);
+  if(changed)parts["p-fside"]=null;
+  renderFside();
+}
+function renderFside(){
+  const t=cur;if(!t||!document.getElementById("p-fside"))return;
+  const {roots,workers}=taskPeople(t);
+  const hs=[...document.querySelectorAll("#p-final h1,#p-final h2,#p-final h3")];
+  const toc=hs.length>=2?`<div class="fbox"><div class="fbox-h">Mục lục</div><nav class="toc">${hs.map((h,i)=>`<a href="#" data-toc="${i}" class="l${h.tagName[1]}">${esc(h.textContent)}</a>`).join("")}</nav></div>`:"";
+  const stat=(n,label,tab)=>`<a class="fstat" href="${taskUrl(t.id)}/${tab}" data-link><b>${n}</b><span>${label}</span><i>→</i></a>`;
+  setPart("p-fside",toc+`<div class="fbox"><div class="fbox-h">Trong task này</div>
+    ${stat(prodN==null?"…":prodN,"Sản phẩm","san-pham")}${stat(roots.length,"Báo cáo nhân viên","bao-cao")}${stat(t.plan_total?t.plan_done+"/"+t.plan_total:"—","Việc con xong","tien-do")}
+    ${workers.length?`<div class="chips">${workers.map(w=>`<span class="chip">${esc(w)}</span>`).join("")}</div>`:""}</div>`);
+}
+document.addEventListener("click",e=>{
+  const a=e.target.closest("[data-toc]");
+  if(a){e.preventDefault();const h=document.querySelectorAll("#p-final h1,#p-final h2,#p-final h3")[+a.dataset.toc];if(h)h.scrollIntoView({behavior:"smooth",block:"start"});return}
+  const f=e.target.closest("[data-final]");if(!f||!cur||!cur.has_final)return;
+  if(f.dataset.final==="copy")navigator.clipboard.writeText(cur.final).then(()=>toast("Đã sao chép kết quả cuối"),()=>toast("Không sao chép được"));
+  else{const u=URL.createObjectURL(new Blob([cur.final],{type:"text/markdown;charset=utf-8"})),l=document.createElement("a");
+    l.href=u;l.download=`ket-qua-${cur.id}.md`;document.body.appendChild(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+});
 const fileUrl=(id,p,dl)=>"/files/"+encodeURIComponent(id)+"/"+p.split("/").map(encodeURIComponent).join("/")+(dl?"?dl=1":"");
 function fsize(n){return n>=1048576?(n/1048576).toFixed(1)+" MB":n>=1024?Math.round(n/1024)+" KB":n+" B"}
 let viewing=null;
 function renderProducts(id,f){
   const P=f.products, by=k=>P.filter(x=>x.kind===k);
-  setPart("p-prodcount",P.length?`(${P.length})`:"");
+  setPart("p-prodcount",P.length?String(P.length):"");
+  if(prodN!==P.length){prodN=P.length;renderFside()}
   setPart("p-prodsub",P.length?`${P.length} file${f.truncated?" (đã rút gọn)":""} · trong tasks/${esc(id)}/`:"");
   const html=by("html").map(x=>`<div class="htmlprev"><div class="bar2"><b>${esc(x.path)}</b><span class="sub">${fsize(x.size)} · ${ago(x.mtime)}</span><span class="grow"></span>
       <a class="btn sm pri" href="${fileUrl(id,x.path)}" target="_blank" rel="noopener">Mở toàn trang</a><a class="btn sm" href="${fileUrl(id,x.path,1)}">Tải về</a></div>
@@ -1091,7 +1188,7 @@ function renderProducts(id,f){
   if(rest.length)parts2.push(`<div class="prod-h">File khác (${rest.length})</div><div class="flist">${rest.map(x=>`<div class="fi"><span class="grow">${esc(x.path)} <span class="sub">${fsize(x.size)}</span></span>
       ${x.kind==="text"?`<button class="btn sm" data-view="${esc(x.path)}">${viewing===x.path?"Đang xem":"Xem"}</button>`:x.kind==="pdf"?`<a class="btn sm" href="${fileUrl(id,x.path)}" target="_blank" rel="noopener">Mở</a>`:""}
       <a class="btn sm" href="${fileUrl(id,x.path,1)}">Tải về</a></div>`).join("")}</div>`);
-  setPart("p-products",parts2.join("")||`<span class="muted">Task này chưa tạo ra file sản phẩm nào${f.reports.length?" — xem kết quả cuối và báo cáo của nhân viên.":"."}</span>`);
+  setPart("p-products",parts2.join("")||`<span class="muted">Task này chưa tạo ra file sản phẩm nào${f.reports.length?" — xem tab Kết quả cuối và Báo cáo nhân viên.":"."}</span>`);
 }
 async function viewFile(id,path){
   viewing=path;parts["p-products"]=null;
@@ -1377,8 +1474,8 @@ function renderAgents(d){
   setPart("agRecent",`<div class="tr agrow2 hd"><span>Agent</span><span>Vai trò</span><span>Task</span><span>Lúc</span><span style="text-align:right">Thao tác</span></div>`+
     (d.recent.map(r=>{const key=r.task+"|"+r.file;return `<div class="tr agrow2"><div><b>${esc(r.worker)}</b><div class="sub">${r.followup_of?"hỏi tiếp: "+esc((r.question||"").slice(0,80)):esc(r.model||"")}</div></div>
       <span class="rcell">${r.role?`<span class="badge" title="${esc(ROLE_TXT[r.role]||r.role)}">${esc(ROLE_TXT[r.role]||r.role)}</span>`:'<span class="sub">—</span>'}</span>
-      <a href="${taskUrl(r.task)}/ket-qua" data-link>${esc(r.title)}</a><span class="sub" data-ago="${r.mtime}">${ago(r.mtime)}</span>
-      <div class="acts"><a class="btn sm" href="${taskUrl(r.task)}/ket-qua" data-link>Xem</a><button class="btn sm ${askOpen===key?"pri":""}" data-agask="${esc(key)}">Hỏi tiếp</button></div>
+      <a href="${taskUrl(r.task)}/bao-cao" data-link>${esc(r.title)}</a><span class="sub" data-ago="${r.mtime}">${ago(r.mtime)}</span>
+      <div class="acts"><a class="btn sm" href="${taskUrl(r.task)}/bao-cao" data-link>Xem</a><button class="btn sm ${askOpen===key?"pri":""}" data-agask="${esc(key)}">Hỏi tiếp</button></div>
       ${askOpen===key?`<div class="askrow ask row"><input type="text" class="grow" data-ask-input="${esc(r.file)}" data-ask-task="${esc(r.task)}" placeholder="Hỏi tiếp ${esc(r.worker)} (không làm đổi phiên gốc)…"><button class="btn sm pri" data-ask-btn="${esc(r.file)}" data-ask-task="${esc(r.task)}">Gửi</button></div>`:""}</div>`}).join("")
     ||'<div class="empty">Chưa có subagent nào làm xong.</div>'));
   updTimers();
@@ -1515,7 +1612,7 @@ syncMode();
 function applyTheme(k){
   try{localStorage.setItem("pentagon.theme",k)}catch(e){}
   const l=document.getElementById("themeCss");
-  l.href="/static/theme-"+k+".css?v=5";
+  l.href="/static/theme-"+k+".css?v=6";
   document.documentElement.dataset.theme=k;parts.themes=null;renderThemes();
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-theme-pick]");if(b)applyTheme(b.dataset.themePick)});
