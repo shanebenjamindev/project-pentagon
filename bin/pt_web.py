@@ -9,6 +9,7 @@ import json
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -519,23 +520,42 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def serve_task_file(self, rest, download=False):
+        """Gửi một file của task. Hỗ trợ Range (trình phát video cần để phát/tua, Safari bắt buộc)
+        và gửi từng khúc nên file lớn (video vài trăm MB) không phải đọc hết vào bộ nhớ."""
         tid, _, rel = rest.partition("/")
         if tid not in task_ids() or not rel:
             return self.send(404, "không có file", "text/plain; charset=utf-8")
         base = os.path.realpath(os.path.join(TASKS, tid))
         p = os.path.realpath(os.path.join(base, rel))
-        if not p.startswith(base + os.sep) or not os.path.isfile(p) or os.path.getsize(p) > 50 * 1024 * 1024:
+        if not p.startswith(base + os.sep) or not os.path.isfile(p):
             return self.send(404, "không có file", "text/plain; charset=utf-8")
         ctype = mimetypes.guess_type(p)[0] or "application/octet-stream"
         if file_kind(p) == "text" or ctype.startswith("text/"):
             ctype = ("text/html" if file_kind(p) == "html" else "text/plain") + "; charset=utf-8"
         elif ctype in ("text/html", "image/svg+xml") or file_kind(p) == "html":
             ctype += "; charset=utf-8" if "charset" not in ctype else ""
-        with open(p, "rb") as f:
-            data = f.read()
-        self.send_response(200)
+        size = os.path.getsize(p)
+        start, end, status = 0, size - 1, 200
+        m = re.match(r"bytes=(\d*)-(\d*)$", (self.headers.get("Range") or "").strip())
+        if m and (m.group(1) or m.group(2)):
+            if m.group(1):
+                start = int(m.group(1))
+                end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+            else:  # bytes=-N: N byte cuối
+                start = max(0, size - int(m.group(2)))
+            if start > end or start >= size:
+                self.send_response(416)
+                self.send_header("Content-Range", "bytes */%d" % size)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            status = 206
+        self.send_response(status)
         self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Length", str(max(0, end - start + 1)))
+        self.send_header("Accept-Ranges", "bytes")
+        if status == 206:
+            self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, size))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         # Cách ly: trang/ảnh do AI tạo chạy ở origin riêng, không gọi được API của Pentagon, không đọc được cookie
@@ -543,7 +563,18 @@ class Handler(BaseHTTPRequestHandler):
         if download:
             self.send_header("Content-Disposition", "attachment; filename*=UTF-8''%s" % quote(os.path.basename(p)))
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            with open(p, "rb") as f:
+                f.seek(start)
+                left = end - start + 1
+                while left > 0:
+                    chunk = f.read(min(1 << 20, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # trình phát video hay huỷ giữa chừng để xin đoạn khác — bình thường
 
     def from_lan(self):
         return getattr(self.server, "is_lan", False)

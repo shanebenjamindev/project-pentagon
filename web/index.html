@@ -302,7 +302,7 @@ summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap
 .bundle details{margin-top:6px}
 .medias{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:12px}
 .media{border:1px solid var(--line);border-radius:var(--radius);padding:8px 10px;display:flex;flex-direction:column;gap:6px;min-width:0;background:var(--panel)}
-.media b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.media b{font-size:13px;word-break:break-all;min-width:0;line-height:1.35}
 .media video{width:100%;max-height:420px;border-radius:6px;background:#000}.media audio{width:100%}
 .media .sub{word-break:break-all;font-size:11.5px}
 .imgs+.flist,.medias+.flist,.htmlprev+.flist{margin-top:10px}
@@ -1217,7 +1217,7 @@ function showcase(id,P){  // sản phẩm chính: xem trước trang web, ảnh,
   if(prev.length)out.push(prev.map(x=>`<div class="htmlprev"><div class="bar2"><b>${esc(x.path)}</b><span class="sub">${fsize(x.size)}</span><span class="grow"></span>
       <a class="btn sm pri" href="${fileUrl(id,x.path)}" target="_blank" rel="noopener">Mở toàn trang</a><a class="btn sm" href="${fileUrl(id,x.path,1)}">Tải về</a></div>
       <iframe src="${fileUrl(id,x.path)}" sandbox="allow-scripts allow-popups allow-forms" title="${esc(x.path)}" loading="lazy"></iframe></div>`).join(""));
-  if(media.length)out.push(`<div class="medias">${media.map(x=>`<div class="media"><div class="row"><b class="grow">${esc(x.name)}</b><span class="sub">${fsize(x.size)}</span><a class="btn sm" href="${fileUrl(id,x.path,1)}">Tải về</a></div>
+  if(media.length)out.push(`<div class="medias">${media.map(x=>`<div class="media"><div class="row" style="align-items:flex-start;flex-wrap:nowrap"><b class="grow">${esc(x.name)}</b><span class="sub" style="white-space:nowrap">${fsize(x.size)}</span><a class="btn sm" href="${fileUrl(id,x.path,1)}">Tải về</a></div>
       ${x.kind==="video"?`<video controls preload="metadata" src="${fileUrl(id,x.path)}"></video>`:`<audio controls preload="none" src="${fileUrl(id,x.path)}"></audio>`}<div class="sub">${esc(x.path)}</div></div>`).join("")}</div>`);
   if(imgs.length)out.push(`<div class="imgs">${imgs.slice(0,24).map(x=>`<a href="${fileUrl(id,x.path)}" target="_blank" rel="noopener" title="${esc(x.path)}"><span class="ph"><img src="${fileUrl(id,x.path)}" alt="${esc(x.name)}" loading="lazy"></span><span class="nm">${esc(x.path)}</span></a>`).join("")}</div>`
     +(imgs.length>24?`<div class="sub" style="margin-top:6px">+ ${imgs.length-24} ảnh nữa</div>`:""));
