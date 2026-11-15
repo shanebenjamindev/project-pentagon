@@ -27,6 +27,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import pt_manager
 import pt_notify
 import pt_storage
+import pt_hf
 import pt_followup
 import pt_files
 import tracker
@@ -655,6 +656,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(accounts_view())
             if u.path == "/api/trash":
                 return self.json({"items": pt_manager.trash_list()})
+            if u.path == "/api/hf":  # task này có phải video / có dự án HyperFrames không
+                try:
+                    return self.json(pt_hf.info(q.get("id", "")))
+                except RuntimeError as e:
+                    return self.json({"error": str(e)}, 404)
             if u.path == "/api/storage":  # Cài đặt › Dung lượng
                 return self.json(pt_storage.usage(pt_manager._busy))
             if u.path == "/api/storage/dir":
@@ -870,6 +876,56 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"ok": True, "name": name})
             if path == "/api/task/restore":
                 return self.json({"ok": True, "id": pt_manager.restore_task(str(body.get("trash_id", "")))})
+            if path == "/api/bulk":  # {op, ids}: thao tác hàng loạt; lỗi từng mục trả về riêng, mục khác vẫn chạy
+                op, ids = str(body.get("op", "")), body.get("ids")
+                if not isinstance(ids, list) or not ids or len(ids) > 500:
+                    return self.json({"error": "danh sách chọn không hợp lệ"}, 400)
+                ids = [str(x) for x in ids]
+                if op == "noti-read":
+                    pt_notify.read_many(ids)
+                    return self.json({"ok": True, "done": ids, "errors": []})
+                if op == "noti-delete":
+                    pt_notify.remove(ids)
+                    return self.json({"ok": True, "done": ids, "errors": []})
+                if op not in ("done", "reopen", "cancel", "delete", "restore", "purge", "acc-on", "acc-off"):
+                    return self.json({"error": "không có thao tác %s" % op}, 400)
+                done, errors, tids = [], [], set(task_ids())
+                if op in ("acc-on", "acc-off"):
+                    import pt_accounts
+                for x in ids:
+                    try:
+                        if op == "restore":
+                            pt_manager.restore_task(x)
+                        elif op == "purge":
+                            pt_manager.purge_task(x)
+                        elif op in ("acc-on", "acc-off"):
+                            pt_accounts.set_enabled(x, op == "acc-on")
+                        else:
+                            if x not in tids:
+                                raise RuntimeError("không có task")
+                            if op == "delete":
+                                pt_manager.delete_task(x)
+                            elif op == "reopen":
+                                pt_manager.reopen(x)
+                            elif op == "cancel":
+                                pt_manager.cancel_task(x)
+                            elif op == "done":
+                                subprocess.run([os.path.join(ROOT, "bin", "progress"), os.path.join(TASKS, x), "xong",
+                                                "chủ đánh dấu hoàn thành"], capture_output=True)
+                        done.append(x)
+                    except (RuntimeError, ValueError, OSError, KeyError) as e:
+                        errors.append({"id": x, "error": str(e) or e.__class__.__name__})
+                if op in ("acc-on", "acc-off"):
+                    threading.Thread(target=refresh_workers_once, daemon=True).start()
+                return self.json({"ok": True, "done": done, "errors": errors})
+            if path in ("/api/hf/start", "/api/hf/stop", "/api/hf/init"):  # editor HyperFrames của task video
+                tid = str(body.get("id", ""))
+                if path == "/api/hf/init":
+                    return self.json({"ok": True, "project": pt_hf.init(tid, str(body.get("video", "")))})
+                if path == "/api/hf/start":
+                    return self.json({"ok": True, "project": pt_hf.start(tid, str(body.get("dir", "")))})
+                pt_hf.stop(tid, str(body.get("dir", "")))
+                return self.json({"ok": True})
             if path == "/api/storage/delete":  # {id, path} — xoá vĩnh viễn một file/thư mục trong task
                 return self.json({"ok": True, "freed": pt_storage.delete_path(
                     str(body.get("id", "")), str(body.get("path", "")), pt_manager._busy)})

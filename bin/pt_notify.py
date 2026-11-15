@@ -72,6 +72,23 @@ def clear():
         _save(NOTI, [])
 
 
+def remove(ids):
+    """Xoá các thông báo có id trong ids."""
+    ids = set(ids)
+    with LOCK:
+        _save(NOTI, [n for n in _load(NOTI, []) if n["id"] not in ids])
+
+
+def read_many(ids):
+    ids = set(ids)
+    with LOCK:
+        lst = _load(NOTI, [])
+        for n in lst:
+            if n["id"] in ids:
+                n["read"] = True
+        _save(NOTI, lst)
+
+
 def macos_notify(title, subtitle, body, sound=True):
     if sys.platform != "darwin":
         return
